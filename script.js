@@ -1,3 +1,13 @@
+import {
+  db,
+  collection,
+  addDoc,
+  onSnapshot,
+  serverTimestamp,
+  query,
+  orderBy
+} from "./firebase.js";
+
 const navButtons = document.querySelectorAll(".nav-btn");
 const pages = document.querySelectorAll(".page");
 const pageTargetButtons = document.querySelectorAll("[data-page-target]");
@@ -40,39 +50,33 @@ pageTargetButtons.forEach((button) => {
 const botaoSalvarRaca = document.getElementById("salvarRaca");
 const listaRacas = document.getElementById("listaRacas");
 
-if (botaoSalvarRaca) {
-  botaoSalvarRaca.addEventListener("click", () => {
-    const nome = document.getElementById("racaNome").value;
-    const hp = document.getElementById("racaHp").value;
-    const mana = document.getElementById("racaMana").value;
-    const forca = document.getElementById("racaForca").value;
-    const defesa = document.getElementById("racaDefesa").value;
-    const velocidade = document.getElementById("racaVelocidade").value;
-    const vantagens = document.getElementById("racaVantagens").value;
-    const desvantagens = document.getElementById("racaDesvantagens").value;
+async function salvarRacaNoFirebase() {
+  const nome = document.getElementById("racaNome").value.trim();
+  const hp = Number(document.getElementById("racaHp").value) || 0;
+  const mana = Number(document.getElementById("racaMana").value) || 0;
+  const forca = Number(document.getElementById("racaForca").value) || 0;
+  const defesa = Number(document.getElementById("racaDefesa").value) || 0;
+  const velocidade = Number(document.getElementById("racaVelocidade").value) || 0;
+  const vantagens = document.getElementById("racaVantagens").value.trim();
+  const desvantagens = document.getElementById("racaDesvantagens").value.trim();
 
-    if (!nome) {
-      alert("Digite o nome da raça.");
-      return;
-    }
+  if (!nome) {
+    alert("Digite o nome da raça.");
+    return;
+  }
 
-    const item = document.createElement("li");
-
-    item.innerHTML = `
-      <b>${nome}</b> — 
-      HP: ${hp || 0}, 
-      Mana: ${mana || 0}, 
-      Força: ${forca || 0}, 
-      Defesa: ${defesa || 0}, 
-      Velocidade: ${velocidade || 0}.
-      <br>
-      <small>
-        <b>Vantagens:</b> ${vantagens || "Não informado"} |
-        <b>Desvantagens:</b> ${desvantagens || "Não informado"}
-      </small>
-    `;
-
-    listaRacas.appendChild(item);
+  try {
+    await addDoc(collection(db, "racas"), {
+      nome,
+      hp,
+      mana,
+      forca,
+      defesa,
+      velocidade,
+      vantagens,
+      desvantagens,
+      criadoEm: serverTimestamp()
+    });
 
     document.getElementById("racaNome").value = "";
     document.getElementById("racaHp").value = "";
@@ -83,9 +87,63 @@ if (botaoSalvarRaca) {
     document.getElementById("racaVantagens").value = "";
     document.getElementById("racaDesvantagens").value = "";
 
-    alert("Raça cadastrada na demonstração. Depois vamos salvar isso no Firebase.");
+    alert("Raça salva no Firebase.");
+  } catch (erro) {
+    console.error("Erro ao salvar raça:", erro);
+    alert("Erro ao salvar raça. Verifique se o Firestore foi criado em modo de teste.");
+  }
+}
+
+function carregarRacasDoFirebase() {
+  if (!listaRacas) return;
+
+  const racasRef = collection(db, "racas");
+  const racasQuery = query(racasRef, orderBy("criadoEm", "desc"));
+
+  onSnapshot(racasQuery, (snapshot) => {
+    listaRacas.innerHTML = "";
+
+    if (snapshot.empty) {
+      listaRacas.innerHTML = `
+        <li>Nenhuma raça cadastrada ainda.</li>
+      `;
+      return;
+    }
+
+    snapshot.forEach((documento) => {
+      const raca = documento.data();
+
+      const item = document.createElement("li");
+
+      item.innerHTML = `
+        <b>${raca.nome}</b> — 
+        HP: ${raca.hp || 0}, 
+        Mana: ${raca.mana || 0}, 
+        Força: ${raca.forca || 0}, 
+        Defesa: ${raca.defesa || 0}, 
+        Velocidade: ${raca.velocidade || 0}.
+        <br>
+        <small>
+          <b>Vantagens:</b> ${raca.vantagens || "Não informado"} |
+          <b>Desvantagens:</b> ${raca.desvantagens || "Não informado"}
+        </small>
+      `;
+
+      listaRacas.appendChild(item);
+    });
+  }, (erro) => {
+    console.error("Erro ao carregar raças:", erro);
+    listaRacas.innerHTML = `
+      <li>Erro ao carregar raças. Verifique as regras do Firestore.</li>
+    `;
   });
 }
+
+if (botaoSalvarRaca) {
+  botaoSalvarRaca.addEventListener("click", salvarRacaNoFirebase);
+}
+
+carregarRacasDoFirebase();
 
 const botaoRolarD20 = document.getElementById("rolarD20");
 const resultadoDado = document.getElementById("resultadoDado");
