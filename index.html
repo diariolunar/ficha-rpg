@@ -3,10 +3,69 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Ficha RPG</title>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">⚔️</div>
+
+      <h1>Ficha RPG</h1>
+      <p>Sistema de campanhas, fichas e área do mestre.</p>
+
+      <div class="auth-tabs">
+        <button id="tabLogin" class="auth-tab active">Entrar</button>
+        <button id="tabCadastro" class="auth-tab">Criar conta</button>
+      </div>
+
+      <div id="loginForm" class="auth-form">
+        <label>
+          E-mail
+          <input type="email" id="loginEmail" placeholder="seuemail@email.com" />
+        </label>
+
+        <label>
+          Senha
+          <input type="password" id="loginSenha" placeholder="Sua senha" />
+        </label>
+
+        <button id="btnLogin" class="primary-btn full-btn">Entrar</button>
+      </div>
+
+      <div id="cadastroForm" class="auth-form hidden">
+        <label>
+          Nome
+          <input type="text" id="cadastroNome" placeholder="Seu nome" />
+        </label>
+
+        <label>
+          E-mail
+          <input type="email" id="cadastroEmail" placeholder="seuemail@email.com" />
+        </label>
+
+        <label>
+          Senha
+          <input type="password" id="cadastroSenha" placeholder="Crie uma senha" />
+        </label>
+
+        <label>
+          Tipo de conta
+          <select id="cadastroTipo">
+            <option value="jogador">Jogador</option>
+            <option value="mestre">Mestre</option>
+          </select>
+        </label>
+
+        <button id="btnCadastro" class="primary-btn full-btn">Criar conta</button>
+      </div>
+
+      <p id="authMensagem" class="auth-message"></p>
+    </div>
+  </section>
 
   <aside class="sidebar">
     <div class="logo-area">
@@ -25,6 +84,13 @@
       <button class="nav-btn" data-page="ficha">📜 Ficha</button>
       <button class="nav-btn" data-page="sessao">🕯️ Roteiro da Sessão</button>
     </nav>
+
+    <div class="user-box">
+      <p>Logado como:</p>
+      <strong id="usuarioNome">Carregando...</strong>
+      <span id="usuarioTipo">---</span>
+      <button id="btnSair" class="logout-btn">Sair</button>
+    </div>
   </aside>
 
   <main class="main-content">
@@ -202,11 +268,9 @@
       </div>
 
       <div class="list-card">
-        <h3>Raças cadastradas nesta demonstração</h3>
+        <h3>Raças cadastradas</h3>
         <ul id="listaRacas">
-          <li><b>Humano</b> — equilibrado, atributos medianos.</li>
-          <li><b>Elfo</b> — mais mana, percepção e velocidade.</li>
-          <li><b>Dragonato</b> — força e defesa elevadas.</li>
+          <li>Carregando raças...</li>
         </ul>
       </div>
     </section>
