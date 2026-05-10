@@ -218,7 +218,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid #34384a;
   background: #10131d;
@@ -234,7 +235,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: #7c3aed;
 }
 
@@ -346,6 +348,141 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #2b174f, #0f1117 55%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 430px;
+  background: #191c27;
+  border: 1px solid #2c3040;
+  border-radius: 24px;
+  padding: 30px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+
+.auth-logo {
+  width: 64px;
+  height: 64px;
+  background: #7c3aed;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  margin-bottom: 18px;
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+.auth-card p {
+  color: #b7b7c5;
+  margin-top: 0;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #10131d;
+  border-radius: 14px;
+  padding: 6px;
+  margin: 20px 0;
+}
+
+.auth-tab {
+  border: none;
+  background: transparent;
+  color: #c7c7d4;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.auth-tab.active {
+  background: #7c3aed;
+  color: white;
+}
+
+.auth-form {
+  display: block;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.full-btn {
+  width: 100%;
+}
+
+.auth-message {
+  margin-top: 16px;
+  color: #facc15 !important;
+  font-size: 14px;
+}
+
+.user-box {
+  margin-top: 28px;
+  padding: 16px;
+  background: #10131d;
+  border: 1px solid #2c3040;
+  border-radius: 16px;
+}
+
+.user-box p {
+  margin: 0 0 6px;
+  color: #a8a8b3;
+  font-size: 13px;
+}
+
+.user-box strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.user-box span {
+  display: inline-block;
+  background: #2c2244;
+  color: #c4b5fd;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.logout-btn {
+  width: 100%;
+  margin-top: 14px;
+  border: none;
+  background: #dc2626;
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+body.deslogado .sidebar,
+body.deslogado .main-content {
+  display: none;
+}
+
+body.logado .auth-screen {
+  display: none;
 }
 
 @media (max-width: 900px) {
