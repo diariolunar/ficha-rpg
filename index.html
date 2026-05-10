@@ -1,1 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha RPG</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-icon">⚔️</div>
+      <div>
+        <h1>Ficha RPG</h1>
+        <p>Sistema de Campanha</p>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-btn active" data-page="dashboard">🏠 Dashboard</button>
+      <button class="nav-btn" data-page="mestre">🧙 Área do Mestre</button>
+      <button class="nav-btn" data-page="jogador">🛡️ Área do Jogador</button>
+      <button class="nav-btn" data-page="cadastros">📚 Cadastros Base</button>
+      <button class="nav-btn" data-page="ficha">📜 Ficha</button>
+      <button class="nav-btn" data-page="sessao">🕯️ Roteiro da Sessão</button>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+
+    <section id="dashboard" class="page active-page">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>Visão geral da aplicação de ficha de personagem.</p>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card">
+          <h3>Campanhas Ativas</h3>
+          <strong>3</strong>
+          <p>Campanhas criadas pelo mestre.</p>
+        </div>
+
+        <div class="card">
+          <h3>Personagens</h3>
+          <strong>12</strong>
+          <p>Fichas vinculadas às campanhas.</p>
+        </div>
+
+        <div class="card">
+          <h3>Raças Cadastradas</h3>
+          <strong>8</strong>
+          <p>Opções criadas pelo mestre.</p>
+        </div>
+
+        <div class="card">
+          <h3>Itens e Habilidades</h3>
+          <strong>26</strong>
+          <p>Recursos disponíveis para os jogadores.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="mestre" class="page">
+      <div class="page-header">
+        <h2>Área do Mestre</h2>
+        <p>Painel para acompanhar os jogadores durante a campanha.</p>
+      </div>
+
+      <div class="table-card">
+        <h3>Jogadores na Campanha</h3>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Personagem</th>
+                <th>Jogador</th>
+                <th>HP</th>
+                <th>Mana</th>
+                <th>Fome</th>
+                <th>Fadiga</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Kael</td>
+                <td>Renato</td>
+                <td>80/100</td>
+                <td>45/70</td>
+                <td>20%</td>
+                <td>10%</td>
+                <td>Normal</td>
+                <td><button class="small-btn danger">Possessão</button></td>
+              </tr>
+              <tr>
+                <td>Lyria</td>
+                <td>Anna</td>
+                <td>62/80</td>
+                <td>120/150</td>
+                <td>35%</td>
+                <td>25%</td>
+                <td>Faminta</td>
+                <td><button class="small-btn danger">Possessão</button></td>
+              </tr>
+              <tr>
+                <td>Groth</td>
+                <td>Lucas</td>
+                <td>140/160</td>
+                <td>10/20</td>
+                <td>15%</td>
+                <td>40%</td>
+                <td>Cansado</td>
+                <td><button class="small-btn danger">Possessão</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="jogador" class="page">
+      <div class="page-header">
+        <h2>Área do Jogador</h2>
+        <p>Espaço para visualizar personagens e campanhas vinculadas.</p>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card character-card">
+          <h3>Kael</h3>
+          <p><b>Raça:</b> Humano</p>
+          <p><b>Classe:</b> Espadachim</p>
+          <p><b>Campanha:</b> A Queda do Sol Negro</p>
+          <button class="primary-btn" data-page-target="ficha">Abrir ficha</button>
+        </div>
+
+        <div class="card character-card">
+          <h3>Lyria</h3>
+          <p><b>Raça:</b> Elfa</p>
+          <p><b>Classe:</b> Maga</p>
+          <p><b>Campanha:</b> A Queda do Sol Negro</p>
+          <button class="primary-btn" data-page-target="ficha">Abrir ficha</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="cadastros" class="page">
+      <div class="page-header">
+        <h2>Cadastros Base do Mestre</h2>
+        <p>Raças, classes, subclasses, habilidades, monstros, pets, itens e elementos.</p>
+      </div>
+
+      <div class="form-card">
+        <h3>Cadastrar Raça</h3>
+
+        <div class="form-grid">
+          <label>
+            Nome da raça
+            <input type="text" id="racaNome" placeholder="Ex: Goblin" />
+          </label>
+
+          <label>
+            HP Base
+            <input type="number" id="racaHp" placeholder="Ex: 60" />
+          </label>
+
+          <label>
+            Mana Base
+            <input type="number" id="racaMana" placeholder="Ex: 20" />
+          </label>
+
+          <label>
+            Força
+            <input type="number" id="racaForca" placeholder="Ex: 5" />
+          </label>
+
+          <label>
+            Defesa
+            <input type="number" id="racaDefesa" placeholder="Ex: 3" />
+          </label>
+
+          <label>
+            Velocidade
+            <input type="number" id="racaVelocidade" placeholder="Ex: 8" />
+          </label>
+        </div>
+
+        <label>
+          Vantagens
+          <textarea id="racaVantagens" placeholder="Ex: Visão noturna, agilidade alta..."></textarea>
+        </label>
+
+        <label>
+          Desvantagens
+          <textarea id="racaDesvantagens" placeholder="Ex: Pouca força física, baixa resistência..."></textarea>
+        </label>
+
+        <button class="primary-btn" id="salvarRaca">Salvar raça</button>
+      </div>
+
+      <div class="list-card">
+        <h3>Raças cadastradas nesta demonstração</h3>
+        <ul id="listaRacas">
+          <li><b>Humano</b> — equilibrado, atributos medianos.</li>
+          <li><b>Elfo</b> — mais mana, percepção e velocidade.</li>
+          <li><b>Dragonato</b> — força e defesa elevadas.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="ficha" class="page">
+      <div class="page-header">
+        <h2>Ficha do Personagem</h2>
+        <p>Modelo inicial de ficha com status, recursos e rolagem de dados.</p>
+      </div>
+
+      <div class="ficha-layout">
+        <div class="profile-card">
+          <div class="avatar">🧝</div>
+          <h3>Lyria</h3>
+          <p>Maga Elfa</p>
+          <span class="tag">Campanha: A Queda do Sol Negro</span>
+        </div>
+
+        <div class="status-card">
+          <h3>Status principais</h3>
+
+          <div class="status-line">
+            <span>HP</span>
+            <div class="bar"><div style="width: 78%"></div></div>
+            <b>62/80</b>
+          </div>
+
+          <div class="status-line">
+            <span>Mana</span>
+            <div class="bar mana"><div style="width: 80%"></div></div>
+            <b>120/150</b>
+          </div>
+
+          <div class="status-line">
+            <span>Fome</span>
+            <div class="bar fome"><div style="width: 35%"></div></div>
+            <b>35%</b>
+          </div>
+
+          <div class="status-line">
+            <span>Fadiga</span>
+            <div class="bar fadiga"><div style="width: 25%"></div></div>
+            <b>25%</b>
+          </div>
+        </div>
+
+        <div class="dice-card">
+          <h3>Rolagem de D20</h3>
+
+          <label>
+            Bônus
+            <input type="number" id="bonusDado" value="0" />
+          </label>
+
+          <button class="primary-btn" id="rolarD20">Rolar D20</button>
+
+          <div class="dice-result">
+            <p>Resultado:</p>
+            <strong id="resultadoDado">--</strong>
+          </div>
+
+          <p class="mini-title">Últimos 2 resultados:</p>
+          <div id="ultimosDados" class="last-rolls">Nenhum dado rolado ainda.</div>
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Habilidades</h3>
+          <ul>
+            <li>Bola de Água — custo: 10 mana</li>
+            <li>Barreira Arcana — custo: 15 mana</li>
+            <li>Gelo Cortante — custo: 20 mana</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h3>Itens</h3>
+          <ul>
+            <li>Cajado de Carvalho</li>
+            <li>Manto Azul</li>
+            <li>Poção de Mana</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h3>Pets</h3>
+          <ul>
+            <li>Corvo Lunar — nível 2</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="sessao" class="page">
+      <div class="page-header">
+        <h2>Roteiro da Sessão</h2>
+        <p>Área para o mestre planejar a sessão atual.</p>
+      </div>
+
+      <div class="form-card">
+        <label>
+          Título da sessão
+          <input type="text" placeholder="Ex: A chegada à cidade amaldiçoada" />
+        </label>
+
+        <label>
+          Resumo da sessão
+          <textarea placeholder="Escreva o resumo da sessão..."></textarea>
+        </label>
+
+        <label>
+          Cenas importantes
+          <textarea placeholder="Liste cenas, encontros, conflitos e revelações..."></textarea>
+        </label>
+
+        <label>
+          Monstros/NPCs envolvidos
+          <textarea placeholder="Liste monstros, NPCs e ameaças planejadas..."></textarea>
+        </label>
+
+        <button class="primary-btn">Salvar roteiro</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
