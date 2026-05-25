@@ -6,6 +6,8 @@ const tiposHabilidade = [
   { valor: "buff", nome: "Buff" },
   { valor: "debuff", nome: "Debuff" },
   { valor: "dano", nome: "Dano" },
+  { valor: "defesa", nome: "Defesa" },
+  { valor: "invocacao", nome: "Invocação" },
   { valor: "cura", nome: "Cura" },
   { valor: "passiva", nome: "Passiva" },
   { valor: "personalizada", nome: "Personalizada" }
