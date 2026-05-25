@@ -45,6 +45,14 @@ export function pararRacas() {
   }
 }
 
+function numeroCampo(id) {
+  return Number(document.getElementById(id)?.value) || 0;
+}
+
+function textoCampo(id) {
+  return document.getElementById(id)?.value.trim() || "";
+}
+
 async function salvarRaca() {
   if (!state.usuarioAtual) {
     alert("Você precisa estar logado.");
@@ -56,48 +64,75 @@ async function salvarRaca() {
     return;
   }
 
-  const nome = document.getElementById("racaNome").value.trim();
-  const hp = Number(document.getElementById("racaHp").value) || 0;
-  const mana = Number(document.getElementById("racaMana").value) || 0;
-  const forca = Number(document.getElementById("racaForca").value) || 0;
-  const defesa = Number(document.getElementById("racaDefesa").value) || 0;
-  const velocidade = Number(document.getElementById("racaVelocidade").value) || 0;
-  const vantagens = document.getElementById("racaVantagens").value.trim();
-  const desvantagens = document.getElementById("racaDesvantagens").value.trim();
+  const nome = textoCampo("racaNome");
 
   if (!nome) {
     alert("Digite o nome da raça.");
     return;
   }
 
-  try {
-    await addDoc(collection(db, "racas"), {
-      nome,
-      hp,
-      mana,
-      forca,
-      defesa,
-      velocidade,
-      vantagens,
-      desvantagens,
-      criadoPor: state.usuarioAtual.uid,
-      criadoEm: serverTimestamp()
-    });
+  const raca = {
+    nome,
+    hpBase: numeroCampo("racaHpBase"),
+    manaBase: numeroCampo("racaManaBase"),
+    forcaFisica: numeroCampo("racaForcaFisica"),
+    forcaMagica: numeroCampo("racaForcaMagica"),
+    defesaFisica: numeroCampo("racaDefesaFisica"),
+    defesaMagica: numeroCampo("racaDefesaMagica"),
+    velocidade: numeroCampo("racaVelocidade"),
+    resistencia: numeroCampo("racaResistencia"),
+    carisma: numeroCampo("racaCarisma"),
+    fatorMedo: numeroCampo("racaFatorMedo"),
+    vantagens: textoCampo("racaVantagens"),
+    desvantagens: textoCampo("racaDesvantagens"),
+    classesSugeridas: textoCampo("racaClassesSugeridas"),
+    elementosAfins: textoCampo("racaElementosAfins"),
+    habilidadeExclusiva: textoCampo("racaHabilidadeExclusiva"),
+    restricaoClasse: textoCampo("racaRestricaoClasse"),
+    criadoPor: state.usuarioAtual.uid,
+    criadoEm: serverTimestamp()
+  };
 
-    document.getElementById("racaNome").value = "";
-    document.getElementById("racaHp").value = "";
-    document.getElementById("racaMana").value = "";
-    document.getElementById("racaForca").value = "";
-    document.getElementById("racaDefesa").value = "";
-    document.getElementById("racaVelocidade").value = "";
-    document.getElementById("racaVantagens").value = "";
-    document.getElementById("racaDesvantagens").value = "";
+  try {
+    await addDoc(collection(db, "racas"), raca);
+
+    limparFormularioRaca();
 
     alert("Raça salva no Firebase.");
   } catch (erro) {
     console.error("Erro ao salvar raça:", erro);
     alert("Erro ao salvar raça. Verifique as regras do Firestore.");
   }
+}
+
+function limparFormularioRaca() {
+  const campos = [
+    "racaNome",
+    "racaHpBase",
+    "racaManaBase",
+    "racaForcaFisica",
+    "racaForcaMagica",
+    "racaDefesaFisica",
+    "racaDefesaMagica",
+    "racaVelocidade",
+    "racaResistencia",
+    "racaCarisma",
+    "racaFatorMedo",
+    "racaVantagens",
+    "racaDesvantagens",
+    "racaClassesSugeridas",
+    "racaElementosAfins",
+    "racaHabilidadeExclusiva",
+    "racaRestricaoClasse"
+  ];
+
+  campos.forEach((id) => {
+    const campo = document.getElementById(id);
+
+    if (campo) {
+      campo.value = "";
+    }
+  });
 }
 
 export function renderizarRacas() {
@@ -116,16 +151,26 @@ export function renderizarRacas() {
     const item = document.createElement("li");
 
     item.innerHTML = `
-      <b>${raca.nome}</b> — 
-      HP: ${raca.hp || 0}, 
-      Mana: ${raca.mana || 0}, 
-      Força: ${raca.forca || 0}, 
-      Defesa: ${raca.defesa || 0}, 
-      Velocidade: ${raca.velocidade || 0}.
+      <b>${raca.nome}</b>
+      <br>
+      HP: ${raca.hpBase ?? raca.hp ?? 0} |
+      Mana: ${raca.manaBase ?? raca.mana ?? 0} |
+      Força Física: ${raca.forcaFisica ?? raca.forca ?? 0} |
+      Força Mágica: ${raca.forcaMagica ?? 0} |
+      Defesa Física: ${raca.defesaFisica ?? raca.defesa ?? 0} |
+      Defesa Mágica: ${raca.defesaMagica ?? 0} |
+      Velocidade: ${raca.velocidade ?? 0} |
+      Resistência: ${raca.resistencia ?? 0} |
+      Carisma: ${raca.carisma ?? 0} |
+      Fator Medo: ${raca.fatorMedo ?? 0}
       <br>
       <small>
-        <b>Vantagens:</b> ${raca.vantagens || "Não informado"} |
-        <b>Desvantagens:</b> ${raca.desvantagens || "Não informado"}
+        <b>Vantagens/Bônus:</b> ${raca.vantagens || "Não informado"}<br>
+        <b>Desvantagens/Penalidades:</b> ${raca.desvantagens || "Não informado"}<br>
+        <b>Classes Sugeridas:</b> ${raca.classesSugeridas || "Não informado"}<br>
+        <b>Elementos Afins:</b> ${raca.elementosAfins || "Não informado"}<br>
+        <b>Habilidade Exclusiva:</b> ${raca.habilidadeExclusiva || "Não informado"}<br>
+        <b>Restrição de Classe:</b> ${raca.restricaoClasse || "Não informado"}
       </small>
     `;
 
@@ -165,13 +210,23 @@ export function atualizarPreviewRaca(raca) {
 
   if (!previewHp) return;
 
-  document.getElementById("previewHp").textContent = raca?.hp || 0;
-  document.getElementById("previewMana").textContent = raca?.mana || 0;
-  document.getElementById("previewForca").textContent = raca?.forca || 0;
-  document.getElementById("previewDefesa").textContent = raca?.defesa || 0;
-  document.getElementById("previewVelocidade").textContent = raca?.velocidade || 0;
+  document.getElementById("previewHp").textContent = raca?.hpBase ?? raca?.hp ?? 0;
+  document.getElementById("previewMana").textContent = raca?.manaBase ?? raca?.mana ?? 0;
+  document.getElementById("previewForcaFisica").textContent = raca?.forcaFisica ?? raca?.forca ?? 0;
+  document.getElementById("previewForcaMagica").textContent = raca?.forcaMagica ?? 0;
+  document.getElementById("previewDefesaFisica").textContent = raca?.defesaFisica ?? raca?.defesa ?? 0;
+  document.getElementById("previewDefesaMagica").textContent = raca?.defesaMagica ?? 0;
+  document.getElementById("previewVelocidade").textContent = raca?.velocidade ?? 0;
+  document.getElementById("previewResistencia").textContent = raca?.resistencia ?? 0;
+  document.getElementById("previewCarisma").textContent = raca?.carisma ?? 0;
+  document.getElementById("previewFatorMedo").textContent = raca?.fatorMedo ?? 0;
+
   document.getElementById("previewVantagens").textContent = raca?.vantagens || "Nenhuma raça selecionada.";
   document.getElementById("previewDesvantagens").textContent = raca?.desvantagens || "Nenhuma raça selecionada.";
+  document.getElementById("previewClassesSugeridas").textContent = raca?.classesSugeridas || "Nenhuma raça selecionada.";
+  document.getElementById("previewElementosAfins").textContent = raca?.elementosAfins || "Nenhuma raça selecionada.";
+  document.getElementById("previewHabilidadeExclusiva").textContent = raca?.habilidadeExclusiva || "Nenhuma raça selecionada.";
+  document.getElementById("previewRestricaoClasse").textContent = raca?.restricaoClasse || "Nenhuma raça selecionada.";
 }
 
 function atualizarContadorRacas() {

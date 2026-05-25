@@ -97,21 +97,36 @@ async function criarPersonagem() {
       mestreId: campanha.mestreId,
       racaId,
       racaNome: raca.nome,
+
       classe,
       subclasse,
       elemento,
       historia,
-      hpMax: raca.hp || 0,
-      hpAtual: raca.hp || 0,
-      manaMax: raca.mana || 0,
-      manaAtual: raca.mana || 0,
-      forca: raca.forca || 0,
-      defesa: raca.defesa || 0,
-      velocidade: raca.velocidade || 0,
+
+      hpMax: raca.hpBase ?? raca.hp ?? 0,
+      hpAtual: raca.hpBase ?? raca.hp ?? 0,
+      manaMax: raca.manaBase ?? raca.mana ?? 0,
+      manaAtual: raca.manaBase ?? raca.mana ?? 0,
+
+      forcaFisica: raca.forcaFisica ?? raca.forca ?? 0,
+      forcaMagica: raca.forcaMagica ?? 0,
+      defesaFisica: raca.defesaFisica ?? raca.defesa ?? 0,
+      defesaMagica: raca.defesaMagica ?? 0,
+      velocidade: raca.velocidade ?? 0,
+      resistencia: raca.resistencia ?? 0,
+      carisma: raca.carisma ?? 0,
+      fatorMedo: raca.fatorMedo ?? 0,
+
       fome: 0,
       fadiga: 0,
+
       vantagens: raca.vantagens || "",
       desvantagens: raca.desvantagens || "",
+      classesSugeridas: raca.classesSugeridas || "",
+      elementosAfins: raca.elementosAfins || "",
+      habilidadeExclusiva: raca.habilidadeExclusiva || "",
+      restricaoClasse: raca.restricaoClasse || "",
+
       criadoEm: serverTimestamp()
     });
 

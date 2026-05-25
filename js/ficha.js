@@ -41,11 +41,22 @@ export function renderizarFicha() {
     <li><b>Classe:</b> ${personagem.classe || "Não informada"}</li>
     <li><b>Subclasse:</b> ${personagem.subclasse || "Não informada"}</li>
     <li><b>Elemento:</b> ${personagem.elemento || "Não informado"}</li>
-    <li><b>Força:</b> ${personagem.forca || 0}</li>
-    <li><b>Defesa:</b> ${personagem.defesa || 0}</li>
-    <li><b>Velocidade:</b> ${personagem.velocidade || 0}</li>
-    <li><b>Vantagens:</b> ${personagem.vantagens || "Não informado"}</li>
-    <li><b>Desvantagens:</b> ${personagem.desvantagens || "Não informado"}</li>
+
+    <li><b>Força Física:</b> ${personagem.forcaFisica ?? personagem.forca ?? 0}</li>
+    <li><b>Força Mágica:</b> ${personagem.forcaMagica ?? 0}</li>
+    <li><b>Defesa Física:</b> ${personagem.defesaFisica ?? personagem.defesa ?? 0}</li>
+    <li><b>Defesa Mágica:</b> ${personagem.defesaMagica ?? 0}</li>
+    <li><b>Velocidade:</b> ${personagem.velocidade ?? 0}</li>
+    <li><b>Resistência:</b> ${personagem.resistencia ?? 0}</li>
+    <li><b>Carisma:</b> ${personagem.carisma ?? 0}</li>
+    <li><b>Fator Medo:</b> ${personagem.fatorMedo ?? 0}</li>
+
+    <li><b>Vantagens/Bônus:</b> ${personagem.vantagens || "Não informado"}</li>
+    <li><b>Desvantagens/Penalidades:</b> ${personagem.desvantagens || "Não informado"}</li>
+    <li><b>Classes Sugeridas:</b> ${personagem.classesSugeridas || "Não informado"}</li>
+    <li><b>Elementos Afins:</b> ${personagem.elementosAfins || "Não informado"}</li>
+    <li><b>Habilidade Exclusiva:</b> ${personagem.habilidadeExclusiva || "Não informado"}</li>
+    <li><b>Restrição de Classe:</b> ${personagem.restricaoClasse || "Não informado"}</li>
   `;
 
   document.getElementById("fichaHistoria").textContent = personagem.historia || "Sem história cadastrada.";

@@ -1,7 +1,7 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Raças</h2>
-    <p>Crie raças com status base, vantagens e desvantagens.</p>
+    <p>Crie raças com status base, vantagens, penalidades, afinidades e restrições.</p>
   </div>
 
   <div class="form-card">
@@ -10,43 +10,88 @@
     <div class="form-grid">
       <label>
         Nome da raça
-        <input type="text" id="racaNome" placeholder="Ex: Goblin" />
+        <input type="text" id="racaNome" placeholder="Ex: Goblin, Elfo, Dragonato..." />
       </label>
 
       <label>
         HP Base
-        <input type="number" id="racaHp" placeholder="Ex: 60" />
+        <input type="number" id="racaHpBase" placeholder="Ex: 60" />
       </label>
 
       <label>
         Mana Base
-        <input type="number" id="racaMana" placeholder="Ex: 20" />
+        <input type="number" id="racaManaBase" placeholder="Ex: 30" />
       </label>
 
       <label>
-        Força
-        <input type="number" id="racaForca" placeholder="Ex: 5" />
+        Força Física
+        <input type="number" id="racaForcaFisica" placeholder="Ex: 5" />
       </label>
 
       <label>
-        Defesa
-        <input type="number" id="racaDefesa" placeholder="Ex: 3" />
+        Força Mágica
+        <input type="number" id="racaForcaMagica" placeholder="Ex: 2" />
+      </label>
+
+      <label>
+        Defesa Física
+        <input type="number" id="racaDefesaFisica" placeholder="Ex: 4" />
+      </label>
+
+      <label>
+        Defesa Mágica
+        <input type="number" id="racaDefesaMagica" placeholder="Ex: 3" />
       </label>
 
       <label>
         Velocidade
         <input type="number" id="racaVelocidade" placeholder="Ex: 8" />
       </label>
+
+      <label>
+        Resistência
+        <input type="number" id="racaResistencia" placeholder="Ex: 6" />
+      </label>
+
+      <label>
+        Carisma
+        <input type="number" id="racaCarisma" placeholder="Ex: 2" />
+      </label>
+
+      <label>
+        Fator Medo
+        <input type="number" id="racaFatorMedo" placeholder="Ex: 7" />
+      </label>
     </div>
 
     <label>
-      Vantagens
-      <textarea id="racaVantagens" placeholder="Ex: Visão noturna, agilidade alta..."></textarea>
+      Vantagens / Bônus
+      <textarea id="racaVantagens" placeholder="Ex: Visão noturna, bônus em furtividade, resistência a veneno..."></textarea>
     </label>
 
     <label>
-      Desvantagens
-      <textarea id="racaDesvantagens" placeholder="Ex: Pouca força física, baixa resistência..."></textarea>
+      Desvantagens / Penalidades
+      <textarea id="racaDesvantagens" placeholder="Ex: Penalidade em carisma, fraqueza contra luz, baixa defesa mágica..."></textarea>
+    </label>
+
+    <label>
+      Classes Sugeridas
+      <textarea id="racaClassesSugeridas" placeholder="Ex: Ladino, Arqueiro, Assassino..."></textarea>
+    </label>
+
+    <label>
+      Elementos Afins
+      <textarea id="racaElementosAfins" placeholder="Ex: Trevas, Terra, Veneno..."></textarea>
+    </label>
+
+    <label>
+      Habilidade Exclusiva
+      <input type="text" id="racaHabilidadeExclusiva" placeholder="Por enquanto, digite o nome da habilidade. Depois será selecionada da lista de habilidades cadastradas." />
+    </label>
+
+    <label>
+      Restrição de Classe
+      <textarea id="racaRestricaoClasse" placeholder="Ex: Não pode ser Paladino, não pode usar classes de magia sagrada..."></textarea>
     </label>
 
     <button class="primary-btn" id="salvarRaca">Salvar raça</button>
