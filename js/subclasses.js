@@ -6,9 +6,7 @@ const atributos = [
   { valor: "defesaFisica", nome: "Defesa Física" },
   { valor: "defesaMagica", nome: "Defesa Mágica" },
   { valor: "velocidade", nome: "Velocidade" },
-  { valor: "resistencia", nome: "Resistência" },
-  { valor: "carisma", nome: "Carisma" },
-  { valor: "fatorMedo", nome: "Fator Medo" }
+  { valor: "resistencia", nome: "Resistência" }
 ];
 
 const crud = criarCadastroCrud({

@@ -13,6 +13,7 @@ import {
 
 import { state, setClasses, setClasseSelecionada } from "./state.js";
 import { onPageLoaded, navegarPara } from "./navigation.js";
+import { mostrarModal, confirmarModal } from "./ui.js";
 
 let unsubscribeClasses = null;
 let unsubscribeHabilidades = null;
@@ -136,19 +137,19 @@ function textoSelectSelecionado(id) {
 
 async function salvarClasse() {
   if (!state.usuarioAtual) {
-    alert("Você precisa estar logado.");
+    await mostrarModal("Você precisa estar logado.", "Acesso necessário");
     return;
   }
 
   if (state.dadosUsuarioAtual?.tipo !== "mestre") {
-    alert("Apenas o Mestre pode cadastrar classes.");
+    await mostrarModal("Apenas o Mestre pode cadastrar classes.", "Permissão negada");
     return;
   }
 
   const nome = textoCampo("classeNome");
 
   if (!nome) {
-    alert("Digite o nome da classe.");
+    await mostrarModal("Digite o nome da classe.", "Campo obrigatório");
     return;
   }
 
@@ -183,23 +184,23 @@ async function salvarClasse() {
 
     limparFormularioClasse();
 
-    alert("Classe salva no Firebase.");
+    await mostrarModal("Classe salva no Firebase.", "Cadastro realizado", "success");
   } catch (erro) {
     console.error("Erro ao salvar classe:", erro);
-    alert("Erro ao salvar classe. Verifique as regras do Firestore.");
+    await mostrarModal("Erro ao salvar classe. Verifique as regras do Firestore.", "Erro", "danger");
   }
 }
 
 async function salvarEdicaoClasse() {
   if (!state.classeSelecionada) {
-    alert("Nenhuma classe selecionada.");
+    await mostrarModal("Nenhuma classe selecionada.", "Erro", "danger");
     return;
   }
 
   const nome = textoCampo("editClasseNome");
 
   if (!nome) {
-    alert("Digite o nome da classe.");
+    await mostrarModal("Digite o nome da classe.", "Campo obrigatório");
     return;
   }
 
@@ -236,21 +237,27 @@ async function salvarEdicaoClasse() {
       ...dadosAtualizados
     });
 
-    alert("Classe atualizada com sucesso.");
+    await mostrarModal("Classe atualizada com sucesso.", "Alterações salvas", "success");
     renderizarDetalheClasse(false);
   } catch (erro) {
     console.error("Erro ao editar classe:", erro);
-    alert("Erro ao editar classe.");
+    await mostrarModal("Erro ao editar classe.", "Erro", "danger");
   }
 }
 
 async function excluirClasse() {
   if (!state.classeSelecionada) {
-    alert("Nenhuma classe selecionada.");
+    await mostrarModal("Nenhuma classe selecionada.", "Erro", "danger");
     return;
   }
 
-  const confirmar = confirm(`Tem certeza que deseja excluir a classe "${state.classeSelecionada.nome}"? Essa ação não pode ser desfeita.`);
+  const confirmar = await confirmarModal({
+    titulo: "Excluir classe",
+    mensagem: `Tem certeza que deseja excluir a classe "${state.classeSelecionada.nome}"? Essa ação não pode ser desfeita.`,
+    confirmarTexto: "Excluir",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
 
   if (!confirmar) return;
 
@@ -259,11 +266,11 @@ async function excluirClasse() {
 
     setClasseSelecionada(null);
 
-    alert("Classe excluída com sucesso.");
+    await mostrarModal("Classe excluída com sucesso.", "Exclusão concluída", "success");
     navegarPara("cadastrosClasses");
   } catch (erro) {
     console.error("Erro ao excluir classe:", erro);
-    alert("Erro ao excluir classe.");
+    await mostrarModal("Erro ao excluir classe.", "Erro", "danger");
   }
 }
 
@@ -603,9 +610,7 @@ function opcoesAtributos(valorSelecionado) {
     { valor: "defesaFisica", nome: "Defesa Física" },
     { valor: "defesaMagica", nome: "Defesa Mágica" },
     { valor: "velocidade", nome: "Velocidade" },
-    { valor: "resistencia", nome: "Resistência" },
-    { valor: "carisma", nome: "Carisma" },
-    { valor: "fatorMedo", nome: "Fator Medo" }
+    { valor: "resistencia", nome: "Resistência" }
   ];
 
   return atributos
@@ -654,11 +659,11 @@ function preencherSelectGenerico(selectId, lista, mensagemVazia) {
   });
 }
 
-function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
+async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
   const select = document.getElementById(selectId);
 
   if (!select || !select.value) {
-    alert("Selecione uma opção primeiro.");
+    await mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
     return;
   }
 
@@ -668,7 +673,7 @@ function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
   const jaExiste = listaSelecionada.some((item) => item.id === id);
 
   if (jaExiste) {
-    alert("Essa opção já foi adicionada.");
+    await mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
     return;
   }
 
@@ -748,9 +753,7 @@ function formatarAtributo(valor) {
     defesaFisica: "Defesa Física",
     defesaMagica: "Defesa Mágica",
     velocidade: "Velocidade",
-    resistencia: "Resistência",
-    carisma: "Carisma",
-    fatorMedo: "Fator Medo"
+    resistencia: "Resistência"
   };
 
   return mapa[valor] || "Não informado";

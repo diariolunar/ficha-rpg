@@ -115,7 +115,7 @@
 }
 
 .list-card {
-  margin-top: 22px;
+  margin-top: 24px;
 }
 
 .list-card ul,
@@ -132,6 +132,17 @@
 .info-card p {
   color: var(--text-soft);
   line-height: 1.7;
+}
+
+.character-list,
+.campaign-list {
+  display: grid;
+  gap: 18px;
+}
+
+.campaign-card,
+.character-created-card {
+  margin-bottom: 0;
 }
 
 .campaign-card h3,
@@ -159,36 +170,49 @@
 }
 
 .base-preview {
-  background: rgba(255,255,255,0.035);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
+    rgba(9, 9, 10, 0.88);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px;
-  margin: 14px 0 20px;
+  border-radius: 18px;
+  padding: 22px;
+  margin: 18px 0 24px;
 }
 
 .base-preview h4 {
-  margin: 0 0 12px;
+  margin: 0 0 18px;
   color: #fff;
+  font-size: 18px;
 }
 
 .base-preview p {
   color: var(--text-soft);
-  line-height: 1.5;
+  line-height: 1.55;
+  margin: 0;
 }
 
 .preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .preview-grid span {
-  background: rgba(0,0,0,0.36);
+  background: rgba(0,0,0,0.38);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 13px;
+  padding: 13px;
   color: var(--text-soft);
+  min-height: 58px;
+}
+
+.preview-grid b {
+  color: #fff;
+}
+
+.base-preview p + p {
+  margin-top: 10px;
 }
 
 .multi-select-box {
@@ -235,7 +259,7 @@
 .resource-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .resource-card {
