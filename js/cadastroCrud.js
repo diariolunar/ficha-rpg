@@ -30,21 +30,25 @@ export function criarCadastroCrud(config) {
     const ref = collection(db, config.colecao);
     const consulta = query(ref, orderBy(config.campoOrdenacao || "nome", "asc"));
 
-    unsubscribePrincipal = onSnapshot(consulta, (snapshot) => {
-      registros = [];
+    unsubscribePrincipal = onSnapshot(
+      consulta,
+      (snapshot) => {
+        registros = [];
 
-      snapshot.forEach((documento) => {
-        registros.push({
-          id: documento.id,
-          ...documento.data()
+        snapshot.forEach((documento) => {
+          registros.push({
+            id: documento.id,
+            ...documento.data()
+          });
         });
-      });
 
-      sincronizarSelecionado();
-      renderizarLista();
-    }, (erro) => {
-      console.error(`Erro ao carregar ${config.colecao}:`, erro);
-    });
+        sincronizarSelecionado();
+        renderizarLista();
+      },
+      (erro) => {
+        console.error(`Erro ao carregar ${config.colecao}:`, erro);
+      }
+    );
 
     carregarRelacionados();
   }
@@ -154,9 +158,7 @@ export function criarCadastroCrud(config) {
   }
 
   function montarFormulario({ prefixo, titulo, botaoId, botaoTexto, valores, multiselects, modoEdicao }) {
-    const camposHtml = config.campos.map((campo) => {
-      return montarCampo(campo, prefixo, valores, multiselects);
-    }).join("");
+    const camposHtml = config.campos.map((campo) => montarCampo(campo, prefixo, valores, multiselects)).join("");
 
     const botoes = modoEdicao
       ? `
@@ -241,17 +243,6 @@ export function criarCadastroCrud(config) {
   }
 
   function montarOptions(campo, valorSelecionado) {
-    if (campo.opcoes && campo.opcoes.length > 0) {
-      return [
-        `<option value="">Selecione</option>`,
-        ...campo.opcoes.map((opcao) => {
-          const selected = opcao.valor === valorSelecionado ? "selected" : "";
-          return `<option value="${opcao.valor}" ${selected}>${opcao.nome}</option>`;
-        })
-      ].join("");
-    }
-
-    const lista = opcoesRelacionadas[campo.colecao] || [];
     const opcoes = [`<option value="">Selecione</option>`];
 
     if (campo.permitirTodas) {
@@ -259,7 +250,23 @@ export function criarCadastroCrud(config) {
       opcoes.push(`<option value="__ALL__" ${selected}>Todas</option>`);
     }
 
-    if (!lista.length && !campo.permitirTodas) {
+    if (campo.permitirNenhuma) {
+      const selected = valorSelecionado === "__NONE__" ? "selected" : "";
+      opcoes.push(`<option value="__NONE__" ${selected}>Nenhuma</option>`);
+    }
+
+    if (campo.opcoes && campo.opcoes.length > 0) {
+      campo.opcoes.forEach((opcao) => {
+        const selected = opcao.valor === valorSelecionado ? "selected" : "";
+        opcoes.push(`<option value="${opcao.valor}" ${selected}>${opcao.nome}</option>`);
+      });
+
+      return opcoes.join("");
+    }
+
+    const lista = opcoesRelacionadas[campo.colecao] || [];
+
+    if (!lista.length && !campo.permitirTodas && !campo.permitirNenhuma) {
       return `<option value="">${campo.mensagemVazia || "Nenhuma opção cadastrada"}</option>`;
     }
 
@@ -276,14 +283,16 @@ export function criarCadastroCrud(config) {
       return `<span class="empty-selection">${mensagemVazia}</span>`;
     }
 
-    return lista.map((item) => {
-      return `
-        <span class="selected-chip" data-id="${item.id}">
-          ${escapeHtml(item.nome)}
-          <button type="button" title="Remover">×</button>
-        </span>
-      `;
-    }).join("");
+    return lista
+      .map((item) => {
+        return `
+          <span class="selected-chip" data-id="${item.id}">
+            ${escapeHtml(item.nome)}
+            <button type="button" title="Remover">×</button>
+          </span>
+        `;
+      })
+      .join("");
   }
 
   function vincularEventosFormulario({ prefixo, botaoSalvarId, multiselects, onSalvar }) {
@@ -348,10 +357,15 @@ export function criarCadastroCrud(config) {
       return;
     }
 
-    const temTodas = lista.some((item) => item.id === "__ALL__");
+    if (id === "__NONE__") {
+      multiselects[campo.nome] = [{ id: "__NONE__", nome: "Nenhuma" }];
+      return;
+    }
 
-    if (temTodas) {
-      await mostrarModal("Remova a opção “Todas” antes de selecionar opções específicas.", "Seleção inválida");
+    const temTodasOuNenhuma = lista.some((item) => item.id === "__ALL__" || item.id === "__NONE__");
+
+    if (temTodasOuNenhuma) {
+      await mostrarModal("Remova a opção especial antes de selecionar opções específicas.", "Seleção inválida");
       return;
     }
 
@@ -401,6 +415,14 @@ export function criarCadastroCrud(config) {
           dados[campo.nome] = {
             id: "__ALL__",
             nome: "Todas"
+          };
+          return;
+        }
+
+        if (select.value === "__NONE__") {
+          dados[campo.nome] = {
+            id: "__NONE__",
+            nome: "Nenhuma"
           };
           return;
         }
@@ -588,20 +610,24 @@ export function criarCadastroCrud(config) {
       return `<span>Tipo: <b>${config.nomeSingular}</b></span>`;
     }
 
-    return camposResumo.map((campoNome) => {
-      const campo = config.campos.find((item) => item.nome === campoNome);
-      const valor = formatarValor(registro[campoNome]);
-      return `<span>${campo?.label || campoNome}: <b>${valor}</b></span>`;
-    }).join("");
+    return camposResumo
+      .map((campoNome) => {
+        const campo = config.campos.find((item) => item.nome === campoNome);
+        const valor = formatarValor(registro[campoNome]);
+        return `<span>${campo?.label || campoNome}: <b>${valor}</b></span>`;
+      })
+      .join("");
   }
 
   function montarDescricaoCard(registro) {
     const campos = config.camposCard || [];
 
-    return campos.map((campoNome) => {
-      const campo = config.campos.find((item) => item.nome === campoNome);
-      return `<p><b>${campo?.label || campoNome}:</b> ${formatarValor(registro[campoNome])}</p>`;
-    }).join("");
+    return campos
+      .map((campoNome) => {
+        const campo = config.campos.find((item) => item.nome === campoNome);
+        return `<p><b>${campo?.label || campoNome}:</b> ${formatarValor(registro[campoNome])}</p>`;
+      })
+      .join("");
   }
 
   function renderizarDetalhe(modoEdicao = false) {
@@ -663,15 +689,17 @@ export function criarCadastroCrud(config) {
   function montarItensDetalhe(registro) {
     const camposPrincipais = config.camposPrincipais || [];
 
-    return camposPrincipais.map((campoNome) => {
-      const campo = config.campos.find((item) => item.nome === campoNome);
-      return `
-        <div class="detail-item">
-          <span>${campo?.label || campoNome}</span>
-          <strong>${formatarValor(registro[campoNome])}</strong>
-        </div>
-      `;
-    }).join("");
+    return camposPrincipais
+      .map((campoNome) => {
+        const campo = config.campos.find((item) => item.nome === campoNome);
+        return `
+          <div class="detail-item">
+            <span>${campo?.label || campoNome}</span>
+            <strong>${formatarValor(registro[campoNome])}</strong>
+          </div>
+        `;
+      })
+      .join("");
   }
 
   function montarSecoesDetalhe(registro) {
@@ -679,14 +707,16 @@ export function criarCadastroCrud(config) {
       .filter((campo) => !(config.camposPrincipais || []).includes(campo.nome))
       .filter((campo) => campo.nome !== "nome");
 
-    return camposSecao.map((campo) => {
-      return `
-        <div class="detail-section">
-          <h4>${campo.label}</h4>
-          <p>${formatarValor(registro[campo.nome])}</p>
-        </div>
-      `;
-    }).join("");
+    return camposSecao
+      .map((campo) => {
+        return `
+          <div class="detail-section">
+            <h4>${campo.label}</h4>
+            <p>${formatarValor(registro[campo.nome])}</p>
+          </div>
+        `;
+      })
+      .join("");
   }
 
   function renderizarFormularioEdicao(container) {
