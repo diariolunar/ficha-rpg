@@ -17,7 +17,7 @@
 
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <div class="auth-logo">⚔️</div>
+      <div class="auth-logo">⚔</div>
 
       <h1>Ficha RPG</h1>
       <p>Sistema de campanhas, fichas e área do mestre.</p>
@@ -74,7 +74,7 @@
 
   <aside class="sidebar">
     <div class="logo-area">
-      <div class="logo-icon">⚔️</div>
+      <div class="logo-icon">⚔</div>
       <div>
         <h1>Ficha RPG</h1>
         <p>Sistema de Campanha</p>
@@ -82,43 +82,85 @@
     </div>
 
     <nav>
-      <button class="nav-btn active" data-page="dashboard">🏠 Dashboard</button>
-      <button class="nav-btn" data-page="campanhas">🗺️ Campanhas</button>
-      <button class="nav-btn mestre-nav" data-page="mestre">🧙 Área do Mestre</button>
-      <button class="nav-btn" data-page="personagens">🛡️ Personagens</button>
+      <button class="nav-btn active" data-page="dashboard">
+        <span class="nav-icon">⌂</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-btn" data-page="campanhas">
+        <span class="nav-icon">♜</span>
+        <span>Campanhas</span>
+      </button>
+
+      <button class="nav-btn mestre-nav" data-page="mestre">
+        <span class="nav-icon">♕</span>
+        <span>Área do Mestre</span>
+      </button>
+
+      <button class="nav-btn" data-page="personagens">
+        <span class="nav-icon">♙</span>
+        <span>Personagens</span>
+      </button>
+
+      <button class="nav-btn mestre-nav" data-page="cadastrosRacas">
+        <span class="nav-icon">◈</span>
+        <span>Raças</span>
+      </button>
+
+      <button class="nav-btn mestre-nav" data-page="cadastrosHabilidades">
+        <span class="nav-icon">⚔</span>
+        <span>Itens e Habilidades</span>
+      </button>
 
       <div class="sidebar-dropdown mestre-nav">
         <button class="nav-btn dropdown-toggle" type="button" id="cadastrosDropdownButton">
-          <span>📚 Cadastros Base</span>
-          <span class="dropdown-arrow">▾</span>
+          <span class="nav-icon">▦</span>
+          <span>Cadastros Base</span>
+          <span class="dropdown-arrow">⌄</span>
         </button>
 
         <div class="dropdown-menu" id="cadastrosDropdownMenu">
-          <button class="dropdown-item" data-page="cadastrosRacas">🧬 Raças</button>
-          <button class="dropdown-item" data-page="cadastrosClasses">⚔️ Classes</button>
-          <button class="dropdown-item" data-page="cadastrosSubclasses">🧩 Subclasses</button>
-          <button class="dropdown-item" data-page="cadastrosElementos">🔥 Elementos</button>
-          <button class="dropdown-item" data-page="cadastrosHabilidades">✨ Habilidades</button>
-          <button class="dropdown-item" data-page="cadastrosItens">🎒 Itens</button>
-          <button class="dropdown-item" data-page="cadastrosPets">🐺 Pets</button>
-          <button class="dropdown-item" data-page="cadastrosMonstros">👹 Monstros</button>
-          <button class="dropdown-item" data-page="cadastrosBosses">👑 Bosses</button>
+          <button class="dropdown-item" data-page="cadastrosRacas">Raças</button>
+          <button class="dropdown-item" data-page="cadastrosClasses">Classes</button>
+          <button class="dropdown-item" data-page="cadastrosSubclasses">Subclasses</button>
+          <button class="dropdown-item" data-page="cadastrosElementos">Elementos</button>
+          <button class="dropdown-item" data-page="cadastrosHabilidades">Habilidades</button>
+          <button class="dropdown-item" data-page="cadastrosItens">Itens</button>
+          <button class="dropdown-item" data-page="cadastrosPets">Pets</button>
+          <button class="dropdown-item" data-page="cadastrosMonstros">Monstros</button>
+          <button class="dropdown-item" data-page="cadastrosBosses">Bosses</button>
         </div>
       </div>
 
-      <button class="nav-btn" data-page="ficha">📜 Ficha</button>
-      <button class="nav-btn mestre-nav" data-page="sessao">🕯️ Roteiro da Sessão</button>
+      <button class="nav-btn" data-page="ficha">
+        <span class="nav-icon">▤</span>
+        <span>Ficha</span>
+      </button>
+
+      <button class="nav-btn mestre-nav" data-page="sessao">
+        <span class="nav-icon">♟</span>
+        <span>Roteiro da Sessão</span>
+      </button>
     </nav>
 
     <div class="user-box">
-      <p>Logado como:</p>
+      <p>LOGADO COMO:</p>
       <strong id="usuarioNome">Carregando...</strong>
       <span id="usuarioTipo">---</span>
-      <button id="btnSair" class="logout-btn">Sair</button>
+      <button id="btnSair" class="logout-btn">
+        <span>↪</span>
+        Sair
+      </button>
     </div>
   </aside>
 
-  <main id="appContent" class="main-content">
+  <main class="main-shell">
+    <div class="top-actions">
+      <button type="button" title="Notificações">♢</button>
+      <button type="button" title="Perfil">◎</button>
+    </div>
+
+    <section id="appContent" class="main-content"></section>
   </main>
 
   <script type="module" src="js/app.js"></script>

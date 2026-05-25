@@ -1,157 +1,138 @@
-.card,
-.table-card,
-.form-card,
-.list-card,
-.profile-card,
-.status-card,
-.dice-card,
-.info-card,
-.campaign-card,
-.character-created-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
-}
-
-.card h3,
-.table-card h3,
-.form-card h3,
-.list-card h3,
-.profile-card h3,
-.status-card h3,
-.dice-card h3,
-.info-card h3,
-.campaign-card h3,
-.character-created-card h3 {
-  margin-top: 0;
-}
-
-.card strong {
-  display: block;
-  font-size: 36px;
-  color: #a78bfa;
-  margin: 12px 0;
-}
-
-.card p,
-.info-card li,
-.list-card li,
-.help-text,
-.character-created-card p,
-.campaign-card p {
-  color: #c7c7d4;
-}
-
-.help-text {
-  font-size: 14px;
-  line-height: 1.5;
-}
-
 .primary-btn,
 .secondary-btn,
 .small-btn {
-  border: none;
-  cursor: pointer;
-  border-radius: 12px;
-  padding: 12px 16px;
-  font-weight: bold;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  min-height: 46px;
+  padding: 0 18px;
+  color: #fff;
+  font-weight: 700;
+  transition: 0.2s ease;
 }
 
 .primary-btn {
-  background: var(--purple);
-  color: white;
-  margin-top: 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+  box-shadow: inset 0 0 18px rgba(255,255,255,0.045);
 }
 
 .primary-btn:hover {
-  background: var(--purple-dark);
+  background: linear-gradient(145deg, rgba(255,255,255,0.24), rgba(255,255,255,0.08));
+  transform: translateY(-1px);
 }
 
 .secondary-btn {
-  background: #292d3d;
-  color: #e7e7ef;
-  margin-top: 12px;
+  background: rgba(255,255,255,0.045);
 }
 
 .secondary-btn:hover {
-  background: var(--border-2);
+  background: rgba(255,255,255,0.10);
 }
 
 .small-btn {
-  padding: 8px 10px;
+  min-height: 38px;
+  padding: 0 13px;
   font-size: 13px;
+  background: rgba(255,255,255,0.045);
+}
+
+.small-btn:hover {
+  background: rgba(255,255,255,0.11);
+}
+
+.small-btn.danger,
+.danger {
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(248, 113, 113, 0.25);
+  color: #fecaca;
+}
+
+.small-btn.danger:hover,
+.danger:hover {
+  background: rgba(185, 28, 28, 0.42);
 }
 
 .full-btn {
   width: 100%;
 }
 
-.danger {
-  background: var(--danger);
-  color: white;
+.form-card,
+.list-card,
+.info-card,
+.status-card,
+.dice-card,
+.profile-card,
+.panel-card,
+.stat-card,
+.character-created-card,
+.campaign-card {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
+    rgba(9, 9, 10, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: #d9d9e6;
-  margin-bottom: 14px;
-}
-
-input,
-textarea,
-select {
-  width: 100%;
-  border: 1px solid var(--border-2);
-  background: var(--surface-3);
-  color: white;
-  border-radius: 12px;
-  padding: 12px;
-  outline: none;
-}
-
-textarea {
-  min-height: 110px;
-  resize: vertical;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: var(--purple);
+.form-card h3,
+.list-card h3,
+.info-card h3,
+.status-card h3,
+.dice-card h3,
+.panel-card h3 {
+  margin: 0 0 22px;
+  color: #fff;
+  font-size: 20px;
+  letter-spacing: -0.03em;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
+  gap: 16px 18px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.ficha-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(320px, 1fr) 300px;
+  gap: 22px;
+  margin-bottom: 22px;
 }
 
 .table-wrapper {
+  width: 100%;
   overflow-x: auto;
 }
 
-table {
+.data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 850px;
 }
 
-th,
-td {
+.data-table th,
+.data-table td {
+  padding: 15px 14px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  padding: 14px 10px;
+  color: var(--text-soft);
 }
 
-th {
-  color: #a78bfa;
-  font-size: 14px;
+.data-table th {
+  color: #fff;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-td {
-  color: #e7e7ef;
+.data-table tr:hover td {
+  background: rgba(255,255,255,0.025);
 }

@@ -1,32 +1,109 @@
-<section class="page">
-  <div class="page-header">
-    <h2>Dashboard</h2>
-    <p>Visão geral da aplicação de ficha de personagem.</p>
+<section class="page dashboard-page">
+  <div class="page-header dashboard-header">
+    <div class="header-icon">▦</div>
+
+    <div>
+      <h2>Dashboard</h2>
+      <p>Visão geral da aplicação de ficha de personagem.</p>
+    </div>
   </div>
 
-  <div class="cards-grid">
-    <div class="card">
-      <h3>Campanhas</h3>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-head">
+        <div class="stat-icon">♜</div>
+        <h3>Campanhas</h3>
+      </div>
+
       <strong id="contadorCampanhas">0</strong>
       <p>Campanhas vinculadas à sua conta.</p>
     </div>
 
-    <div class="card">
-      <h3>Personagens</h3>
+    <div class="stat-card">
+      <div class="stat-head">
+        <div class="stat-icon">♙</div>
+        <h3>Personagens</h3>
+      </div>
+
       <strong id="contadorPersonagens">0</strong>
       <p>Fichas criadas por você.</p>
     </div>
 
-    <div class="card">
-      <h3>Raças Cadastradas</h3>
+    <div class="stat-card">
+      <div class="stat-head">
+        <div class="stat-icon">◈</div>
+        <h3>Raças Cadastradas</h3>
+      </div>
+
       <strong id="contadorRacas">0</strong>
       <p>Opções criadas pelo mestre.</p>
     </div>
 
-    <div class="card">
-      <h3>Itens e Habilidades</h3>
-      <strong>0</strong>
+    <div class="stat-card">
+      <div class="stat-head">
+        <div class="stat-icon">⚗</div>
+        <h3>Itens e Habilidades</h3>
+      </div>
+
+      <strong id="contadorRecursos">0</strong>
       <p>Recursos disponíveis para os jogadores.</p>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <div class="panel-card">
+      <h3>⚡ Atalhos Rápidos</h3>
+
+      <div class="shortcut-grid">
+        <button class="shortcut-card" data-page-target="campanhas">
+          <span>＋</span>
+          Nova Campanha
+        </button>
+
+        <button class="shortcut-card" data-page-target="personagens">
+          <span>◎</span>
+          Novo Personagem
+        </button>
+
+        <button class="shortcut-card mestre-nav" data-page-target="cadastrosRacas">
+          <span>◈</span>
+          Raça
+        </button>
+
+        <button class="shortcut-card mestre-nav" data-page-target="cadastrosItens">
+          <span>⚗</span>
+          Item
+        </button>
+
+        <button class="shortcut-card mestre-nav" data-page-target="cadastrosHabilidades">
+          <span>⚔</span>
+          Habilidade
+        </button>
+
+        <button class="shortcut-card" data-page-target="ficha">
+          <span>▤</span>
+          Ficha
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-card account-card">
+      <h3>↗ Resumo da Conta</h3>
+
+      <div class="account-row">
+        <span>Tipo de Conta</span>
+        <strong id="dashboardTipoConta">---</strong>
+      </div>
+
+      <div class="account-row">
+        <span>Membro desde</span>
+        <strong>—</strong>
+      </div>
+
+      <div class="account-row">
+        <span>Último acesso</span>
+        <strong>—</strong>
+      </div>
     </div>
   </div>
 </section>
