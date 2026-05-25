@@ -1,0 +1,152 @@
+.list-card {
+  margin-top: 18px;
+}
+
+.list-card ul,
+.info-card ul {
+  padding-left: 20px;
+}
+
+.campaign-card h3,
+.character-created-card h3 {
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.campaign-card p,
+.character-created-card p {
+  line-height: 1.5;
+}
+
+.campaign-code {
+  display: inline-block;
+  margin-top: 10px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  color: var(--purple-soft);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.base-preview {
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 12px 0 18px;
+}
+
+.base-preview h4 {
+  margin: 0 0 12px;
+  color: var(--purple-soft);
+}
+
+.base-preview p {
+  color: #c7c7d4;
+  line-height: 1.5;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.preview-grid span {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  color: #d9d9e6;
+}
+
+.profile-card {
+  text-align: center;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  background: #292d3d;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 58px;
+}
+
+.tag {
+  display: inline-block;
+  background: #2c2244;
+  color: var(--purple-soft);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.status-line {
+  display: grid;
+  grid-template-columns: 70px 1fr 70px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.bar {
+  height: 12px;
+  background: #2b2f3f;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar div {
+  height: 100%;
+  background: var(--red);
+}
+
+.bar.mana div {
+  background: var(--blue);
+}
+
+.bar.fome div {
+  background: var(--orange);
+}
+
+.bar.fadiga div {
+  background: var(--violet);
+}
+
+.dice-result {
+  margin-top: 18px;
+  background: var(--surface-3);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+}
+
+.dice-result p {
+  margin: 0;
+  color: #aaaabb;
+}
+
+.dice-result strong {
+  font-size: 42px;
+  color: #a78bfa;
+}
+
+.mini-title {
+  color: #aaaabb;
+  margin-bottom: 6px;
+}
+
+.last-rolls {
+  background: var(--surface-3);
+  border-radius: 12px;
+  padding: 12px;
+  color: #e7e7ef;
+}

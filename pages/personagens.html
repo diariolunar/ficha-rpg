@@ -1,0 +1,75 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Personagens</h2>
+    <p>Crie personagens vinculados às campanhas em que você participa.</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Criar Personagem</h3>
+
+    <div class="form-grid">
+      <label>
+        Nome do personagem
+        <input type="text" id="personagemNome" placeholder="Ex: Kael" />
+      </label>
+
+      <label>
+        Campanha
+        <select id="personagemCampanha">
+          <option value="">Carregando campanhas...</option>
+        </select>
+      </label>
+
+      <label>
+        Raça
+        <select id="personagemRaca">
+          <option value="">Carregando raças...</option>
+        </select>
+      </label>
+
+      <label>
+        Classe
+        <input type="text" id="personagemClasse" placeholder="Ex: Espadachim" />
+      </label>
+
+      <label>
+        Subclasse
+        <input type="text" id="personagemSubclasse" placeholder="Ex: Invocador" />
+      </label>
+
+      <label>
+        Elemento
+        <input type="text" id="personagemElemento" placeholder="Ex: Fogo, Água, Trevas..." />
+      </label>
+    </div>
+
+    <div class="base-preview">
+      <h4>Status base da raça selecionada</h4>
+
+      <div class="preview-grid">
+        <span>HP: <b id="previewHp">0</b></span>
+        <span>Mana: <b id="previewMana">0</b></span>
+        <span>Força: <b id="previewForca">0</b></span>
+        <span>Defesa: <b id="previewDefesa">0</b></span>
+        <span>Velocidade: <b id="previewVelocidade">0</b></span>
+      </div>
+
+      <p><b>Vantagens:</b> <span id="previewVantagens">Nenhuma raça selecionada.</span></p>
+      <p><b>Desvantagens:</b> <span id="previewDesvantagens">Nenhuma raça selecionada.</span></p>
+    </div>
+
+    <label>
+      História / descrição do personagem
+      <textarea id="personagemHistoria" placeholder="Escreva a história, aparência ou detalhes importantes..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="btnCriarPersonagem">Criar personagem</button>
+  </div>
+
+  <div class="list-card">
+    <h3>Meus personagens</h3>
+    <div id="listaPersonagens" class="character-list">
+      <p>Carregando personagens...</p>
+    </div>
+  </div>
+</section>

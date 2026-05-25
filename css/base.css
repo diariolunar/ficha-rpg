@@ -1,0 +1,46 @@
+:root {
+  --bg: #0f1117;
+  --surface: #191c27;
+  --surface-2: #171923;
+  --surface-3: #10131d;
+  --border: #2c3040;
+  --border-2: #34384a;
+  --text: #f5f5f5;
+  --muted: #b7b7c5;
+  --muted-2: #a8a8b3;
+  --purple: #7c3aed;
+  --purple-dark: #6d28d9;
+  --purple-soft: #c4b5fd;
+  --danger: #dc2626;
+  --warning: #facc15;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --orange: #f59e0b;
+  --violet: #8b5cf6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+}
+
+.hidden {
+  display: none !important;
+}
+
+body.deslogado .sidebar,
+body.deslogado .main-content {
+  display: none;
+}
+
+body.logado .auth-screen {
+  display: none;
+}

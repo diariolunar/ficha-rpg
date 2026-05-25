@@ -1,0 +1,61 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Cadastros Base do Mestre</h2>
+    <p>Raças, classes, subclasses, habilidades, monstros, pets, itens e elementos.</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Cadastrar Raça</h3>
+
+    <div class="form-grid">
+      <label>
+        Nome da raça
+        <input type="text" id="racaNome" placeholder="Ex: Goblin" />
+      </label>
+
+      <label>
+        HP Base
+        <input type="number" id="racaHp" placeholder="Ex: 60" />
+      </label>
+
+      <label>
+        Mana Base
+        <input type="number" id="racaMana" placeholder="Ex: 20" />
+      </label>
+
+      <label>
+        Força
+        <input type="number" id="racaForca" placeholder="Ex: 5" />
+      </label>
+
+      <label>
+        Defesa
+        <input type="number" id="racaDefesa" placeholder="Ex: 3" />
+      </label>
+
+      <label>
+        Velocidade
+        <input type="number" id="racaVelocidade" placeholder="Ex: 8" />
+      </label>
+    </div>
+
+    <label>
+      Vantagens
+      <textarea id="racaVantagens" placeholder="Ex: Visão noturna, agilidade alta..."></textarea>
+    </label>
+
+    <label>
+      Desvantagens
+      <textarea id="racaDesvantagens" placeholder="Ex: Pouca força física, baixa resistência..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="salvarRaca">Salvar raça</button>
+  </div>
+
+  <div class="list-card">
+    <h3>Raças cadastradas</h3>
+    <ul id="listaRacas">
+      <li>Carregando raças...</li>
+    </ul>
+  </div>
+</section>

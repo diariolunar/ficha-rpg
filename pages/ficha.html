@@ -1,0 +1,85 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Ficha do Personagem</h2>
+    <p>Modelo inicial de ficha com status, recursos e rolagem de dados.</p>
+  </div>
+
+  <div class="ficha-layout">
+    <div class="profile-card">
+      <div class="avatar">🧝</div>
+      <h3 id="fichaNome">Nenhum personagem aberto</h3>
+      <p id="fichaResumo">Abra um personagem para visualizar a ficha.</p>
+      <span class="tag" id="fichaCampanha">Campanha: --</span>
+    </div>
+
+    <div class="status-card">
+      <h3>Status principais</h3>
+
+      <div class="status-line">
+        <span>HP</span>
+        <div class="bar"><div id="barraHp" style="width: 0%"></div></div>
+        <b id="fichaHp">0/0</b>
+      </div>
+
+      <div class="status-line">
+        <span>Mana</span>
+        <div class="bar mana"><div id="barraMana" style="width: 0%"></div></div>
+        <b id="fichaMana">0/0</b>
+      </div>
+
+      <div class="status-line">
+        <span>Fome</span>
+        <div class="bar fome"><div id="barraFome" style="width: 0%"></div></div>
+        <b id="fichaFome">0%</b>
+      </div>
+
+      <div class="status-line">
+        <span>Fadiga</span>
+        <div class="bar fadiga"><div id="barraFadiga" style="width: 0%"></div></div>
+        <b id="fichaFadiga">0%</b>
+      </div>
+    </div>
+
+    <div class="dice-card">
+      <h3>Rolagem de D20</h3>
+
+      <label>
+        Bônus
+        <input type="number" id="bonusDado" value="0" />
+      </label>
+
+      <button class="primary-btn" id="rolarD20">Rolar D20</button>
+
+      <div class="dice-result">
+        <p>Resultado:</p>
+        <strong id="resultadoDado">--</strong>
+      </div>
+
+      <p class="mini-title">Últimos 2 resultados:</p>
+      <div id="ultimosDados" class="last-rolls">Nenhum dado rolado ainda.</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h3>Dados do personagem</h3>
+      <ul id="fichaDadosExtras">
+        <li>Abra um personagem criado para ver os dados aqui.</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3>História</h3>
+      <p id="fichaHistoria">Nenhum personagem aberto ainda.</p>
+    </div>
+
+    <div class="info-card">
+      <h3>Próximas etapas</h3>
+      <ul>
+        <li>Adicionar habilidades reais.</li>
+        <li>Adicionar itens e equipamentos.</li>
+        <li>Controlar mana automaticamente.</li>
+      </ul>
+    </div>
+  </div>
+</section>

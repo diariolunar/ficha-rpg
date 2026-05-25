@@ -1,0 +1,26 @@
+@media (max-width: 900px) {
+  body {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding: 20px;
+  }
+
+  .ficha-layout,
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header h2 {
+    font-size: 26px;
+  }
+}
