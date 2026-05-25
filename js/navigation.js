@@ -13,7 +13,8 @@ const paginas = {
   cadastrosHabilidades: "pages/cadastros/habilidades.html",
   cadastrosItens: "pages/cadastros/itens.html",
   cadastrosPets: "pages/cadastros/pets.html",
-  cadastrosMonstros: "pages/cadastros/monstros.html"
+  cadastrosMonstros: "pages/cadastros/monstros.html",
+  cadastrosBosses: "pages/cadastros/bosses.html"
 };
 
 let paginaAtual = "dashboard";

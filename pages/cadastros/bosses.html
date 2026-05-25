@@ -1,0 +1,86 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Cadastro de Bosses</h2>
+    <p>Crie chefes, inimigos especiais e ameaças principais da campanha.</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Cadastrar Boss</h3>
+
+    <div class="form-grid">
+      <label>
+        Nome do boss
+        <input type="text" id="bossNome" placeholder="Ex: Rei Devorador, Dragão Ancestral..." />
+      </label>
+
+      <label>
+        Tipo
+        <input type="text" id="bossTipo" placeholder="Ex: Demônio, Dragão, Lorde Vampiro..." />
+      </label>
+
+      <label>
+        Fase do boss
+        <input type="text" id="bossFase" placeholder="Ex: Fase única, Fase 1, Forma final..." />
+      </label>
+
+      <label>
+        Nível recomendado
+        <input type="number" id="bossNivel" placeholder="Ex: 10" />
+      </label>
+
+      <label>
+        HP
+        <input type="number" id="bossHp" placeholder="Ex: 500" />
+      </label>
+
+      <label>
+        Mana
+        <input type="number" id="bossMana" placeholder="Ex: 200" />
+      </label>
+
+      <label>
+        Dano
+        <input type="number" id="bossDano" placeholder="Ex: 40" />
+      </label>
+
+      <label>
+        Defesa
+        <input type="number" id="bossDefesa" placeholder="Ex: 25" />
+      </label>
+    </div>
+
+    <label>
+      Descrição narrativa
+      <textarea id="bossDescricao" placeholder="Descreva quem é esse boss, sua presença, ameaça e papel na campanha..."></textarea>
+    </label>
+
+    <label>
+      Habilidades especiais
+      <textarea id="bossHabilidades" placeholder="Liste habilidades especiais, ataques únicos, poderes por turno ou efeitos em área..."></textarea>
+    </label>
+
+    <label>
+      Mecânicas de combate
+      <textarea id="bossMecanicas" placeholder="Ex: muda de fase ao chegar em 50% de HP, invoca criaturas, bloqueia cura, causa medo..."></textarea>
+    </label>
+
+    <label>
+      Fraquezas
+      <textarea id="bossFraquezas" placeholder="Ex: vulnerável a luz, gelo, armas sagradas, ataques furtivos..."></textarea>
+    </label>
+
+    <label>
+      Recompensas
+      <textarea id="bossRecompensas" placeholder="Ex: artefato lendário, runa rara, item especial, avanço de história..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="salvarBoss">Salvar boss</button>
+  </div>
+
+  <div class="list-card">
+    <h3>Bosses cadastrados</h3>
+    <div id="listaBosses" class="campaign-list">
+      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    </div>
+  </div>
+</section>

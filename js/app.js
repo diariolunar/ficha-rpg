@@ -8,6 +8,7 @@ import { initCampanhas, iniciarCampanhas, pararCampanhas } from "./campanhas.js"
 import { initPersonagens, iniciarPersonagens, pararPersonagens } from "./personagens.js";
 import { initFicha } from "./ficha.js";
 import { initDice } from "./dice.js";
+import { initBosses } from "./bosses.js";
 
 function iniciarApp() {
   initNavigation();
@@ -17,6 +18,7 @@ function iniciarApp() {
   initPersonagens();
   initFicha();
   initDice();
+  initBosses();
 
   onPageLoaded(() => {
     aplicarPermissoes();
