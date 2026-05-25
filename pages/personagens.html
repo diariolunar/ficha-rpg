@@ -1,7 +1,7 @@
 <section class="page">
   <div class="page-header">
     <h2>Personagens</h2>
-    <p>Crie personagens vinculados às campanhas usando raças, classes, subclasses, elementos, habilidades, itens e pets cadastrados pelo Mestre.</p>
+    <p>Crie personagens usando raças, classes, subclasses, elementos, habilidades, itens e pets cadastrados pelo Mestre.</p>
   </div>
 
   <div class="form-card">
@@ -21,7 +21,7 @@
       <label>
         Campanha
         <select id="personagemCampanha">
-          <option value="">Carregando campanhas...</option>
+          <option value="">Nenhuma campanha</option>
         </select>
       </label>
 
@@ -61,37 +61,54 @@
       </label>
     </div>
 
-    <div class="base-preview">
-      <h4>Prévia dos Status Iniciais</h4>
-
-      <div class="preview-grid">
-        <span>HP Inicial: <b id="previewHpFinal">0</b></span>
-        <span>Mana Inicial: <b id="previewManaFinal">0</b></span>
-        <span>Força Física: <b id="previewForcaFisica">0</b></span>
-        <span>Força Mágica: <b id="previewForcaMagica">0</b></span>
-        <span>Defesa Física: <b id="previewDefesaFisica">0</b></span>
-        <span>Defesa Mágica: <b id="previewDefesaMagica">0</b></span>
-        <span>Velocidade: <b id="previewVelocidade">0</b></span>
-        <span>Resistência: <b id="previewResistencia">0</b></span>
+    <div class="base-preview character-preview">
+      <div class="preview-title-row">
+        <div>
+          <h4>Prévia do Personagem</h4>
+          <p>Os valores abaixo são calculados a partir da raça, classe e nível inicial.</p>
+        </div>
       </div>
 
-      <p><b>Raça:</b> <span id="previewRacaNome">Nenhuma raça selecionada.</span></p>
-      <p><b>Classe:</b> <span id="previewClasseNome">Nenhuma classe selecionada.</span></p>
-      <p><b>Subclasse:</b> <span id="previewSubclasseNome">Nenhuma subclasse selecionada.</span></p>
-      <p><b>Elemento:</b> <span id="previewElementoNome">Nenhum elemento selecionado.</span></p>
-      <p><b>Pet:</b> <span id="previewPetNome">Nenhum pet selecionado.</span></p>
+      <div class="preview-grid">
+        <span>HP Inicial <b id="previewHpFinal">0</b></span>
+        <span>Mana Inicial <b id="previewManaFinal">0</b></span>
+        <span>Força Física <b id="previewForcaFisica">0</b></span>
+        <span>Força Mágica <b id="previewForcaMagica">0</b></span>
+        <span>Defesa Física <b id="previewDefesaFisica">0</b></span>
+        <span>Defesa Mágica <b id="previewDefesaMagica">0</b></span>
+        <span>Velocidade <b id="previewVelocidade">0</b></span>
+        <span>Resistência <b id="previewResistencia">0</b></span>
+      </div>
 
-      <p><b>Carisma:</b> <span id="previewCarismaBonus">Nenhuma raça selecionada.</span></p>
-      <p><b>Fator Medo:</b> <span id="previewFatorMedoBonus">Nenhuma raça selecionada.</span></p>
-      <p><b>Atributo Principal da Classe:</b> <span id="previewAtributoPrincipal">Nenhuma classe selecionada.</span></p>
-      <p><b>Atributo Secundário da Classe:</b> <span id="previewAtributoSecundario">Nenhuma classe selecionada.</span></p>
-      <p><b>Tipo de Dano:</b> <span id="previewTipoDano">Nenhuma classe selecionada.</span></p>
-      <p><b>Tipo de Defesa:</b> <span id="previewTipoDefesa">Nenhuma classe selecionada.</span></p>
-      <p><b>Habilidade Exclusiva da Raça:</b> <span id="previewHabilidadeRaca">Nenhuma raça selecionada.</span></p>
-      <p><b>Habilidade Exclusiva da Classe:</b> <span id="previewHabilidadeClasse">Nenhuma classe selecionada.</span></p>
-      <p><b>Vantagens da Raça:</b> <span id="previewVantagensRaca">Nenhuma raça selecionada.</span></p>
-      <p><b>Vantagens da Classe:</b> <span id="previewVantagensClasse">Nenhuma classe selecionada.</span></p>
-      <p><b>Restrições de Classe da Raça:</b> <span id="previewRestricoesClasse">Nenhuma raça selecionada.</span></p>
+      <div class="preview-section-grid">
+        <div class="preview-section">
+          <h5>Identidade</h5>
+          <p><strong>Raça:</strong> <span id="previewRacaNome">Nenhuma raça selecionada.</span></p>
+          <p><strong>Classe:</strong> <span id="previewClasseNome">Nenhuma classe selecionada.</span></p>
+          <p><strong>Subclasse:</strong> <span id="previewSubclasseNome">Nenhuma subclasse selecionada.</span></p>
+          <p><strong>Elemento:</strong> <span id="previewElementoNome">Nenhum elemento selecionado.</span></p>
+          <p><strong>Pet:</strong> <span id="previewPetNome">Nenhum pet selecionado.</span></p>
+        </div>
+
+        <div class="preview-section">
+          <h5>Classe</h5>
+          <p><strong>Atributo Principal:</strong> <span id="previewAtributoPrincipal">Não informado</span></p>
+          <p><strong>Atributo Secundário:</strong> <span id="previewAtributoSecundario">Não informado</span></p>
+          <p><strong>Tipo de Dano:</strong> <span id="previewTipoDano">Nenhuma classe selecionada.</span></p>
+          <p><strong>Tipo de Defesa:</strong> <span id="previewTipoDefesa">Nenhuma classe selecionada.</span></p>
+          <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeClasse">Nenhuma classe selecionada.</span></p>
+          <p><strong>Vantagens:</strong> <span id="previewVantagensClasse">Nenhuma classe selecionada.</span></p>
+        </div>
+
+        <div class="preview-section">
+          <h5>Raça</h5>
+          <p><strong>Carisma:</strong> <span id="previewCarismaBonus">Nenhuma raça selecionada.</span></p>
+          <p><strong>Fator Medo:</strong> <span id="previewFatorMedoBonus">Nenhuma raça selecionada.</span></p>
+          <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeRaca">Nenhuma raça selecionada.</span></p>
+          <p><strong>Vantagens:</strong> <span id="previewVantagensRaca">Nenhuma raça selecionada.</span></p>
+          <p><strong>Restrições de Classe:</strong> <span id="previewRestricoesClasse">Não informado</span></p>
+        </div>
+      </div>
     </div>
 
     <div class="multi-select-box">

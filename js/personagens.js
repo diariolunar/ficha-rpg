@@ -193,9 +193,7 @@ function formatarAtributo(valor) {
     defesaFisica: "Defesa Física",
     defesaMagica: "Defesa Mágica",
     velocidade: "Velocidade",
-    resistencia: "Resistência",
-    carisma: "Carisma",
-    fatorMedo: "Fator Medo"
+    resistencia: "Resistência"
   };
 
   return mapa[valor] || "Não informado";
@@ -528,11 +526,6 @@ async function criarPersonagem() {
     return;
   }
 
-  if (!campanhaId) {
-    await mostrarModal("Selecione uma campanha.", "Campo obrigatório");
-    return;
-  }
-
   if (!racaId) {
     await mostrarModal("Selecione uma raça.", "Campo obrigatório");
     return;
@@ -543,15 +536,20 @@ async function criarPersonagem() {
     return;
   }
 
-  const campanha = buscarCampanhaPorId(campanhaId);
+  const campanha = campanhaId ? buscarCampanhaPorId(campanhaId) : null;
   const raca = buscarRacaPorId(racaId);
   const classe = buscarClassePorId(classeId);
   const subclasse = buscarSubclassePorId(subclasseId);
   const elemento = buscarElementoPorId(elementoId);
   const pet = buscarPetPorId(petId);
 
-  if (!campanha || !raca || !classe) {
-    await mostrarModal("Campanha, raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
+  if (!raca || !classe) {
+    await mostrarModal("Raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
+    return;
+  }
+
+  if (campanhaId && !campanha) {
+    await mostrarModal("Campanha não encontrada. Escolha outra campanha ou deixe o campo como Nenhuma campanha.", "Erro", "danger");
     return;
   }
 
@@ -579,9 +577,9 @@ async function criarPersonagem() {
       donoNome: state.dadosUsuarioAtual.nome || state.usuarioAtual.email,
       donoEmail: state.usuarioAtual.email,
 
-      campanhaId,
-      campanhaNome: campanha.nome,
-      mestreId: campanha.mestreId,
+      campanhaId: campanha?.id || "",
+      campanhaNome: campanha?.nome || "Sem campanha",
+      mestreId: campanha?.mestreId || "",
 
       raca: objetoCompleto(raca),
       classe: objetoCompleto(classe),
@@ -704,7 +702,7 @@ export function renderizarPersonagens() {
     card.innerHTML = `
       <h3>${personagem.nome}</h3>
       <p><b>Jogador:</b> ${personagem.donoNome || "Não informado"}</p>
-      <p><b>Campanha:</b> ${personagem.campanhaNome || "Não informada"}</p>
+      <p><b>Campanha:</b> ${personagem.campanhaNome || "Sem campanha"}</p>
       <p><b>Raça:</b> ${personagem.raca?.nome || personagem.racaNome || "Não informada"}</p>
       <p><b>Classe:</b> ${personagem.classe?.nome || personagem.classeNome || personagem.classe || "Não informada"}</p>
       <p><b>Subclasse:</b> ${personagem.subclasse?.nome || personagem.subclasseNome || personagem.subclasse || "Não informada"}</p>

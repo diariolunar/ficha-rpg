@@ -8,6 +8,8 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
+  getDocs,
   serverTimestamp
 } from "./firebase.js";
 
@@ -574,6 +576,69 @@ async function removerInimigo(instanciaId) {
   }, { merge: true });
 }
 
+async function deletarColecao(nomeColecao) {
+  const snapshot = await getDocs(collection(db, nomeColecao));
+
+  const exclusoes = snapshot.docs.map((documento) => {
+    return deleteDoc(doc(db, nomeColecao, documento.id));
+  });
+
+  await Promise.all(exclusoes);
+}
+
+async function limparTodosDados() {
+  if (!state.usuarioAtual || state.dadosUsuarioAtual?.tipo !== "mestre") {
+    await mostrarModal("Apenas o Mestre pode limpar os dados do sistema.", "Permissão negada", "danger");
+    return;
+  }
+
+  const primeiraConfirmacao = await confirmarModal({
+    titulo: "Limpar todos os dados",
+    mensagem: "Esta ação apagará campanhas, personagens dos jogadores, raças, classes, subclasses, elementos, habilidades, itens, pets, monstros, bosses e sessões. Deseja continuar?",
+    confirmarTexto: "Continuar",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!primeiraConfirmacao) return;
+
+  const segundaConfirmacao = await confirmarModal({
+    titulo: "Confirmação final",
+    mensagem: "Essa ação não pode ser desfeita. Confirma que deseja apagar TODOS os dados de jogo do sistema?",
+    confirmarTexto: "Apagar tudo",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!segundaConfirmacao) return;
+
+  try {
+    const colecoes = [
+      "personagens",
+      "campanhas",
+      "sessoes",
+      "racas",
+      "classes",
+      "subclasses",
+      "elementos",
+      "habilidades",
+      "itens",
+      "pets",
+      "monstros",
+      "bosses"
+    ];
+
+    for (const nomeColecao of colecoes) {
+      await deletarColecao(nomeColecao);
+    }
+
+    await mostrarModal("Todos os dados de jogo foram apagados com sucesso.", "Limpeza concluída", "success");
+  } catch (erro) {
+    console.error("Erro ao limpar dados:", erro);
+    await mostrarModal("Erro ao limpar os dados do sistema. Verifique as permissões do Firestore.", "Erro", "danger");
+  }
+}
+
 export function initMestre() {
   onPageLoaded((pagina) => {
     if (pagina !== "mestre") return;
@@ -596,5 +661,6 @@ export function initMestre() {
     document.getElementById("btnAplicarFomeFadiga")?.addEventListener("click", () => aplicarFomeFadiga(true));
     document.getElementById("btnAdicionarMonstroSessao")?.addEventListener("click", () => adicionarInimigo("monstro"));
     document.getElementById("btnAdicionarBossSessao")?.addEventListener("click", () => adicionarInimigo("boss"));
+    document.getElementById("btnLimparTodosDados")?.addEventListener("click", limparTodosDados);
   });
 }
