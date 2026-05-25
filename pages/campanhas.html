@@ -1,48 +1,43 @@
 <section class="page">
   <div class="page-header">
     <h2>Campanhas</h2>
-    <p>Crie campanhas como Mestre ou entre em campanhas usando um código.</p>
+    <p>Crie campanhas como Mestre ou entre em uma campanha usando o código enviado.</p>
   </div>
 
-  <div class="split-layout">
-    <div class="form-card mestre-only">
-      <h3>Criar Campanha</h3>
+  <div class="form-card mestre-nav">
+    <h3>Criar Campanha</h3>
 
-      <label>
-        Nome da campanha
-        <input type="text" id="campanhaNome" placeholder="Ex: A Queda do Sol Negro" />
-      </label>
+    <label>
+      Nome da campanha
+      <input type="text" id="campanhaNome" placeholder="Ex: A Queda de Raventhal" />
+    </label>
 
-      <label>
-        Descrição
-        <textarea id="campanhaDescricao" placeholder="Descreva a proposta da campanha..."></textarea>
-      </label>
+    <label>
+      Descrição da campanha
+      <textarea id="campanhaDescricao" placeholder="Descreva a proposta da campanha..."></textarea>
+    </label>
 
-      <button class="primary-btn" id="btnCriarCampanha">Criar campanha</button>
+    <button class="primary-btn" id="btnCriarCampanha">Criar campanha</button>
 
-      <p class="help-text">
-        O sistema criará um código automaticamente. Envie esse código aos jogadores.
-      </p>
-    </div>
+    <p class="form-hint">O sistema criará um código automaticamente. Envie esse código aos jogadores.</p>
+  </div>
 
-    <div class="form-card jogador-area">
-      <h3>Entrar em Campanha</h3>
+  <div class="form-card jogador-nav">
+    <h3>Entrar em Campanha</h3>
 
-      <label>
-        Código da campanha
-        <input type="text" id="codigoCampanhaEntrada" placeholder="Ex: RPG-A1B2C3" />
-      </label>
+    <label>
+      Código da campanha
+      <input type="text" id="codigoEntrarCampanha" placeholder="Ex: RPG-A1B2C3" />
+    </label>
 
-      <button class="primary-btn" id="btnEntrarCampanha">Entrar na campanha</button>
+    <button class="primary-btn" id="btnEntrarCampanha">Entrar na campanha</button>
 
-      <p class="help-text">
-        O jogador precisa receber o código do Mestre para entrar na campanha.
-      </p>
-    </div>
+    <p class="form-hint">O jogador precisa receber o código do Mestre para entrar na campanha.</p>
   </div>
 
   <div class="list-card">
-    <h3>Minhas campanhas</h3>
+    <h3>Minhas Campanhas</h3>
+
     <div id="listaCampanhas" class="campaign-list">
       <p>Carregando campanhas...</p>
     </div>

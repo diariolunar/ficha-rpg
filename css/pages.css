@@ -114,6 +114,28 @@
   text-transform: uppercase;
 }
 
+.page > .form-card,
+.page > .list-card,
+.page > .info-card,
+.page > .base-preview {
+  margin-bottom: 26px;
+}
+
+.page > .form-card + .form-card,
+.page > .form-card + .list-card,
+.page > .list-card + .form-card,
+.page > .info-grid + .list-card,
+.page > .list-card + .list-card {
+  margin-top: 26px;
+}
+
+.form-hint {
+  margin: 18px 0 0;
+  color: var(--text-soft);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
 .list-card {
   margin-top: 24px;
 }
@@ -149,6 +171,13 @@
 .character-created-card h3 {
   color: #fff;
   margin-bottom: 8px;
+}
+
+.campaign-card h4,
+.character-created-card h4 {
+  color: #fff;
+  margin: 0;
+  font-size: 20px;
 }
 
 .campaign-card p,
