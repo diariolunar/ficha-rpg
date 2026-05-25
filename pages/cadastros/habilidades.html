@@ -1,59 +1,15 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Habilidades</h2>
-    <p>Crie habilidades por área, turno, buff, debuff, dano, cura ou regra personalizada.</p>
+    <p>Crie habilidades com custo, alcance, dano, condição de uso, penalidade e evolução.</p>
   </div>
 
-  <div class="form-card">
-    <h3>Cadastrar Habilidade</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome da habilidade
-        <input type="text" id="habilidadeNome" placeholder="Ex: Crítico, Invisibilidade..." />
-      </label>
-
-      <label>
-        Tipo
-        <select id="habilidadeTipo">
-          <option value="area">Área</option>
-          <option value="turno">Turno</option>
-          <option value="buff">Buff</option>
-          <option value="debuff">Debuff</option>
-          <option value="dano">Dano</option>
-          <option value="cura">Cura</option>
-          <option value="personalizada">Personalizada</option>
-        </select>
-      </label>
-
-      <label>
-        Custo de mana
-        <input type="number" id="habilidadeMana" placeholder="Ex: 10" />
-      </label>
-
-      <label>
-        Duração em turnos
-        <input type="number" id="habilidadeDuracao" placeholder="Ex: 2" />
-      </label>
-    </div>
-
-    <label>
-      Descrição
-      <textarea id="habilidadeDescricao" placeholder="Explique o efeito da habilidade..."></textarea>
-    </label>
-
-    <label>
-      Condição de ativação
-      <textarea id="habilidadeCondicao" placeholder="Ex: Se tirar 15 ou mais no D20, aplica crítico..."></textarea>
-    </label>
-
-    <button class="primary-btn" id="salvarHabilidade">Salvar habilidade</button>
-  </div>
+  <div id="formHabilidades"></div>
 
   <div class="list-card">
     <h3>Habilidades cadastradas</h3>
-    <div id="listaHabilidades" class="campaign-list">
-      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    <div id="listaHabilidades" class="resource-list">
+      <p>Carregando habilidades...</p>
     </div>
   </div>
 </section>

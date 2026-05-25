@@ -8,10 +8,19 @@ const paginas = {
 
   cadastrosRacas: "pages/cadastros/racas.html",
   cadastrosRacaDetalhe: "pages/cadastros/raca-detalhe.html",
+
   cadastrosClasses: "pages/cadastros/classes.html",
+  cadastrosClasseDetalhe: "pages/cadastros/classe-detalhe.html",
+
   cadastrosSubclasses: "pages/cadastros/subclasses.html",
+  cadastrosSubclasseDetalhe: "pages/cadastros/subclasse-detalhe.html",
+
   cadastrosElementos: "pages/cadastros/elementos.html",
+  cadastrosElementoDetalhe: "pages/cadastros/elemento-detalhe.html",
+
   cadastrosHabilidades: "pages/cadastros/habilidades.html",
+  cadastrosHabilidadeDetalhe: "pages/cadastros/habilidade-detalhe.html",
+
   cadastrosItens: "pages/cadastros/itens.html",
   cadastrosPets: "pages/cadastros/pets.html",
   cadastrosMonstros: "pages/cadastros/monstros.html",

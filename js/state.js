@@ -3,9 +3,11 @@ export const state = {
   dadosUsuarioAtual: null,
   minhasCampanhas: [],
   racasDisponiveis: [],
+  classesDisponiveis: [],
   personagens: [],
   personagemAberto: null,
-  racaSelecionada: null
+  racaSelecionada: null,
+  classeSelecionada: null
 };
 
 export function setUsuario(usuario, dados) {
@@ -18,9 +20,11 @@ export function limparUsuario() {
   state.dadosUsuarioAtual = null;
   state.minhasCampanhas = [];
   state.racasDisponiveis = [];
+  state.classesDisponiveis = [];
   state.personagens = [];
   state.personagemAberto = null;
   state.racaSelecionada = null;
+  state.classeSelecionada = null;
 }
 
 export function setCampanhas(campanhas) {
@@ -29,6 +33,10 @@ export function setCampanhas(campanhas) {
 
 export function setRacas(racas) {
   state.racasDisponiveis = racas;
+}
+
+export function setClasses(classes) {
+  state.classesDisponiveis = classes;
 }
 
 export function setPersonagens(personagens) {
@@ -41,4 +49,8 @@ export function setPersonagemAberto(personagem) {
 
 export function setRacaSelecionada(raca) {
   state.racaSelecionada = raca;
+}
+
+export function setClasseSelecionada(classe) {
+  state.classeSelecionada = classe;
 }
