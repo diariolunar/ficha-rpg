@@ -78,6 +78,7 @@
 
     <nav>
       <button class="nav-btn active" data-page="dashboard">🏠 Dashboard</button>
+      <button class="nav-btn" data-page="campanhas">🗺️ Campanhas</button>
       <button class="nav-btn" data-page="mestre">🧙 Área do Mestre</button>
       <button class="nav-btn" data-page="jogador">🛡️ Área do Jogador</button>
       <button class="nav-btn" data-page="cadastros">📚 Cadastros Base</button>
@@ -103,27 +104,78 @@
 
       <div class="cards-grid">
         <div class="card">
-          <h3>Campanhas Ativas</h3>
-          <strong>3</strong>
-          <p>Campanhas criadas pelo mestre.</p>
+          <h3>Campanhas</h3>
+          <strong id="contadorCampanhas">0</strong>
+          <p>Campanhas vinculadas à sua conta.</p>
         </div>
 
         <div class="card">
           <h3>Personagens</h3>
-          <strong>12</strong>
+          <strong>0</strong>
           <p>Fichas vinculadas às campanhas.</p>
         </div>
 
         <div class="card">
           <h3>Raças Cadastradas</h3>
-          <strong>8</strong>
+          <strong id="contadorRacas">0</strong>
           <p>Opções criadas pelo mestre.</p>
         </div>
 
         <div class="card">
           <h3>Itens e Habilidades</h3>
-          <strong>26</strong>
+          <strong>0</strong>
           <p>Recursos disponíveis para os jogadores.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="campanhas" class="page">
+      <div class="page-header">
+        <h2>Campanhas</h2>
+        <p>Crie campanhas como Mestre ou entre em campanhas usando um código.</p>
+      </div>
+
+      <div class="split-layout">
+        <div class="form-card mestre-only">
+          <h3>Criar Campanha</h3>
+
+          <label>
+            Nome da campanha
+            <input type="text" id="campanhaNome" placeholder="Ex: A Queda do Sol Negro" />
+          </label>
+
+          <label>
+            Descrição
+            <textarea id="campanhaDescricao" placeholder="Descreva a proposta da campanha..."></textarea>
+          </label>
+
+          <button class="primary-btn" id="btnCriarCampanha">Criar campanha</button>
+
+          <p class="help-text">
+            O sistema criará um código automaticamente. Envie esse código aos jogadores para que eles entrem na campanha.
+          </p>
+        </div>
+
+        <div class="form-card jogador-area">
+          <h3>Entrar em Campanha</h3>
+
+          <label>
+            Código da campanha
+            <input type="text" id="codigoCampanhaEntrada" placeholder="Ex: RPG-A1B2C3" />
+          </label>
+
+          <button class="primary-btn" id="btnEntrarCampanha">Entrar na campanha</button>
+
+          <p class="help-text">
+            O jogador precisa receber o código do Mestre para entrar na campanha.
+          </p>
+        </div>
+      </div>
+
+      <div class="list-card">
+        <h3>Minhas campanhas</h3>
+        <div id="listaCampanhas" class="campaign-list">
+          <p>Carregando campanhas...</p>
         </div>
       </div>
     </section>
@@ -196,19 +248,9 @@
 
       <div class="cards-grid">
         <div class="card character-card">
-          <h3>Kael</h3>
-          <p><b>Raça:</b> Humano</p>
-          <p><b>Classe:</b> Espadachim</p>
-          <p><b>Campanha:</b> A Queda do Sol Negro</p>
-          <button class="primary-btn" data-page-target="ficha">Abrir ficha</button>
-        </div>
-
-        <div class="card character-card">
-          <h3>Lyria</h3>
-          <p><b>Raça:</b> Elfa</p>
-          <p><b>Classe:</b> Maga</p>
-          <p><b>Campanha:</b> A Queda do Sol Negro</p>
-          <button class="primary-btn" data-page-target="ficha">Abrir ficha</button>
+          <h3>Nenhum personagem criado</h3>
+          <p>Depois criaremos o sistema de personagens vinculado às campanhas.</p>
+          <button class="primary-btn" data-page-target="ficha">Ver modelo de ficha</button>
         </div>
       </div>
     </section>

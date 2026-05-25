@@ -109,6 +109,13 @@ nav {
   gap: 18px;
 }
 
+.split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
 .card,
 .table-card,
 .form-card,
@@ -116,7 +123,8 @@ nav {
 .profile-card,
 .status-card,
 .dice-card,
-.info-card {
+.info-card,
+.campaign-card {
   background: #191c27;
   border: 1px solid #2c3040;
   border-radius: 18px;
@@ -131,7 +139,8 @@ nav {
 .profile-card h3,
 .status-card h3,
 .dice-card h3,
-.info-card h3 {
+.info-card h3,
+.campaign-card h3 {
   margin-top: 0;
 }
 
@@ -144,8 +153,14 @@ nav {
 
 .card p,
 .info-card li,
-.list-card li {
+.list-card li,
+.help-text {
   color: #c7c7d4;
+}
+
+.help-text {
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .primary-btn,
@@ -247,6 +262,34 @@ select:focus {
 .list-card ul,
 .info-card ul {
   padding-left: 20px;
+}
+
+.campaign-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.campaign-card h3 {
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.campaign-card p {
+  color: #c7c7d4;
+  line-height: 1.5;
+}
+
+.campaign-code {
+  display: inline-block;
+  margin-top: 10px;
+  background: #10131d;
+  border: 1px solid #34384a;
+  color: #c4b5fd;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
 }
 
 .ficha-layout {
@@ -502,7 +545,8 @@ body.logado .auth-screen {
     padding: 20px;
   }
 
-  .ficha-layout {
+  .ficha-layout,
+  .split-layout {
     grid-template-columns: 1fr;
   }
 

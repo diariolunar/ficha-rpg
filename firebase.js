@@ -8,6 +8,8 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  getDocs,
   doc,
   setDoc,
   getDoc
@@ -44,6 +46,8 @@ export {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  getDocs,
   doc,
   setDoc,
   getDoc,

@@ -7,6 +7,8 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  getDocs,
   doc,
   setDoc,
   getDoc,
@@ -21,6 +23,8 @@ document.body.classList.add("deslogado");
 let usuarioAtual = null;
 let dadosUsuarioAtual = null;
 let inscricaoRacas = null;
+let inscricaoCampanhasMestre = null;
+let inscricaoParticipacoesJogador = null;
 
 const tabLogin = document.getElementById("tabLogin");
 const tabCadastro = document.getElementById("tabCadastro");
@@ -34,6 +38,9 @@ const btnSair = document.getElementById("btnSair");
 
 const usuarioNome = document.getElementById("usuarioNome");
 const usuarioTipo = document.getElementById("usuarioTipo");
+
+const contadorCampanhas = document.getElementById("contadorCampanhas");
+const contadorRacas = document.getElementById("contadorRacas");
 
 function mostrarMensagemAuth(mensagem) {
   if (authMensagem) {
@@ -170,20 +177,35 @@ onAuthStateChanged(auth, async (usuario) => {
 
     controlarPermissoesPorTipo();
     carregarRacasDoFirebase();
+    carregarCampanhas();
     abrirPagina("dashboard");
   } else {
     usuarioAtual = null;
     dadosUsuarioAtual = null;
 
-    if (inscricaoRacas) {
-      inscricaoRacas();
-      inscricaoRacas = null;
-    }
+    cancelarInscricoesFirebase();
 
     document.body.classList.remove("logado");
     document.body.classList.add("deslogado");
   }
 });
+
+function cancelarInscricoesFirebase() {
+  if (inscricaoRacas) {
+    inscricaoRacas();
+    inscricaoRacas = null;
+  }
+
+  if (inscricaoCampanhasMestre) {
+    inscricaoCampanhasMestre();
+    inscricaoCampanhasMestre = null;
+  }
+
+  if (inscricaoParticipacoesJogador) {
+    inscricaoParticipacoesJogador();
+    inscricaoParticipacoesJogador = null;
+  }
+}
 
 function controlarPermissoesPorTipo() {
   const tipo = dadosUsuarioAtual?.tipo;
@@ -191,15 +213,18 @@ function controlarPermissoesPorTipo() {
   const botaoCadastros = document.querySelector('[data-page="cadastros"]');
   const botaoMestre = document.querySelector('[data-page="mestre"]');
   const botaoSessao = document.querySelector('[data-page="sessao"]');
+  const areaCriarCampanha = document.querySelector(".mestre-only");
 
   if (tipo === "mestre") {
     if (botaoCadastros) botaoCadastros.style.display = "block";
     if (botaoMestre) botaoMestre.style.display = "block";
     if (botaoSessao) botaoSessao.style.display = "block";
+    if (areaCriarCampanha) areaCriarCampanha.style.display = "block";
   } else {
     if (botaoCadastros) botaoCadastros.style.display = "none";
     if (botaoMestre) botaoMestre.style.display = "none";
     if (botaoSessao) botaoSessao.style.display = "none";
+    if (areaCriarCampanha) areaCriarCampanha.style.display = "none";
   }
 }
 
@@ -241,6 +266,235 @@ pageTargetButtons.forEach((button) => {
     abrirPagina(pageId);
   });
 });
+
+function gerarCodigoCampanha() {
+  const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const numeros = "0123456789";
+  let codigo = "RPG-";
+
+  for (let i = 0; i < 3; i++) {
+    codigo += letras[Math.floor(Math.random() * letras.length)];
+  }
+
+  for (let i = 0; i < 3; i++) {
+    codigo += numeros[Math.floor(Math.random() * numeros.length)];
+  }
+
+  return codigo;
+}
+
+const btnCriarCampanha = document.getElementById("btnCriarCampanha");
+const btnEntrarCampanha = document.getElementById("btnEntrarCampanha");
+const listaCampanhas = document.getElementById("listaCampanhas");
+
+async function criarCampanha() {
+  if (!usuarioAtual) {
+    alert("Você precisa estar logado.");
+    return;
+  }
+
+  if (dadosUsuarioAtual?.tipo !== "mestre") {
+    alert("Apenas o Mestre pode criar campanhas.");
+    return;
+  }
+
+  const nome = document.getElementById("campanhaNome").value.trim();
+  const descricao = document.getElementById("campanhaDescricao").value.trim();
+
+  if (!nome) {
+    alert("Digite o nome da campanha.");
+    return;
+  }
+
+  const codigoEntrada = gerarCodigoCampanha();
+
+  try {
+    const campanhaRef = await addDoc(collection(db, "campanhas"), {
+      nome,
+      descricao,
+      codigoEntrada,
+      mestreId: usuarioAtual.uid,
+      mestreNome: dadosUsuarioAtual.nome || usuarioAtual.email,
+      criadoEm: serverTimestamp()
+    });
+
+    await setDoc(doc(db, "participantesCampanha", `${campanhaRef.id}_${usuarioAtual.uid}`), {
+      campanhaId: campanhaRef.id,
+      usuarioId: usuarioAtual.uid,
+      usuarioNome: dadosUsuarioAtual.nome || usuarioAtual.email,
+      usuarioEmail: usuarioAtual.email,
+      tipo: "mestre",
+      entrouEm: serverTimestamp()
+    });
+
+    document.getElementById("campanhaNome").value = "";
+    document.getElementById("campanhaDescricao").value = "";
+
+    alert(`Campanha criada com sucesso. Código: ${codigoEntrada}`);
+  } catch (erro) {
+    console.error("Erro ao criar campanha:", erro);
+    alert("Erro ao criar campanha.");
+  }
+}
+
+async function entrarEmCampanha() {
+  if (!usuarioAtual) {
+    alert("Você precisa estar logado.");
+    return;
+  }
+
+  const codigo = document.getElementById("codigoCampanhaEntrada").value.trim().toUpperCase();
+
+  if (!codigo) {
+    alert("Digite o código da campanha.");
+    return;
+  }
+
+  try {
+    const campanhasRef = collection(db, "campanhas");
+    const consulta = query(campanhasRef, where("codigoEntrada", "==", codigo));
+    const resultado = await getDocs(consulta);
+
+    if (resultado.empty) {
+      alert("Nenhuma campanha encontrada com esse código.");
+      return;
+    }
+
+    const campanhaDoc = resultado.docs[0];
+    const campanha = campanhaDoc.data();
+
+    await setDoc(doc(db, "participantesCampanha", `${campanhaDoc.id}_${usuarioAtual.uid}`), {
+      campanhaId: campanhaDoc.id,
+      usuarioId: usuarioAtual.uid,
+      usuarioNome: dadosUsuarioAtual.nome || usuarioAtual.email,
+      usuarioEmail: usuarioAtual.email,
+      tipo: dadosUsuarioAtual.tipo || "jogador",
+      mestreId: campanha.mestreId,
+      entrouEm: serverTimestamp()
+    });
+
+    document.getElementById("codigoCampanhaEntrada").value = "";
+
+    alert(`Você entrou na campanha: ${campanha.nome}`);
+  } catch (erro) {
+    console.error("Erro ao entrar na campanha:", erro);
+    alert("Erro ao entrar na campanha.");
+  }
+}
+
+function carregarCampanhas() {
+  if (!listaCampanhas || !usuarioAtual || !dadosUsuarioAtual) return;
+
+  if (inscricaoCampanhasMestre) {
+    inscricaoCampanhasMestre();
+    inscricaoCampanhasMestre = null;
+  }
+
+  if (inscricaoParticipacoesJogador) {
+    inscricaoParticipacoesJogador();
+    inscricaoParticipacoesJogador = null;
+  }
+
+  listaCampanhas.innerHTML = "<p>Carregando campanhas...</p>";
+
+  if (dadosUsuarioAtual.tipo === "mestre") {
+    carregarCampanhasDoMestre();
+  } else {
+    carregarCampanhasDoJogador();
+  }
+}
+
+function carregarCampanhasDoMestre() {
+  const campanhasRef = collection(db, "campanhas");
+  const consulta = query(campanhasRef, where("mestreId", "==", usuarioAtual.uid));
+
+  inscricaoCampanhasMestre = onSnapshot(consulta, (snapshot) => {
+    listaCampanhas.innerHTML = "";
+
+    if (contadorCampanhas) {
+      contadorCampanhas.textContent = snapshot.size;
+    }
+
+    if (snapshot.empty) {
+      listaCampanhas.innerHTML = "<p>Nenhuma campanha criada ainda.</p>";
+      return;
+    }
+
+    snapshot.forEach((documento) => {
+      const campanha = documento.data();
+      const card = criarCardCampanha(campanha, "mestre");
+      listaCampanhas.appendChild(card);
+    });
+  }, (erro) => {
+    console.error("Erro ao carregar campanhas do mestre:", erro);
+    listaCampanhas.innerHTML = "<p>Erro ao carregar campanhas.</p>";
+  });
+}
+
+function carregarCampanhasDoJogador() {
+  const participantesRef = collection(db, "participantesCampanha");
+  const consulta = query(participantesRef, where("usuarioId", "==", usuarioAtual.uid));
+
+  inscricaoParticipacoesJogador = onSnapshot(consulta, async (snapshot) => {
+    listaCampanhas.innerHTML = "";
+
+    if (contadorCampanhas) {
+      contadorCampanhas.textContent = snapshot.size;
+    }
+
+    if (snapshot.empty) {
+      listaCampanhas.innerHTML = "<p>Você ainda não entrou em nenhuma campanha.</p>";
+      return;
+    }
+
+    for (const participacaoDoc of snapshot.docs) {
+      const participacao = participacaoDoc.data();
+      const campanhaRef = doc(db, "campanhas", participacao.campanhaId);
+      const campanhaSnap = await getDoc(campanhaRef);
+
+      if (campanhaSnap.exists()) {
+        const campanha = campanhaSnap.data();
+        const card = criarCardCampanha(campanha, "jogador");
+        listaCampanhas.appendChild(card);
+      }
+    }
+  }, (erro) => {
+    console.error("Erro ao carregar campanhas do jogador:", erro);
+    listaCampanhas.innerHTML = "<p>Erro ao carregar campanhas.</p>";
+  });
+}
+
+function criarCardCampanha(campanha, tipoVisualizacao) {
+  const card = document.createElement("div");
+  card.classList.add("campaign-card");
+
+  const descricao = campanha.descricao || "Sem descrição.";
+
+  if (tipoVisualizacao === "mestre") {
+    card.innerHTML = `
+      <h3>${campanha.nome}</h3>
+      <p>${descricao}</p>
+      <p><b>Mestre:</b> ${campanha.mestreNome || "Não informado"}</p>
+      <span class="campaign-code">${campanha.codigoEntrada}</span>
+    `;
+  } else {
+    card.innerHTML = `
+      <h3>${campanha.nome}</h3>
+      <p>${descricao}</p>
+      <p><b>Mestre:</b> ${campanha.mestreNome || "Não informado"}</p>
+    `;
+  }
+
+  return card;
+}
+
+if (btnCriarCampanha) {
+  btnCriarCampanha.addEventListener("click", criarCampanha);
+}
+
+if (btnEntrarCampanha) {
+  btnEntrarCampanha.addEventListener("click", entrarEmCampanha);
+}
 
 const botaoSalvarRaca = document.getElementById("salvarRaca");
 const listaRacas = document.getElementById("listaRacas");
@@ -313,6 +567,10 @@ function carregarRacasDoFirebase() {
 
   inscricaoRacas = onSnapshot(racasQuery, (snapshot) => {
     listaRacas.innerHTML = "";
+
+    if (contadorRacas) {
+      contadorRacas.textContent = snapshot.size;
+    }
 
     if (snapshot.empty) {
       listaRacas.innerHTML = `
