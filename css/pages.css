@@ -63,6 +63,47 @@
   color: #d9d9e6;
 }
 
+.multi-select-box {
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 14px 0;
+}
+
+.selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #2c2244;
+  color: var(--purple-soft);
+  border: 1px solid #4c3578;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.selected-chip button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0;
+}
+
+.empty-selection {
+  color: var(--muted-2);
+  font-size: 14px;
+}
+
 .profile-card {
   text-align: center;
 }

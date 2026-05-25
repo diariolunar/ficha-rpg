@@ -114,18 +114,19 @@ async function criarPersonagem() {
       defesaMagica: raca.defesaMagica ?? 0,
       velocidade: raca.velocidade ?? 0,
       resistencia: raca.resistencia ?? 0,
-      carisma: raca.carisma ?? 0,
-      fatorMedo: raca.fatorMedo ?? 0,
+
+      carismaBonus: raca.carismaBonus || "",
+      fatorMedoBonus: raca.fatorMedoBonus || "",
 
       fome: 0,
       fadiga: 0,
 
       vantagens: raca.vantagens || "",
       desvantagens: raca.desvantagens || "",
-      classesSugeridas: raca.classesSugeridas || "",
-      elementosAfins: raca.elementosAfins || "",
-      habilidadeExclusiva: raca.habilidadeExclusiva || "",
-      restricaoClasse: raca.restricaoClasse || "",
+      classesSugeridas: raca.classesSugeridas || [],
+      elementosAfins: raca.elementosAfins || [],
+      habilidadeExclusiva: raca.habilidadeExclusiva || null,
+      restricoesClasse: raca.restricoesClasse || [],
 
       criadoEm: serverTimestamp()
     });

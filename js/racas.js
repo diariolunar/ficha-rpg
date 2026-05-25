@@ -12,6 +12,17 @@ import { state, setRacas } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
 
 let unsubscribeRacas = null;
+let unsubscribeClasses = null;
+let unsubscribeElementos = null;
+let unsubscribeHabilidades = null;
+
+let classesDisponiveis = [];
+let elementosDisponiveis = [];
+let habilidadesDisponiveis = [];
+
+let classesSugeridasSelecionadas = [];
+let elementosAfinsSelecionados = [];
+let restricoesClasseSelecionadas = [];
 
 export function iniciarRacas() {
   pararRacas();
@@ -36,6 +47,8 @@ export function iniciarRacas() {
   }, (erro) => {
     console.error("Erro ao carregar raças:", erro);
   });
+
+  carregarOpcoesRelacionadas();
 }
 
 export function pararRacas() {
@@ -43,6 +56,66 @@ export function pararRacas() {
     unsubscribeRacas();
     unsubscribeRacas = null;
   }
+
+  if (unsubscribeClasses) {
+    unsubscribeClasses();
+    unsubscribeClasses = null;
+  }
+
+  if (unsubscribeElementos) {
+    unsubscribeElementos();
+    unsubscribeElementos = null;
+  }
+
+  if (unsubscribeHabilidades) {
+    unsubscribeHabilidades();
+    unsubscribeHabilidades = null;
+  }
+}
+
+function carregarOpcoesRelacionadas() {
+  const classesQuery = query(collection(db, "classes"), orderBy("nome", "asc"));
+  const elementosQuery = query(collection(db, "elementos"), orderBy("nome", "asc"));
+  const habilidadesQuery = query(collection(db, "habilidades"), orderBy("nome", "asc"));
+
+  unsubscribeClasses = onSnapshot(classesQuery, (snapshot) => {
+    classesDisponiveis = [];
+
+    snapshot.forEach((documento) => {
+      classesDisponiveis.push({
+        id: documento.id,
+        ...documento.data()
+      });
+    });
+
+    preencherSelectClassesRaca();
+  });
+
+  unsubscribeElementos = onSnapshot(elementosQuery, (snapshot) => {
+    elementosDisponiveis = [];
+
+    snapshot.forEach((documento) => {
+      elementosDisponiveis.push({
+        id: documento.id,
+        ...documento.data()
+      });
+    });
+
+    preencherSelectElementosRaca();
+  });
+
+  unsubscribeHabilidades = onSnapshot(habilidadesQuery, (snapshot) => {
+    habilidadesDisponiveis = [];
+
+    snapshot.forEach((documento) => {
+      habilidadesDisponiveis.push({
+        id: documento.id,
+        ...documento.data()
+      });
+    });
+
+    preencherSelectHabilidadesRaca();
+  });
 }
 
 function numeroCampo(id) {
@@ -51,6 +124,18 @@ function numeroCampo(id) {
 
 function textoCampo(id) {
   return document.getElementById(id)?.value.trim() || "";
+}
+
+function valorSelect(id) {
+  return document.getElementById(id)?.value || "";
+}
+
+function textoSelectSelecionado(id) {
+  const select = document.getElementById(id);
+
+  if (!select || !select.selectedOptions[0]) return "";
+
+  return select.selectedOptions[0].textContent;
 }
 
 async function salvarRaca() {
@@ -71,6 +156,9 @@ async function salvarRaca() {
     return;
   }
 
+  const habilidadeExclusivaId = valorSelect("racaHabilidadeExclusiva");
+  const habilidadeExclusivaNome = textoSelectSelecionado("racaHabilidadeExclusiva");
+
   const raca = {
     nome,
     hpBase: numeroCampo("racaHpBase"),
@@ -81,14 +169,24 @@ async function salvarRaca() {
     defesaMagica: numeroCampo("racaDefesaMagica"),
     velocidade: numeroCampo("racaVelocidade"),
     resistencia: numeroCampo("racaResistencia"),
-    carisma: numeroCampo("racaCarisma"),
-    fatorMedo: numeroCampo("racaFatorMedo"),
+
+    carismaBonus: textoCampo("racaCarismaBonus"),
+    fatorMedoBonus: textoCampo("racaFatorMedoBonus"),
+
     vantagens: textoCampo("racaVantagens"),
     desvantagens: textoCampo("racaDesvantagens"),
-    classesSugeridas: textoCampo("racaClassesSugeridas"),
-    elementosAfins: textoCampo("racaElementosAfins"),
-    habilidadeExclusiva: textoCampo("racaHabilidadeExclusiva"),
-    restricaoClasse: textoCampo("racaRestricaoClasse"),
+
+    classesSugeridas: classesSugeridasSelecionadas,
+    elementosAfins: elementosAfinsSelecionados,
+    restricoesClasse: restricoesClasseSelecionadas,
+
+    habilidadeExclusiva: habilidadeExclusivaId
+      ? {
+          id: habilidadeExclusivaId,
+          nome: habilidadeExclusivaNome
+        }
+      : null,
+
     criadoPor: state.usuarioAtual.uid,
     criadoEm: serverTimestamp()
   };
@@ -116,14 +214,10 @@ function limparFormularioRaca() {
     "racaDefesaMagica",
     "racaVelocidade",
     "racaResistencia",
-    "racaCarisma",
-    "racaFatorMedo",
+    "racaCarismaBonus",
+    "racaFatorMedoBonus",
     "racaVantagens",
-    "racaDesvantagens",
-    "racaClassesSugeridas",
-    "racaElementosAfins",
-    "racaHabilidadeExclusiva",
-    "racaRestricaoClasse"
+    "racaDesvantagens"
   ];
 
   campos.forEach((id) => {
@@ -133,6 +227,18 @@ function limparFormularioRaca() {
       campo.value = "";
     }
   });
+
+  const habilidade = document.getElementById("racaHabilidadeExclusiva");
+
+  if (habilidade) {
+    habilidade.value = "";
+  }
+
+  classesSugeridasSelecionadas = [];
+  elementosAfinsSelecionados = [];
+  restricoesClasseSelecionadas = [];
+
+  renderizarSelecionadosRaca();
 }
 
 export function renderizarRacas() {
@@ -160,22 +266,30 @@ export function renderizarRacas() {
       Defesa Física: ${raca.defesaFisica ?? raca.defesa ?? 0} |
       Defesa Mágica: ${raca.defesaMagica ?? 0} |
       Velocidade: ${raca.velocidade ?? 0} |
-      Resistência: ${raca.resistencia ?? 0} |
-      Carisma: ${raca.carisma ?? 0} |
-      Fator Medo: ${raca.fatorMedo ?? 0}
+      Resistência: ${raca.resistencia ?? 0}
       <br>
       <small>
+        <b>Carisma:</b> ${raca.carismaBonus || "Não informado"}<br>
+        <b>Fator Medo:</b> ${raca.fatorMedoBonus || "Não informado"}<br>
         <b>Vantagens/Bônus:</b> ${raca.vantagens || "Não informado"}<br>
         <b>Desvantagens/Penalidades:</b> ${raca.desvantagens || "Não informado"}<br>
-        <b>Classes Sugeridas:</b> ${raca.classesSugeridas || "Não informado"}<br>
-        <b>Elementos Afins:</b> ${raca.elementosAfins || "Não informado"}<br>
-        <b>Habilidade Exclusiva:</b> ${raca.habilidadeExclusiva || "Não informado"}<br>
-        <b>Restrição de Classe:</b> ${raca.restricaoClasse || "Não informado"}
+        <b>Classes Sugeridas:</b> ${formatarListaObjetos(raca.classesSugeridas)}<br>
+        <b>Elementos Afins:</b> ${formatarListaObjetos(raca.elementosAfins)}<br>
+        <b>Habilidade Exclusiva:</b> ${raca.habilidadeExclusiva?.nome || "Não informado"}<br>
+        <b>Restrição de Classe:</b> ${formatarListaObjetos(raca.restricoesClasse)}
       </small>
     `;
 
     listaRacas.appendChild(item);
   });
+}
+
+function formatarListaObjetos(lista) {
+  if (!Array.isArray(lista) || lista.length === 0) {
+    return "Não informado";
+  }
+
+  return lista.map((item) => item.nome).join(", ");
 }
 
 export function preencherSelectRacas() {
@@ -201,6 +315,133 @@ export function preencherSelectRacas() {
   });
 }
 
+function preencherSelectClassesRaca() {
+  preencherSelectGenerico("selectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada");
+  preencherSelectGenerico("selectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada");
+}
+
+function preencherSelectElementosRaca() {
+  preencherSelectGenerico("selectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado");
+}
+
+function preencherSelectHabilidadesRaca() {
+  preencherSelectGenerico("racaHabilidadeExclusiva", habilidadesDisponiveis, "Nenhuma habilidade cadastrada");
+}
+
+function preencherSelectGenerico(selectId, lista, mensagemVazia) {
+  const select = document.getElementById(selectId);
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!Array.isArray(lista) || lista.length === 0) {
+    select.innerHTML = `<option value="">${mensagemVazia}</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione uma opção</option>`;
+
+  lista.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.nome || "Sem nome";
+    select.appendChild(option);
+  });
+}
+
+function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
+  const id = valorSelect(selectId);
+  const nome = textoSelectSelecionado(selectId);
+
+  if (!id) {
+    alert("Selecione uma opção primeiro.");
+    return;
+  }
+
+  const jaExiste = listaSelecionada.some((item) => item.id === id);
+
+  if (jaExiste) {
+    alert("Essa opção já foi adicionada.");
+    return;
+  }
+
+  listaSelecionada.push({ id, nome });
+  renderCallback();
+}
+
+function removerSelecionado(listaSelecionada, id, renderCallback) {
+  const index = listaSelecionada.findIndex((item) => item.id === id);
+
+  if (index >= 0) {
+    listaSelecionada.splice(index, 1);
+  }
+
+  renderCallback();
+}
+
+function renderizarListaSelecionada(containerId, lista, mensagemVazia, tipo) {
+  const container = document.getElementById(containerId);
+
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!lista || lista.length === 0) {
+    container.innerHTML = `<span class="empty-selection">${mensagemVazia}</span>`;
+    return;
+  }
+
+  lista.forEach((item) => {
+    const chip = document.createElement("span");
+    chip.classList.add("selected-chip");
+
+    chip.innerHTML = `
+      ${item.nome}
+      <button type="button" title="Remover">×</button>
+    `;
+
+    chip.querySelector("button").addEventListener("click", () => {
+      if (tipo === "classeSugerida") {
+        removerSelecionado(classesSugeridasSelecionadas, item.id, renderizarSelecionadosRaca);
+      }
+
+      if (tipo === "elementoAfim") {
+        removerSelecionado(elementosAfinsSelecionados, item.id, renderizarSelecionadosRaca);
+      }
+
+      if (tipo === "restricaoClasse") {
+        removerSelecionado(restricoesClasseSelecionadas, item.id, renderizarSelecionadosRaca);
+      }
+    });
+
+    container.appendChild(chip);
+  });
+}
+
+function renderizarSelecionadosRaca() {
+  renderizarListaSelecionada(
+    "listaClassesSugeridasSelecionadas",
+    classesSugeridasSelecionadas,
+    "Nenhuma classe sugerida selecionada.",
+    "classeSugerida"
+  );
+
+  renderizarListaSelecionada(
+    "listaElementosAfinsSelecionados",
+    elementosAfinsSelecionados,
+    "Nenhum elemento afim selecionado.",
+    "elementoAfim"
+  );
+
+  renderizarListaSelecionada(
+    "listaRestricoesClasseSelecionadas",
+    restricoesClasseSelecionadas,
+    "Nenhuma restrição de classe selecionada.",
+    "restricaoClasse"
+  );
+}
+
 export function buscarRacaPorId(id) {
   return state.racasDisponiveis.find((raca) => raca.id === id) || null;
 }
@@ -218,15 +459,15 @@ export function atualizarPreviewRaca(raca) {
   document.getElementById("previewDefesaMagica").textContent = raca?.defesaMagica ?? 0;
   document.getElementById("previewVelocidade").textContent = raca?.velocidade ?? 0;
   document.getElementById("previewResistencia").textContent = raca?.resistencia ?? 0;
-  document.getElementById("previewCarisma").textContent = raca?.carisma ?? 0;
-  document.getElementById("previewFatorMedo").textContent = raca?.fatorMedo ?? 0;
 
+  document.getElementById("previewCarismaBonus").textContent = raca?.carismaBonus || "Nenhuma raça selecionada.";
+  document.getElementById("previewFatorMedoBonus").textContent = raca?.fatorMedoBonus || "Nenhuma raça selecionada.";
   document.getElementById("previewVantagens").textContent = raca?.vantagens || "Nenhuma raça selecionada.";
   document.getElementById("previewDesvantagens").textContent = raca?.desvantagens || "Nenhuma raça selecionada.";
-  document.getElementById("previewClassesSugeridas").textContent = raca?.classesSugeridas || "Nenhuma raça selecionada.";
-  document.getElementById("previewElementosAfins").textContent = raca?.elementosAfins || "Nenhuma raça selecionada.";
-  document.getElementById("previewHabilidadeExclusiva").textContent = raca?.habilidadeExclusiva || "Nenhuma raça selecionada.";
-  document.getElementById("previewRestricaoClasse").textContent = raca?.restricaoClasse || "Nenhuma raça selecionada.";
+  document.getElementById("previewClassesSugeridas").textContent = formatarListaObjetos(raca?.classesSugeridas);
+  document.getElementById("previewElementosAfins").textContent = formatarListaObjetos(raca?.elementosAfins);
+  document.getElementById("previewHabilidadeExclusiva").textContent = raca?.habilidadeExclusiva?.nome || "Nenhuma raça selecionada.";
+  document.getElementById("previewRestricaoClasse").textContent = formatarListaObjetos(raca?.restricoesClasse);
 }
 
 function atualizarContadorRacas() {
@@ -244,6 +485,46 @@ export function initRacas() {
     if (botaoSalvarRaca) {
       botaoSalvarRaca.addEventListener("click", salvarRaca);
       renderizarRacas();
+      preencherSelectClassesRaca();
+      preencherSelectElementosRaca();
+      preencherSelectHabilidadesRaca();
+      renderizarSelecionadosRaca();
+    }
+
+    const btnAdicionarClasseSugerida = document.getElementById("adicionarClasseSugerida");
+
+    if (btnAdicionarClasseSugerida) {
+      btnAdicionarClasseSugerida.addEventListener("click", () => {
+        adicionarSelecionado(
+          "selectClassesSugeridas",
+          classesSugeridasSelecionadas,
+          renderizarSelecionadosRaca
+        );
+      });
+    }
+
+    const btnAdicionarElementoAfim = document.getElementById("adicionarElementoAfim");
+
+    if (btnAdicionarElementoAfim) {
+      btnAdicionarElementoAfim.addEventListener("click", () => {
+        adicionarSelecionado(
+          "selectElementosAfins",
+          elementosAfinsSelecionados,
+          renderizarSelecionadosRaca
+        );
+      });
+    }
+
+    const btnAdicionarRestricaoClasse = document.getElementById("adicionarRestricaoClasse");
+
+    if (btnAdicionarRestricaoClasse) {
+      btnAdicionarRestricaoClasse.addEventListener("click", () => {
+        adicionarSelecionado(
+          "selectRestricaoClasse",
+          restricoesClasseSelecionadas,
+          renderizarSelecionadosRaca
+        );
+      });
     }
 
     const selectRaca = document.getElementById("personagemRaca");

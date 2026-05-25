@@ -1,7 +1,7 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Raças</h2>
-    <p>Crie raças com status base, vantagens, penalidades, afinidades e restrições.</p>
+    <p>Crie raças com status base, modificadores, vantagens, afinidades e restrições.</p>
   </div>
 
   <div class="form-card">
@@ -52,15 +52,17 @@
         Resistência
         <input type="number" id="racaResistencia" placeholder="Ex: 6" />
       </label>
+    </div>
 
+    <div class="form-grid">
       <label>
-        Carisma
-        <input type="number" id="racaCarisma" placeholder="Ex: 2" />
+        Modificador de Carisma
+        <input type="text" id="racaCarismaBonus" placeholder="Ex: +2 em testes de persuasão" />
       </label>
 
       <label>
-        Fator Medo
-        <input type="number" id="racaFatorMedo" placeholder="Ex: 7" />
+        Modificador de Fator Medo
+        <input type="text" id="racaFatorMedoBonus" placeholder="Ex: +3 em testes de intimidação" />
       </label>
     </div>
 
@@ -71,28 +73,60 @@
 
     <label>
       Desvantagens / Penalidades
-      <textarea id="racaDesvantagens" placeholder="Ex: Penalidade em carisma, fraqueza contra luz, baixa defesa mágica..."></textarea>
+      <textarea id="racaDesvantagens" placeholder="Ex: Penalidade contra luz, baixa defesa mágica, fraqueza elemental..."></textarea>
     </label>
 
-    <label>
-      Classes Sugeridas
-      <textarea id="racaClassesSugeridas" placeholder="Ex: Ladino, Arqueiro, Assassino..."></textarea>
-    </label>
+    <div class="multi-select-box">
+      <label>
+        Classes Sugeridas
+        <select id="selectClassesSugeridas">
+          <option value="">Carregando classes...</option>
+        </select>
+      </label>
 
-    <label>
-      Elementos Afins
-      <textarea id="racaElementosAfins" placeholder="Ex: Trevas, Terra, Veneno..."></textarea>
-    </label>
+      <button class="secondary-btn" type="button" id="adicionarClasseSugerida">Adicionar classe sugerida</button>
+
+      <div id="listaClassesSugeridasSelecionadas" class="selected-list">
+        <span class="empty-selection">Nenhuma classe sugerida selecionada.</span>
+      </div>
+    </div>
+
+    <div class="multi-select-box">
+      <label>
+        Elementos Afins
+        <select id="selectElementosAfins">
+          <option value="">Carregando elementos...</option>
+        </select>
+      </label>
+
+      <button class="secondary-btn" type="button" id="adicionarElementoAfim">Adicionar elemento afim</button>
+
+      <div id="listaElementosAfinsSelecionados" class="selected-list">
+        <span class="empty-selection">Nenhum elemento afim selecionado.</span>
+      </div>
+    </div>
 
     <label>
       Habilidade Exclusiva
-      <input type="text" id="racaHabilidadeExclusiva" placeholder="Por enquanto, digite o nome da habilidade. Depois será selecionada da lista de habilidades cadastradas." />
+      <select id="racaHabilidadeExclusiva">
+        <option value="">Carregando habilidades...</option>
+      </select>
     </label>
 
-    <label>
-      Restrição de Classe
-      <textarea id="racaRestricaoClasse" placeholder="Ex: Não pode ser Paladino, não pode usar classes de magia sagrada..."></textarea>
-    </label>
+    <div class="multi-select-box">
+      <label>
+        Restrição de Classe
+        <select id="selectRestricaoClasse">
+          <option value="">Carregando classes...</option>
+        </select>
+      </label>
+
+      <button class="secondary-btn" type="button" id="adicionarRestricaoClasse">Adicionar restrição</button>
+
+      <div id="listaRestricoesClasseSelecionadas" class="selected-list">
+        <span class="empty-selection">Nenhuma restrição de classe selecionada.</span>
+      </div>
+    </div>
 
     <button class="primary-btn" id="salvarRaca">Salvar raça</button>
   </div>

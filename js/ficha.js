@@ -11,6 +11,14 @@ function calcularPercentual(atual, maximo) {
   return Math.max(0, Math.min(100, (atual / maximo) * 100));
 }
 
+function formatarListaObjetos(lista) {
+  if (!Array.isArray(lista) || lista.length === 0) {
+    return "Não informado";
+  }
+
+  return lista.map((item) => item.nome).join(", ");
+}
+
 export function renderizarFicha() {
   const personagem = state.personagemAberto;
 
@@ -48,15 +56,16 @@ export function renderizarFicha() {
     <li><b>Defesa Mágica:</b> ${personagem.defesaMagica ?? 0}</li>
     <li><b>Velocidade:</b> ${personagem.velocidade ?? 0}</li>
     <li><b>Resistência:</b> ${personagem.resistencia ?? 0}</li>
-    <li><b>Carisma:</b> ${personagem.carisma ?? 0}</li>
-    <li><b>Fator Medo:</b> ${personagem.fatorMedo ?? 0}</li>
+
+    <li><b>Carisma:</b> ${personagem.carismaBonus || "Não informado"}</li>
+    <li><b>Fator Medo:</b> ${personagem.fatorMedoBonus || "Não informado"}</li>
 
     <li><b>Vantagens/Bônus:</b> ${personagem.vantagens || "Não informado"}</li>
     <li><b>Desvantagens/Penalidades:</b> ${personagem.desvantagens || "Não informado"}</li>
-    <li><b>Classes Sugeridas:</b> ${personagem.classesSugeridas || "Não informado"}</li>
-    <li><b>Elementos Afins:</b> ${personagem.elementosAfins || "Não informado"}</li>
-    <li><b>Habilidade Exclusiva:</b> ${personagem.habilidadeExclusiva || "Não informado"}</li>
-    <li><b>Restrição de Classe:</b> ${personagem.restricaoClasse || "Não informado"}</li>
+    <li><b>Classes Sugeridas:</b> ${formatarListaObjetos(personagem.classesSugeridas)}</li>
+    <li><b>Elementos Afins:</b> ${formatarListaObjetos(personagem.elementosAfins)}</li>
+    <li><b>Habilidade Exclusiva:</b> ${personagem.habilidadeExclusiva?.nome || "Não informado"}</li>
+    <li><b>Restrição de Classe:</b> ${formatarListaObjetos(personagem.restricoesClasse)}</li>
   `;
 
   document.getElementById("fichaHistoria").textContent = personagem.historia || "Sem história cadastrada.";
