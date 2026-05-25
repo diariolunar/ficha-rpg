@@ -1,5 +1,16 @@
+import {
+  db,
+  doc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp
+} from "./firebase.js";
+
 import { state, setPersonagemAberto } from "./state.js";
 import { navegarPara, onPageLoaded } from "./navigation.js";
+import { mostrarModal, confirmarModal } from "./ui.js";
+
+let unsubscribeFicha = null;
 
 export function abrirFichaPersonagem(personagem) {
   setPersonagemAberto(personagem);
@@ -34,20 +45,154 @@ function formatarAtributo(valor) {
   return mapa[valor] || "Não informado";
 }
 
-function montarListaSimples(lista, mensagemVazia = "Nenhum item informado.") {
-  if (!Array.isArray(lista) || lista.length === 0) {
-    return `<li>${mensagemVazia}</li>`;
-  }
-
-  return lista.map((item) => `<li>${item.nome || item}</li>`).join("");
-}
-
 function nomeDoObjeto(objeto, fallback = "Não informado") {
   if (!objeto) return fallback;
 
   if (typeof objeto === "string") return objeto;
 
   return objeto.nome || fallback;
+}
+
+function montarListaHabilidades(personagem) {
+  const habilidades = [];
+
+  if (personagem.habilidadeExclusivaRaca?.nome) {
+    habilidades.push({
+      ...personagem.habilidadeExclusivaRaca,
+      origem: "Raça"
+    });
+  }
+
+  if (personagem.habilidadeExclusivaClasse?.nome) {
+    habilidades.push({
+      ...personagem.habilidadeExclusivaClasse,
+      origem: "Classe"
+    });
+  }
+
+  (personagem.habilidadesIniciais || []).forEach((habilidade) => {
+    habilidades.push({
+      ...habilidade,
+      origem: "Inicial"
+    });
+  });
+
+  if (habilidades.length === 0) {
+    return "<li>Nenhuma habilidade adicionada.</li>";
+  }
+
+  return habilidades.map((habilidade) => {
+    const cooldownAtual = personagem.cooldowns?.[habilidade.id] || 0;
+
+    return `
+      <li>
+        <b>${habilidade.nome}</b> <small>(${habilidade.origem})</small>
+        ${cooldownAtual > 0 ? `<br><small>Cooldown: ${cooldownAtual} turno(s)</small>` : ""}
+        <br>
+        <button class="small-btn usar-habilidade" data-id="${habilidade.id}" data-nome="${habilidade.nome}">Usar habilidade</button>
+      </li>
+    `;
+  }).join("");
+}
+
+function montarListaItens(personagem) {
+  const itens = personagem.itensIniciais || [];
+
+  if (itens.length === 0) {
+    return "<li>Nenhum item adicionado.</li>";
+  }
+
+  return itens.map((item) => {
+    return `
+      <li>
+        <b>${item.nome}</b>
+        <br>
+        <button class="small-btn usar-item" data-id="${item.id}" data-nome="${item.nome}">Usar item</button>
+      </li>
+    `;
+  }).join("");
+}
+
+async function usarHabilidade(id, nome) {
+  const personagem = state.personagemAberto;
+
+  if (!personagem?.id) return;
+
+  const cooldownAtual = personagem.cooldowns?.[id] || 0;
+
+  if (cooldownAtual > 0) {
+    await mostrarModal(`A habilidade "${nome}" ainda está em cooldown por ${cooldownAtual} turno(s).`, "Cooldown ativo");
+    return;
+  }
+
+  const custoPadrao = 0;
+  const cooldownPadrao = 1;
+
+  if ((personagem.manaAtual || 0) < custoPadrao) {
+    await mostrarModal("Mana insuficiente para usar esta habilidade.", "Mana insuficiente", "danger");
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Usar habilidade",
+    mensagem: `Deseja usar a habilidade "${nome}"?`,
+    confirmarTexto: "Usar",
+    cancelarTexto: "Cancelar",
+    tipo: "info"
+  });
+
+  if (!confirmar) return;
+
+  const novosCooldowns = {
+    ...(personagem.cooldowns || {}),
+    [id]: cooldownPadrao
+  };
+
+  await updateDoc(doc(db, "personagens", personagem.id), {
+    manaAtual: Math.max(0, (personagem.manaAtual || 0) - custoPadrao),
+    cooldowns: novosCooldowns,
+    ultimaAcao: `Usou a habilidade ${nome}`,
+    atualizadoEm: serverTimestamp()
+  });
+
+  await mostrarModal(`Habilidade "${nome}" usada.`, "Ação registrada", "success");
+}
+
+async function usarItem(id, nome) {
+  const personagem = state.personagemAberto;
+
+  if (!personagem?.id) return;
+
+  const confirmar = await confirmarModal({
+    titulo: "Usar item",
+    mensagem: `Deseja usar o item "${nome}"?`,
+    confirmarTexto: "Usar",
+    cancelarTexto: "Cancelar",
+    tipo: "info"
+  });
+
+  if (!confirmar) return;
+
+  await updateDoc(doc(db, "personagens", personagem.id), {
+    ultimaAcao: `Usou o item ${nome}`,
+    atualizadoEm: serverTimestamp()
+  });
+
+  await mostrarModal(`Item "${nome}" usado.`, "Ação registrada", "success");
+}
+
+function vincularAcoesFicha() {
+  document.querySelectorAll(".usar-habilidade").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      usarHabilidade(botao.dataset.id, botao.dataset.nome);
+    });
+  });
+
+  document.querySelectorAll(".usar-item").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      usarItem(botao.dataset.id, botao.dataset.nome);
+    });
+  });
 }
 
 export function renderizarFicha() {
@@ -59,6 +204,16 @@ export function renderizarFicha() {
 
   if (!personagem) {
     return;
+  }
+
+  const avisoPossessao = document.getElementById("avisoPossessao");
+
+  if (avisoPossessao) {
+    if (personagem.posse?.ativa) {
+      avisoPossessao.classList.remove("hidden");
+    } else {
+      avisoPossessao.classList.add("hidden");
+    }
   }
 
   const raca = personagem.raca || null;
@@ -93,6 +248,7 @@ export function renderizarFicha() {
     <li><b>Classe:</b> ${classeNome}</li>
     <li><b>Subclasse:</b> ${subclasseNome}</li>
     <li><b>Elemento:</b> ${elementoNome}</li>
+    <li><b>Última ação:</b> ${personagem.ultimaAcao || "Nenhuma ação registrada"}</li>
   `;
 
   document.getElementById("fichaAtributos").innerHTML = `
@@ -143,34 +299,8 @@ export function renderizarFicha() {
     <li><b>Risco/Consequência:</b> ${elemento?.riscoConsequencia || "Não informado"}</li>
   `;
 
-  const habilidadesBase = [];
-
-  if (personagem.habilidadeExclusivaRaca?.nome) {
-    habilidadesBase.push({
-      nome: `Raça: ${personagem.habilidadeExclusivaRaca.nome}`
-    });
-  }
-
-  if (personagem.habilidadeExclusivaClasse?.nome) {
-    habilidadesBase.push({
-      nome: `Classe: ${personagem.habilidadeExclusivaClasse.nome}`
-    });
-  }
-
-  const habilidades = [
-    ...habilidadesBase,
-    ...(personagem.habilidadesIniciais || [])
-  ];
-
-  document.getElementById("fichaHabilidades").innerHTML = montarListaSimples(
-    habilidades,
-    "Nenhuma habilidade adicionada."
-  );
-
-  document.getElementById("fichaItens").innerHTML = montarListaSimples(
-    personagem.itensIniciais,
-    "Nenhum item adicionado."
-  );
+  document.getElementById("fichaHabilidades").innerHTML = montarListaHabilidades(personagem);
+  document.getElementById("fichaItens").innerHTML = montarListaItens(personagem);
 
   document.getElementById("fichaPet").innerHTML = pet
     ? `
@@ -184,12 +314,42 @@ export function renderizarFicha() {
     : `<li>Nenhum pet selecionado.</li>`;
 
   document.getElementById("fichaHistoria").textContent = personagem.historia || "Sem história cadastrada.";
+
+  vincularAcoesFicha();
+}
+
+function iniciarEscutaFicha() {
+  if (unsubscribeFicha) {
+    unsubscribeFicha();
+    unsubscribeFicha = null;
+  }
+
+  const personagem = state.personagemAberto;
+
+  if (!personagem?.id) {
+    renderizarFicha();
+    return;
+  }
+
+  unsubscribeFicha = onSnapshot(doc(db, "personagens", personagem.id), (snapshot) => {
+    if (!snapshot.exists()) return;
+
+    setPersonagemAberto({
+      id: snapshot.id,
+      ...snapshot.data()
+    });
+
+    renderizarFicha();
+  });
 }
 
 export function initFicha() {
   onPageLoaded((pagina) => {
     if (pagina === "ficha") {
-      renderizarFicha();
+      iniciarEscutaFicha();
+    } else if (unsubscribeFicha) {
+      unsubscribeFicha();
+      unsubscribeFicha = null;
     }
   });
 }

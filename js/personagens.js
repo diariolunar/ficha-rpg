@@ -14,6 +14,7 @@ import { onPageLoaded } from "./navigation.js";
 import { buscarRacaPorId, preencherSelectRacas, atualizarPreviewRaca } from "./racas.js";
 import { buscarCampanhaPorId, preencherSelectCampanhas } from "./campanhas.js";
 import { abrirFichaPersonagem } from "./ficha.js";
+import { mostrarModal } from "./ui.js";
 
 let unsubscribePersonagens = null;
 let unsubscribeClassesPersonagem = null;
@@ -388,11 +389,11 @@ function preencherSelectItensPersonagem() {
   });
 }
 
-function adicionarSelecionado(selectId, lista, renderCallback) {
+async function adicionarSelecionado(selectId, lista, renderCallback) {
   const select = document.getElementById(selectId);
 
   if (!select || !select.value) {
-    alert("Selecione uma opção primeiro.");
+    await mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
     return;
   }
 
@@ -400,7 +401,7 @@ function adicionarSelecionado(selectId, lista, renderCallback) {
   const nome = select.selectedOptions[0].textContent;
 
   if (lista.some((item) => item.id === id)) {
-    alert("Essa opção já foi adicionada.");
+    await mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
     return;
   }
 
@@ -508,7 +509,7 @@ function atualizarPreviewPersonagem() {
 
 async function criarPersonagem() {
   if (!state.usuarioAtual) {
-    alert("Você precisa estar logado.");
+    await mostrarModal("Você precisa estar logado para criar um personagem.", "Acesso necessário");
     return;
   }
 
@@ -523,22 +524,22 @@ async function criarPersonagem() {
   const historia = textoCampo("personagemHistoria");
 
   if (!nome) {
-    alert("Digite o nome do personagem.");
+    await mostrarModal("Digite o nome do personagem.", "Campo obrigatório");
     return;
   }
 
   if (!campanhaId) {
-    alert("Selecione uma campanha.");
+    await mostrarModal("Selecione uma campanha.", "Campo obrigatório");
     return;
   }
 
   if (!racaId) {
-    alert("Selecione uma raça.");
+    await mostrarModal("Selecione uma raça.", "Campo obrigatório");
     return;
   }
 
   if (!classeId) {
-    alert("Selecione uma classe.");
+    await mostrarModal("Selecione uma classe.", "Campo obrigatório");
     return;
   }
 
@@ -550,12 +551,17 @@ async function criarPersonagem() {
   const pet = buscarPetPorId(petId);
 
   if (!campanha || !raca || !classe) {
-    alert("Campanha, raça ou classe não encontrada.");
+    await mostrarModal("Campanha, raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
     return;
   }
 
   if (classeEstaRestrita(raca, classe)) {
-    alert(`A raça "${raca.nome}" possui restrição para a classe "${classe.nome}".`);
+    await mostrarModal(
+      `A raça "${raca.nome}" possui restrição para a classe "${classe.nome}".`,
+      "Classe restrita",
+      "danger"
+    );
+
     preencherSelectClassesPersonagem();
     preencherSelectSubclassesPersonagem();
     atualizarPreviewPersonagem();
@@ -632,10 +638,10 @@ async function criarPersonagem() {
 
     limparFormularioPersonagem();
 
-    alert("Personagem criado com sucesso.");
+    await mostrarModal("Personagem criado com sucesso.", "Cadastro realizado", "success");
   } catch (erro) {
     console.error("Erro ao criar personagem:", erro);
-    alert("Erro ao criar personagem.");
+    await mostrarModal("Erro ao criar personagem. Verifique os dados e tente novamente.", "Erro", "danger");
   }
 }
 
@@ -818,8 +824,8 @@ export function initPersonagens() {
       const btnAdicionarHabilidade = document.getElementById("adicionarHabilidadeInicial");
 
       if (btnAdicionarHabilidade) {
-        btnAdicionarHabilidade.addEventListener("click", () => {
-          adicionarSelecionado(
+        btnAdicionarHabilidade.addEventListener("click", async () => {
+          await adicionarSelecionado(
             "selectHabilidadesIniciais",
             habilidadesIniciaisSelecionadas,
             renderizarHabilidadesIniciais
@@ -830,8 +836,8 @@ export function initPersonagens() {
       const btnAdicionarItem = document.getElementById("adicionarItemInicial");
 
       if (btnAdicionarItem) {
-        btnAdicionarItem.addEventListener("click", () => {
-          adicionarSelecionado(
+        btnAdicionarItem.addEventListener("click", async () => {
+          await adicionarSelecionado(
             "selectItensIniciais",
             itensIniciaisSelecionados,
             renderizarItensIniciais

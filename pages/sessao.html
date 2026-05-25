@@ -1,30 +1,53 @@
 <section class="page">
   <div class="page-header">
     <h2>Roteiro da Sessão</h2>
-    <p>Área para o mestre planejar a sessão atual.</p>
+    <p>Organize cenas, objetivos, anotações, ganchos narrativos e eventos da campanha.</p>
   </div>
 
   <div class="form-card">
+    <h3>Campanha</h3>
+
+    <label>
+      Selecionar campanha
+      <select id="sessaoCampanhaSelect">
+        <option value="">Carregando campanhas...</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="form-card">
+    <h3>Roteiro</h3>
+
     <label>
       Título da sessão
-      <input type="text" placeholder="Ex: A chegada à cidade amaldiçoada" />
+      <input type="text" id="sessaoTitulo" placeholder="Ex: A chegada à cidade destruída" />
     </label>
 
     <label>
       Resumo da sessão
-      <textarea placeholder="Escreva o resumo da sessão..."></textarea>
+      <textarea id="sessaoResumo" placeholder="Resumo geral do que deve acontecer na sessão..."></textarea>
     </label>
 
     <label>
-      Cenas importantes
-      <textarea placeholder="Liste cenas, encontros, conflitos e revelações..."></textarea>
+      Cenas principais
+      <textarea id="sessaoCenas" placeholder="Liste as cenas principais, encontros, revelações e momentos importantes..."></textarea>
     </label>
 
     <label>
-      Monstros/NPCs envolvidos
-      <textarea placeholder="Liste monstros, NPCs e ameaças planejadas..."></textarea>
+      Objetivos dos jogadores
+      <textarea id="sessaoObjetivos" placeholder="Objetivos principais e secundários da sessão..."></textarea>
     </label>
 
-    <button class="primary-btn">Salvar roteiro</button>
+    <label>
+      Anotações do mestre
+      <textarea id="sessaoNotas" placeholder="Notas privadas, segredos, improvisos, pistas e lembretes..."></textarea>
+    </label>
+
+    <label>
+      Eventos planejados
+      <textarea id="sessaoEventos" placeholder="Eventos, emboscadas, encontros, mudanças de cenário..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="btnSalvarRoteiroSessao">Salvar roteiro</button>
   </div>
 </section>

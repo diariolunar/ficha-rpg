@@ -18,6 +18,8 @@ import { initCampanhas, iniciarCampanhas, pararCampanhas } from "./campanhas.js"
 import { initPersonagens, iniciarPersonagens, pararPersonagens } from "./personagens.js";
 import { initFicha } from "./ficha.js";
 import { initDice } from "./dice.js";
+import { initMestre } from "./mestre.js";
+import { initSessao } from "./sessao.js";
 
 function iniciarApp() {
   initNavigation();
@@ -37,6 +39,8 @@ function iniciarApp() {
   initPersonagens();
   initFicha();
   initDice();
+  initMestre();
+  initSessao();
 
   onPageLoaded(() => {
     aplicarPermissoes();

@@ -1,14 +1,66 @@
 <section class="page">
   <div class="page-header">
     <h2>Área do Mestre</h2>
-    <p>Painel para acompanhar os jogadores durante a campanha.</p>
+    <p>Controle a campanha, acompanhe personagens, turnos, fome, fadiga, mana, monstros, bosses e possessão.</p>
   </div>
 
-  <div class="table-card">
-    <h3>Jogadores na Campanha</h3>
+  <div class="form-card">
+    <h3>Campanha ativa</h3>
+
+    <div class="form-grid">
+      <label>
+        Selecionar campanha
+        <select id="mestreCampanhaSelect">
+          <option value="">Carregando campanhas...</option>
+        </select>
+      </label>
+
+      <label>
+        Ajuste padrão
+        <input type="number" id="mestreValorAjuste" value="5" />
+      </label>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h3>Controle de Turnos</h3>
+      <p><b>Rodada:</b> <span id="mestreRodadaAtual">0</span></p>
+      <p><b>Turno:</b> <span id="mestreTurnoAtual">0</span></p>
+      <p><b>Status da sessão:</b> <span id="mestreStatusSessao">Nenhuma campanha selecionada.</span></p>
+
+      <div class="action-row">
+        <button class="primary-btn" id="btnIniciarSessaoMestre">Iniciar sessão</button>
+        <button class="secondary-btn" id="btnProximoTurno">Próximo turno</button>
+        <button class="small-btn danger" id="btnEncerrarSessaoMestre">Encerrar sessão</button>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>Fome e Fadiga</h3>
+      <p>A cada avanço de turno, o Mestre pode aplicar fome e fadiga automaticamente nos personagens da campanha.</p>
+
+      <div class="form-grid">
+        <label>
+          Fome por turno
+          <input type="number" id="fomePorTurno" value="1" />
+        </label>
+
+        <label>
+          Fadiga por turno
+          <input type="number" id="fadigaPorTurno" value="1" />
+        </label>
+      </div>
+
+      <button class="secondary-btn" id="btnAplicarFomeFadiga">Aplicar agora</button>
+    </div>
+  </div>
+
+  <div class="list-card">
+    <h3>Personagens da campanha</h3>
 
     <div class="table-wrapper">
-      <table>
+      <table class="data-table">
         <thead>
           <tr>
             <th>Personagem</th>
@@ -17,17 +69,52 @@
             <th>Mana</th>
             <th>Fome</th>
             <th>Fadiga</th>
-            <th>Status</th>
-            <th>Ação</th>
+            <th>Condição</th>
+            <th>Ações</th>
           </tr>
         </thead>
 
         <tbody id="tabelaPersonagensMestre">
           <tr>
-            <td colspan="8">Carregando personagens...</td>
+            <td colspan="8">Selecione uma campanha para carregar os personagens.</td>
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="form-card">
+      <h3>Adicionar Monstro à Sessão</h3>
+
+      <label>
+        Monstro
+        <select id="selectMonstroSessao">
+          <option value="">Carregando monstros...</option>
+        </select>
+      </label>
+
+      <button class="primary-btn" id="btnAdicionarMonstroSessao">Adicionar monstro</button>
+    </div>
+
+    <div class="form-card">
+      <h3>Adicionar Boss à Sessão</h3>
+
+      <label>
+        Boss
+        <select id="selectBossSessao">
+          <option value="">Carregando bosses...</option>
+        </select>
+      </label>
+
+      <button class="primary-btn" id="btnAdicionarBossSessao">Adicionar boss</button>
+    </div>
+  </div>
+
+  <div class="list-card">
+    <h3>Inimigos na sessão</h3>
+    <div id="listaInimigosSessao" class="resource-list">
+      <p>Nenhuma campanha selecionada.</p>
     </div>
   </div>
 </section>
