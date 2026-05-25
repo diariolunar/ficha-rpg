@@ -7,6 +7,7 @@ const paginas = {
   sessao: "pages/sessao.html",
 
   cadastrosRacas: "pages/cadastros/racas.html",
+  cadastrosRacaDetalhe: "pages/cadastros/raca-detalhe.html",
   cadastrosClasses: "pages/cadastros/classes.html",
   cadastrosSubclasses: "pages/cadastros/subclasses.html",
   cadastrosElementos: "pages/cadastros/elementos.html",

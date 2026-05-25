@@ -12,7 +12,9 @@ import {
   getDocs,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  updateDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 import {
@@ -51,6 +53,8 @@ export {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
+  deleteDoc,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
