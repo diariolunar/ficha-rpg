@@ -13,6 +13,7 @@ import {
 
 import { state } from "./state.js";
 import { onPageLoaded, navegarPara } from "./navigation.js";
+import { mostrarModal, confirmarModal } from "./ui.js";
 
 export function criarCadastroCrud(config) {
   let registros = [];
@@ -80,8 +81,11 @@ export function criarCadastroCrud(config) {
           });
         });
 
-        renderizarFormularioCadastro();
-        if (registroSelecionado) {
+        if (document.getElementById(config.formContainerId)) {
+          renderizarFormularioCadastro();
+        }
+
+        if (registroSelecionado && document.getElementById(config.detalheContainerId)) {
           renderizarDetalhe(false);
         }
       });
@@ -248,18 +252,23 @@ export function criarCadastroCrud(config) {
     }
 
     const lista = opcoesRelacionadas[campo.colecao] || [];
+    const opcoes = [`<option value="">Selecione</option>`];
 
-    if (!lista.length) {
+    if (campo.permitirTodas) {
+      const selected = valorSelecionado === "__ALL__" ? "selected" : "";
+      opcoes.push(`<option value="__ALL__" ${selected}>Todas</option>`);
+    }
+
+    if (!lista.length && !campo.permitirTodas) {
       return `<option value="">${campo.mensagemVazia || "Nenhuma opção cadastrada"}</option>`;
     }
 
-    return [
-      `<option value="">Selecione</option>`,
-      ...lista.map((item) => {
-        const selected = item.id === valorSelecionado ? "selected" : "";
-        return `<option value="${item.id}" ${selected}>${escapeHtml(item.nome || "Sem nome")}</option>`;
-      })
-    ].join("");
+    lista.forEach((item) => {
+      const selected = item.id === valorSelecionado ? "selected" : "";
+      opcoes.push(`<option value="${item.id}" ${selected}>${escapeHtml(item.nome || "Sem nome")}</option>`);
+    });
+
+    return opcoes.join("");
   }
 
   function montarChips(lista, mensagemVazia) {
@@ -287,8 +296,8 @@ export function criarCadastroCrud(config) {
       const lista = document.getElementById(`${baseId}Lista`);
 
       if (botao && select) {
-        botao.addEventListener("click", () => {
-          adicionarMulti(campo, select, multiselects);
+        botao.addEventListener("click", async () => {
+          await adicionarMulti(campo, select, multiselects);
           renderizarListaMulti(campo, prefixo, multiselects);
         });
       }
@@ -324,9 +333,9 @@ export function criarCadastroCrud(config) {
     }
   }
 
-  function adicionarMulti(campo, select, multiselects) {
+  async function adicionarMulti(campo, select, multiselects) {
     if (!select.value) {
-      alert("Selecione uma opção primeiro.");
+      await mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
       return;
     }
 
@@ -334,10 +343,22 @@ export function criarCadastroCrud(config) {
     const nome = select.selectedOptions[0].textContent;
     const lista = multiselects[campo.nome] || [];
 
+    if (id === "__ALL__") {
+      multiselects[campo.nome] = [{ id: "__ALL__", nome: "Todas" }];
+      return;
+    }
+
+    const temTodas = lista.some((item) => item.id === "__ALL__");
+
+    if (temTodas) {
+      await mostrarModal("Remova a opção “Todas” antes de selecionar opções específicas.", "Seleção inválida");
+      return;
+    }
+
     const jaExiste = lista.some((item) => item.id === id);
 
     if (jaExiste) {
-      alert("Essa opção já foi adicionada.");
+      await mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
       return;
     }
 
@@ -376,6 +397,14 @@ export function criarCadastroCrud(config) {
           return;
         }
 
+        if (select.value === "__ALL__") {
+          dados[campo.nome] = {
+            id: "__ALL__",
+            nome: "Todas"
+          };
+          return;
+        }
+
         if (campo.colecao) {
           dados[campo.nome] = {
             id: select.value,
@@ -401,19 +430,19 @@ export function criarCadastroCrud(config) {
 
   async function salvar() {
     if (!state.usuarioAtual) {
-      alert("Você precisa estar logado.");
+      await mostrarModal("Você precisa estar logado.", "Acesso necessário");
       return;
     }
 
     if (state.dadosUsuarioAtual?.tipo !== "mestre") {
-      alert(`Apenas o Mestre pode cadastrar ${config.nomePlural.toLowerCase()}.`);
+      await mostrarModal(`Apenas o Mestre pode cadastrar ${config.nomePlural.toLowerCase()}.`, "Permissão negada");
       return;
     }
 
     const dados = pegarDadosFormulario("", multiselectsCadastro);
 
     if (!dados.nome) {
-      alert(`Digite o nome de ${config.nomeSingular.toLowerCase()}.`);
+      await mostrarModal(`Digite o nome de ${config.nomeSingular.toLowerCase()}.`, "Campo obrigatório");
       return;
     }
 
@@ -427,23 +456,23 @@ export function criarCadastroCrud(config) {
       multiselectsCadastro = criarEstadoMultiselect();
       renderizarFormularioCadastro();
 
-      alert(`${config.nomeSingular} salvo com sucesso.`);
+      await mostrarModal(`${config.nomeSingular} salvo com sucesso.`, "Cadastro realizado", "success");
     } catch (erro) {
       console.error(`Erro ao salvar ${config.nomeSingular}:`, erro);
-      alert(`Erro ao salvar ${config.nomeSingular}.`);
+      await mostrarModal(`Erro ao salvar ${config.nomeSingular}.`, "Erro", "danger");
     }
   }
 
   async function salvarEdicao() {
     if (!registroSelecionado) {
-      alert(`Nenhum registro selecionado.`);
+      await mostrarModal("Nenhum registro selecionado.", "Erro", "danger");
       return;
     }
 
     const dados = pegarDadosFormulario("edit", multiselectsEdicao);
 
     if (!dados.nome) {
-      alert(`Digite o nome de ${config.nomeSingular.toLowerCase()}.`);
+      await mostrarModal(`Digite o nome de ${config.nomeSingular.toLowerCase()}.`, "Campo obrigatório");
       return;
     }
 
@@ -458,21 +487,27 @@ export function criarCadastroCrud(config) {
         ...dados
       };
 
-      alert(`${config.nomeSingular} atualizado com sucesso.`);
+      await mostrarModal(`${config.nomeSingular} atualizado com sucesso.`, "Alterações salvas", "success");
       renderizarDetalhe(false);
     } catch (erro) {
       console.error(`Erro ao editar ${config.nomeSingular}:`, erro);
-      alert(`Erro ao editar ${config.nomeSingular}.`);
+      await mostrarModal(`Erro ao editar ${config.nomeSingular}.`, "Erro", "danger");
     }
   }
 
   async function excluir() {
     if (!registroSelecionado) {
-      alert(`Nenhum registro selecionado.`);
+      await mostrarModal("Nenhum registro selecionado.", "Erro", "danger");
       return;
     }
 
-    const confirmar = confirm(`Tem certeza que deseja excluir "${registroSelecionado.nome}"? Essa ação não pode ser desfeita.`);
+    const confirmar = await confirmarModal({
+      titulo: `Excluir ${config.nomeSingular}`,
+      mensagem: `Tem certeza que deseja excluir “${registroSelecionado.nome}”? Essa ação não pode ser desfeita.`,
+      confirmarTexto: "Excluir",
+      cancelarTexto: "Cancelar",
+      tipo: "danger"
+    });
 
     if (!confirmar) return;
 
@@ -481,11 +516,11 @@ export function criarCadastroCrud(config) {
 
       registroSelecionado = null;
 
-      alert(`${config.nomeSingular} excluído com sucesso.`);
+      await mostrarModal(`${config.nomeSingular} excluído com sucesso.`, "Exclusão concluída", "success");
       navegarPara(config.paginaLista);
     } catch (erro) {
       console.error(`Erro ao excluir ${config.nomeSingular}:`, erro);
-      alert(`Erro ao excluir ${config.nomeSingular}.`);
+      await mostrarModal(`Erro ao excluir ${config.nomeSingular}.`, "Erro", "danger");
     }
   }
 

@@ -56,6 +56,7 @@ const crud = criarCadastroCrud({
       label: "Classe Compatível",
       tipo: "multi",
       colecao: "classes",
+      permitirTodas: true,
       mensagemVazia: "Nenhuma classe cadastrada"
     },
     {
@@ -63,6 +64,7 @@ const crud = criarCadastroCrud({
       label: "Subclasse Compatível",
       tipo: "multi",
       colecao: "subclasses",
+      permitirTodas: true,
       mensagemVazia: "Nenhuma subclasse cadastrada"
     },
     {

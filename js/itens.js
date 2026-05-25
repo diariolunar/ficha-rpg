@@ -43,6 +43,7 @@ const crud = criarCadastroCrud({
       label: "Classe Compatível",
       tipo: "multi",
       colecao: "classes",
+      permitirTodas: true,
       mensagemVazia: "Nenhuma classe cadastrada"
     },
     {
@@ -50,6 +51,7 @@ const crud = criarCadastroCrud({
       label: "Raça Compatível",
       tipo: "multi",
       colecao: "racas",
+      permitirTodas: true,
       mensagemVazia: "Nenhuma raça cadastrada"
     },
     {
