@@ -3,9 +3,17 @@ const paginas = {
   campanhas: "pages/campanhas.html",
   mestre: "pages/mestre.html",
   personagens: "pages/personagens.html",
-  cadastros: "pages/cadastros.html",
   ficha: "pages/ficha.html",
-  sessao: "pages/sessao.html"
+  sessao: "pages/sessao.html",
+
+  cadastrosRacas: "pages/cadastros/racas.html",
+  cadastrosClasses: "pages/cadastros/classes.html",
+  cadastrosSubclasses: "pages/cadastros/subclasses.html",
+  cadastrosElementos: "pages/cadastros/elementos.html",
+  cadastrosHabilidades: "pages/cadastros/habilidades.html",
+  cadastrosItens: "pages/cadastros/itens.html",
+  cadastrosPets: "pages/cadastros/pets.html",
+  cadastrosMonstros: "pages/cadastros/monstros.html"
 };
 
 let paginaAtual = "dashboard";
@@ -22,20 +30,17 @@ export async function navegarPara(paginaId) {
 
   try {
     const resposta = await fetch(paginas[paginaId]);
+
+    if (!resposta.ok) {
+      throw new Error(`Página não encontrada: ${paginas[paginaId]}`);
+    }
+
     const html = await resposta.text();
 
     appContent.innerHTML = html;
     paginaAtual = paginaId;
 
-    document.querySelectorAll(".nav-btn").forEach((button) => {
-      button.classList.remove("active");
-    });
-
-    const botaoAtivo = document.querySelector(`[data-page="${paginaId}"]`);
-
-    if (botaoAtivo) {
-      botaoAtivo.classList.add("active");
-    }
+    atualizarEstadoMenu(paginaId);
 
     callbacksPageLoaded.forEach((callback) => callback(paginaId));
   } catch (erro) {
@@ -51,13 +56,67 @@ export async function navegarPara(paginaId) {
   }
 }
 
-export function initNavigation() {
+function atualizarEstadoMenu(paginaId) {
   document.querySelectorAll(".nav-btn").forEach((button) => {
+    button.classList.remove("active");
+  });
+
+  document.querySelectorAll(".dropdown-item").forEach((button) => {
+    button.classList.remove("active");
+  });
+
+  const botaoAtivo = document.querySelector(`[data-page="${paginaId}"]`);
+
+  if (botaoAtivo) {
+    botaoAtivo.classList.add("active");
+  }
+
+  const dropdown = document.querySelector(".sidebar-dropdown");
+  const dropdownToggle = document.getElementById("cadastrosDropdownButton");
+
+  if (paginaId.startsWith("cadastros")) {
+    if (dropdown) {
+      dropdown.classList.add("open");
+    }
+
+    if (dropdownToggle) {
+      dropdownToggle.classList.add("active");
+    }
+  } else {
+    if (dropdownToggle) {
+      dropdownToggle.classList.remove("active");
+    }
+  }
+}
+
+function alternarDropdownCadastros() {
+  const dropdown = document.querySelector(".sidebar-dropdown");
+
+  if (dropdown) {
+    dropdown.classList.toggle("open");
+  }
+}
+
+export function initNavigation() {
+  document.querySelectorAll(".nav-btn[data-page]").forEach((button) => {
     button.addEventListener("click", () => {
       const paginaId = button.getAttribute("data-page");
       navegarPara(paginaId);
     });
   });
+
+  document.querySelectorAll(".dropdown-item[data-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const paginaId = button.getAttribute("data-page");
+      navegarPara(paginaId);
+    });
+  });
+
+  const dropdownButton = document.getElementById("cadastrosDropdownButton");
+
+  if (dropdownButton) {
+    dropdownButton.addEventListener("click", alternarDropdownCadastros);
+  }
 
   document.addEventListener("click", (event) => {
     const target = event.target.closest("[data-page-target]");

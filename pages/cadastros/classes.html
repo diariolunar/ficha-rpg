@@ -1,0 +1,61 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Cadastro de Classes</h2>
+    <p>Crie classes que os jogadores poderão escolher ao montar personagens.</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Cadastrar Classe</h3>
+
+    <div class="form-grid">
+      <label>
+        Nome da classe
+        <input type="text" id="classeNome" placeholder="Ex: Mago, Bárbaro, Domador..." />
+      </label>
+
+      <label>
+        HP bônus
+        <input type="number" id="classeHp" placeholder="Ex: 10" />
+      </label>
+
+      <label>
+        Mana bônus
+        <input type="number" id="classeMana" placeholder="Ex: 30" />
+      </label>
+
+      <label>
+        Força bônus
+        <input type="number" id="classeForca" placeholder="Ex: 2" />
+      </label>
+
+      <label>
+        Defesa bônus
+        <input type="number" id="classeDefesa" placeholder="Ex: 1" />
+      </label>
+
+      <label>
+        Velocidade bônus
+        <input type="number" id="classeVelocidade" placeholder="Ex: 0" />
+      </label>
+    </div>
+
+    <label>
+      Descrição da classe
+      <textarea id="classeDescricao" placeholder="Explique o que essa classe faz..."></textarea>
+    </label>
+
+    <label>
+      Regras especiais
+      <textarea id="classeRegras" placeholder="Ex: Pode escolher um elemento inicial, recebe bônus em magia..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="salvarClasse">Salvar classe</button>
+  </div>
+
+  <div class="list-card">
+    <h3>Classes cadastradas</h3>
+    <div id="listaClasses" class="campaign-list">
+      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    </div>
+  </div>
+</section>

@@ -86,7 +86,25 @@
       <button class="nav-btn" data-page="campanhas">🗺️ Campanhas</button>
       <button class="nav-btn mestre-nav" data-page="mestre">🧙 Área do Mestre</button>
       <button class="nav-btn" data-page="personagens">🛡️ Personagens</button>
-      <button class="nav-btn mestre-nav" data-page="cadastros">📚 Cadastros Base</button>
+
+      <div class="sidebar-dropdown mestre-nav">
+        <button class="nav-btn dropdown-toggle" type="button" id="cadastrosDropdownButton">
+          <span>📚 Cadastros Base</span>
+          <span class="dropdown-arrow">▾</span>
+        </button>
+
+        <div class="dropdown-menu" id="cadastrosDropdownMenu">
+          <button class="dropdown-item" data-page="cadastrosRacas">🧬 Raças</button>
+          <button class="dropdown-item" data-page="cadastrosClasses">⚔️ Classes</button>
+          <button class="dropdown-item" data-page="cadastrosSubclasses">🧩 Subclasses</button>
+          <button class="dropdown-item" data-page="cadastrosElementos">🔥 Elementos</button>
+          <button class="dropdown-item" data-page="cadastrosHabilidades">✨ Habilidades</button>
+          <button class="dropdown-item" data-page="cadastrosItens">🎒 Itens</button>
+          <button class="dropdown-item" data-page="cadastrosPets">🐺 Pets</button>
+          <button class="dropdown-item" data-page="cadastrosMonstros">👹 Monstros</button>
+        </div>
+      </div>
+
       <button class="nav-btn" data-page="ficha">📜 Ficha</button>
       <button class="nav-btn mestre-nav" data-page="sessao">🕯️ Roteiro da Sessão</button>
     </nav>

@@ -1,0 +1,51 @@
+<section class="page">
+  <div class="page-header">
+    <h2>Cadastro de Elementos</h2>
+    <p>Crie elementos e sub-elementos disponíveis no sistema.</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Cadastrar Elemento</h3>
+
+    <div class="form-grid">
+      <label>
+        Nome do elemento
+        <input type="text" id="elementoNome" placeholder="Ex: Fogo, Água, Trevas..." />
+      </label>
+
+      <label>
+        Tipo
+        <select id="elementoTipo">
+          <option value="principal">Elemento principal</option>
+          <option value="subelemento">Sub-elemento</option>
+        </select>
+      </label>
+
+      <label>
+        Elemento pai
+        <select id="elementoPai">
+          <option value="">Nenhum / em breve selecionar elemento</option>
+        </select>
+      </label>
+    </div>
+
+    <label>
+      Descrição
+      <textarea id="elementoDescricao" placeholder="Explique o funcionamento desse elemento..."></textarea>
+    </label>
+
+    <label>
+      Efeitos comuns
+      <textarea id="elementoEfeitos" placeholder="Ex: queimadura, congelamento, veneno, choque..."></textarea>
+    </label>
+
+    <button class="primary-btn" id="salvarElemento">Salvar elemento</button>
+  </div>
+
+  <div class="list-card">
+    <h3>Elementos cadastrados</h3>
+    <div id="listaElementos" class="campaign-list">
+      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    </div>
+  </div>
+</section>

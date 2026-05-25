@@ -23,4 +23,9 @@
   .page-header h2 {
     font-size: 26px;
   }
+
+  .dropdown-menu {
+    margin-left: 0;
+    padding-left: 8px;
+  }
 }
