@@ -355,21 +355,21 @@ function limparFormularioRaca() {
 }
 
 function preencherSelectClassesRaca() {
-  preencherSelectGenerico("selectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", false, false);
+  preencherSelectGenerico("selectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", true, false);
   preencherSelectGenerico("selectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada", false, true);
 }
 
 function preencherSelectClassesRacaEdicao() {
-  preencherSelectGenerico("editSelectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", false, false);
+  preencherSelectGenerico("editSelectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", true, false);
   preencherSelectGenerico("editSelectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada", false, true);
 }
 
 function preencherSelectElementosRaca() {
-  preencherSelectGenerico("selectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", false, false);
+  preencherSelectGenerico("selectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", true, false);
 }
 
 function preencherSelectElementosRacaEdicao() {
-  preencherSelectGenerico("editSelectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", false, false);
+  preencherSelectGenerico("editSelectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", true, false);
 }
 
 function preencherSelectHabilidadesRaca() {
@@ -428,6 +428,13 @@ async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) 
   const id = select.value;
   const nome = select.selectedOptions[0].textContent;
 
+  if (id === "__ALL__") {
+    listaSelecionada.length = 0;
+    listaSelecionada.push({ id: "__ALL__", nome: "Todas" });
+    renderCallback();
+    return;
+  }
+
   if (id === "__NONE__") {
     listaSelecionada.length = 0;
     listaSelecionada.push({ id: "__NONE__", nome: "Nenhuma" });
@@ -435,10 +442,10 @@ async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) 
     return;
   }
 
-  const temNenhuma = listaSelecionada.some((item) => item.id === "__NONE__");
+  const temOpcaoEspecial = listaSelecionada.some((item) => item.id === "__ALL__" || item.id === "__NONE__");
 
-  if (temNenhuma) {
-    await mostrarModal("Remova a opção “Nenhuma” antes de selecionar uma restrição específica.", "Seleção inválida");
+  if (temOpcaoEspecial) {
+    await mostrarModal("Remova a opção especial antes de selecionar opções específicas.", "Seleção inválida");
     return;
   }
 
@@ -593,6 +600,8 @@ export function renderizarRacas() {
 
       <p><b>Vantagens:</b> ${raca.vantagens || "Não informado"}</p>
       <p><b>Desvantagens:</b> ${raca.desvantagens || "Não informado"}</p>
+      <p><b>Classes Sugeridas:</b> ${formatarListaObjetos(raca.classesSugeridas)}</p>
+      <p><b>Elementos Afins:</b> ${formatarListaObjetos(raca.elementosAfins)}</p>
       <p><b>Restrições:</b> ${formatarListaObjetos(raca.restricoesClasse)}</p>
 
       <div class="action-row">
