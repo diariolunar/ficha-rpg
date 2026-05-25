@@ -1,61 +1,15 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Pets</h2>
-    <p>Crie criaturas, companheiros, pets domados ou invocações disponíveis.</p>
+    <p>Crie pets, companheiros, criaturas domáveis e invocações auxiliares.</p>
   </div>
 
-  <div class="form-card">
-    <h3>Cadastrar Pet ou Criatura</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome do pet
-        <input type="text" id="petNome" placeholder="Ex: Corvo Lunar" />
-      </label>
-
-      <label>
-        Tipo
-        <input type="text" id="petTipo" placeholder="Ex: Fera, Espírito, Invocação..." />
-      </label>
-
-      <label>
-        HP
-        <input type="number" id="petHp" placeholder="Ex: 30" />
-      </label>
-
-      <label>
-        Dano
-        <input type="number" id="petDano" placeholder="Ex: 6" />
-      </label>
-
-      <label>
-        Defesa
-        <input type="number" id="petDefesa" placeholder="Ex: 2" />
-      </label>
-
-      <label>
-        Nível
-        <input type="number" id="petNivel" placeholder="Ex: 1" />
-      </label>
-    </div>
-
-    <label>
-      Descrição
-      <textarea id="petDescricao" placeholder="Descreva o pet ou criatura..."></textarea>
-    </label>
-
-    <label>
-      Habilidades
-      <textarea id="petHabilidades" placeholder="Liste habilidades do pet..."></textarea>
-    </label>
-
-    <button class="primary-btn" id="salvarPet">Salvar pet</button>
-  </div>
+  <div id="formPets"></div>
 
   <div class="list-card">
     <h3>Pets cadastrados</h3>
-    <div id="listaPets" class="campaign-list">
-      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    <div id="listaPets" class="resource-list">
+      <p>Carregando pets...</p>
     </div>
   </div>
 </section>

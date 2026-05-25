@@ -1,68 +1,15 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Itens</h2>
-    <p>Crie armas, armaduras, consumíveis, runas, encantamentos e itens especiais.</p>
+    <p>Crie armas, armaduras, consumíveis, artefatos, runas, equipamentos e itens especiais.</p>
   </div>
 
-  <div class="form-card">
-    <h3>Cadastrar Item</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome do item
-        <input type="text" id="itemNome" placeholder="Ex: Espada Flamejante" />
-      </label>
-
-      <label>
-        Tipo
-        <select id="itemTipo">
-          <option value="arma">Arma</option>
-          <option value="armadura">Armadura</option>
-          <option value="consumivel">Consumível</option>
-          <option value="runa">Runa</option>
-          <option value="encantamento">Encantamento</option>
-          <option value="especial">Especial</option>
-        </select>
-      </label>
-
-      <label>
-        Dano bônus
-        <input type="number" id="itemDano" placeholder="Ex: 5" />
-      </label>
-
-      <label>
-        Defesa bônus
-        <input type="number" id="itemDefesa" placeholder="Ex: 3" />
-      </label>
-
-      <label>
-        Durabilidade
-        <input type="number" id="itemDurabilidade" placeholder="Ex: 100" />
-      </label>
-
-      <label>
-        Raridade
-        <input type="text" id="itemRaridade" placeholder="Ex: Comum, Raro, Lendário..." />
-      </label>
-    </div>
-
-    <label>
-      Descrição
-      <textarea id="itemDescricao" placeholder="Explique o item..."></textarea>
-    </label>
-
-    <label>
-      Efeito especial
-      <textarea id="itemEfeito" placeholder="Ex: Se tirar mais de 15 no D20, aplica fogo..."></textarea>
-    </label>
-
-    <button class="primary-btn" id="salvarItem">Salvar item</button>
-  </div>
+  <div id="formItens"></div>
 
   <div class="list-card">
     <h3>Itens cadastrados</h3>
-    <div id="listaItens" class="campaign-list">
-      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    <div id="listaItens" class="resource-list">
+      <p>Carregando itens...</p>
     </div>
   </div>
 </section>

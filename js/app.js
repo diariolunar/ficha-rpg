@@ -9,11 +9,15 @@ import { initSubclasses, iniciarSubclasses, pararSubclasses } from "./subclasses
 import { initElementos, iniciarElementos, pararElementos } from "./elementos.js";
 import { initHabilidades, iniciarHabilidades, pararHabilidades } from "./habilidades.js";
 
+import { initItens, iniciarItens, pararItens } from "./itens.js";
+import { initPets, iniciarPets, pararPets } from "./pets.js";
+import { initMonstros, iniciarMonstros, pararMonstros } from "./monstros.js";
+import { initBosses, iniciarBosses, pararBosses } from "./bosses.js";
+
 import { initCampanhas, iniciarCampanhas, pararCampanhas } from "./campanhas.js";
 import { initPersonagens, iniciarPersonagens, pararPersonagens } from "./personagens.js";
 import { initFicha } from "./ficha.js";
 import { initDice } from "./dice.js";
-import { initBosses } from "./bosses.js";
 
 function iniciarApp() {
   initNavigation();
@@ -24,11 +28,15 @@ function iniciarApp() {
   initElementos();
   initHabilidades();
 
+  initItens();
+  initPets();
+  initMonstros();
+  initBosses();
+
   initCampanhas();
   initPersonagens();
   initFicha();
   initDice();
-  initBosses();
 
   onPageLoaded(() => {
     aplicarPermissoes();
@@ -41,6 +49,11 @@ function iniciarApp() {
     iniciarElementos();
     iniciarHabilidades();
 
+    iniciarItens();
+    iniciarPets();
+    iniciarMonstros();
+    iniciarBosses();
+
     iniciarCampanhas();
     iniciarPersonagens();
   });
@@ -51,6 +64,11 @@ function iniciarApp() {
     pararSubclasses();
     pararElementos();
     pararHabilidades();
+
+    pararItens();
+    pararPets();
+    pararMonstros();
+    pararBosses();
 
     pararCampanhas();
     pararPersonagens();

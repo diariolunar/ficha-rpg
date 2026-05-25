@@ -22,9 +22,16 @@ const paginas = {
   cadastrosHabilidadeDetalhe: "pages/cadastros/habilidade-detalhe.html",
 
   cadastrosItens: "pages/cadastros/itens.html",
+  cadastrosItemDetalhe: "pages/cadastros/item-detalhe.html",
+
   cadastrosPets: "pages/cadastros/pets.html",
+  cadastrosPetDetalhe: "pages/cadastros/pet-detalhe.html",
+
   cadastrosMonstros: "pages/cadastros/monstros.html",
-  cadastrosBosses: "pages/cadastros/bosses.html"
+  cadastrosMonstroDetalhe: "pages/cadastros/monstro-detalhe.html",
+
+  cadastrosBosses: "pages/cadastros/bosses.html",
+  cadastrosBossDetalhe: "pages/cadastros/boss-detalhe.html"
 };
 
 let paginaAtual = "dashboard";

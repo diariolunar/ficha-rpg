@@ -1,66 +1,15 @@
 <section class="page">
   <div class="page-header">
     <h2>Cadastro de Monstros</h2>
-    <p>Crie monstros e inimigos que o Mestre poderá usar durante a campanha.</p>
+    <p>Crie monstros, inimigos comuns, criaturas hostis e ameaças para campanhas.</p>
   </div>
 
-  <div class="form-card">
-    <h3>Cadastrar Monstro</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome do monstro
-        <input type="text" id="monstroNome" placeholder="Ex: Devorador de Ossos" />
-      </label>
-
-      <label>
-        Tipo
-        <input type="text" id="monstroTipo" placeholder="Ex: Morto-vivo, Besta, Demônio..." />
-      </label>
-
-      <label>
-        HP
-        <input type="number" id="monstroHp" placeholder="Ex: 120" />
-      </label>
-
-      <label>
-        Mana
-        <input type="number" id="monstroMana" placeholder="Ex: 40" />
-      </label>
-
-      <label>
-        Dano
-        <input type="number" id="monstroDano" placeholder="Ex: 15" />
-      </label>
-
-      <label>
-        Defesa
-        <input type="number" id="monstroDefesa" placeholder="Ex: 8" />
-      </label>
-    </div>
-
-    <label>
-      Descrição
-      <textarea id="monstroDescricao" placeholder="Descreva o monstro..."></textarea>
-    </label>
-
-    <label>
-      Habilidades
-      <textarea id="monstroHabilidades" placeholder="Liste habilidades e efeitos especiais..."></textarea>
-    </label>
-
-    <label>
-      Recompensas / itens possíveis
-      <textarea id="monstroRecompensas" placeholder="Ex: Presas, ouro, runas, item raro..."></textarea>
-    </label>
-
-    <button class="primary-btn" id="salvarMonstro">Salvar monstro</button>
-  </div>
+  <div id="formMonstros"></div>
 
   <div class="list-card">
     <h3>Monstros cadastrados</h3>
-    <div id="listaMonstros" class="campaign-list">
-      <p>Em breve este cadastro será conectado ao Firebase.</p>
+    <div id="listaMonstros" class="resource-list">
+      <p>Carregando monstros...</p>
     </div>
   </div>
 </section>
