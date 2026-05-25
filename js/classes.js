@@ -93,6 +93,8 @@ function carregarOpcoesRelacionadasClasse() {
 
     preencherSelectHabilidadesClasse();
     preencherSelectHabilidadesClasseEdicao();
+  }, (erro) => {
+    console.error("Erro ao carregar habilidades para classes:", erro);
   });
 
   unsubscribeSubclasses = onSnapshot(subclassesQuery, (snapshot) => {
@@ -107,6 +109,8 @@ function carregarOpcoesRelacionadasClasse() {
 
     preencherSelectSubclassesClasse();
     preencherSelectSubclassesClasseEdicao();
+  }, (erro) => {
+    console.error("Erro ao carregar subclasses para classes:", erro);
   });
 }
 
@@ -309,7 +313,7 @@ export function renderizarClasses() {
 
     card.innerHTML = `
       <div class="resource-card-header">
-        <h4>${classe.nome}</h4>
+        <h4>${escapeHtml(classe.nome || "Sem nome")}</h4>
         <span>Classe</span>
       </div>
 
@@ -323,6 +327,7 @@ export function renderizarClasses() {
       <p><b>Atributo Principal:</b> ${formatarAtributo(classe.atributoPrincipal)}</p>
       <p><b>Atributo Secundário:</b> ${formatarAtributo(classe.atributoSecundario)}</p>
       <p><b>Habilidade Exclusiva:</b> ${classe.habilidadeExclusiva?.nome || "Não informado"}</p>
+      <p><b>Subclasses Disponíveis:</b> ${formatarListaObjetos(classe.subclassesDisponiveis)}</p>
 
       <div class="action-row">
         <button class="secondary-btn visualizar-classe">Visualizar</button>
@@ -383,7 +388,7 @@ export function renderizarDetalheClasse(modoEdicao = false) {
 
   container.innerHTML = `
     <div class="detail-card">
-      <h3>${classe.nome}</h3>
+      <h3>${escapeHtml(classe.nome || "Sem nome")}</h3>
       <p class="detail-subtitle">Classe cadastrada pelo Mestre</p>
 
       <div class="detail-grid">
@@ -406,16 +411,16 @@ export function renderizarDetalheClasse(modoEdicao = false) {
           <span>Atributo Secundário</span>
           <strong>${formatarAtributo(classe.atributoSecundario)}</strong>
         </div>
-      </div>
 
-      <div class="detail-section">
-        <h4>Tipo de Dano</h4>
-        <p>${classe.tipoDano || "Não informado"}</p>
-      </div>
+        <div class="detail-item">
+          <span>Tipo de Dano</span>
+          <strong>${classe.tipoDano || "Não informado"}</strong>
+        </div>
 
-      <div class="detail-section">
-        <h4>Tipo de Defesa</h4>
-        <p>${classe.tipoDefesa || "Não informado"}</p>
+        <div class="detail-item">
+          <span>Tipo de Defesa</span>
+          <strong>${classe.tipoDefesa || "Não informado"}</strong>
+        </div>
       </div>
 
       <div class="detail-section">
@@ -468,7 +473,9 @@ export function renderizarDetalheClasse(modoEdicao = false) {
 }
 
 function renderizarFormularioEdicaoClasse(container, classe) {
-  editSubclassesSelecionadas = Array.isArray(classe.subclassesDisponiveis) ? [...classe.subclassesDisponiveis] : [];
+  editSubclassesSelecionadas = Array.isArray(classe.subclassesDisponiveis)
+    ? [...classe.subclassesDisponiveis]
+    : [];
 
   container.innerHTML = `
     <div class="form-card edit-panel">
@@ -696,7 +703,7 @@ function renderizarListaSelecionada(containerId, lista, mensagemVazia, callbackR
     chip.classList.add("selected-chip");
 
     chip.innerHTML = `
-      ${item.nome}
+      ${escapeHtml(item.nome)}
       <button type="button" title="Remover">×</button>
     `;
 
