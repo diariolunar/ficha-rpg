@@ -9,6 +9,11 @@ import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
 
+export function initFicha() {
+  // Mantém compatibilidade com o app.js.
+  // A ficha é aberta diretamente pela função abrirFichaPersonagem().
+}
+
 export function abrirFichaPersonagem(personagem) {
   personagemFichaAtual = personagem;
 
@@ -38,7 +43,6 @@ export function abrirFichaPersonagem(personagem) {
   document.body.appendChild(overlay);
 
   document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
-
   document.getElementById("salvarStatusFicha")?.addEventListener("click", salvarStatusFicha);
 
   overlay.addEventListener("click", (event) => {
@@ -147,19 +151,16 @@ function montarFichaPersonagem(personagem) {
 
       <div class="detail-card">
         <h3>Habilidades</h3>
-
         ${montarHabilidades(personagem)}
       </div>
 
       <div class="detail-card">
         <h3>Itens</h3>
-
         ${montarItens(personagem)}
       </div>
 
       <div class="detail-card">
         <h3>Pet</h3>
-
         ${montarPet(personagem)}
       </div>
 
