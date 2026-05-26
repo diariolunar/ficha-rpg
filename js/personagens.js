@@ -6,7 +6,10 @@ import {
   serverTimestamp,
   query,
   where,
-  orderBy
+  orderBy,
+  doc,
+  updateDoc,
+  deleteDoc
 } from "./firebase.js";
 
 import { state, setPersonagens } from "./state.js";
@@ -14,7 +17,7 @@ import { onPageLoaded } from "./navigation.js";
 import { buscarRacaPorId, preencherSelectRacas, atualizarPreviewRaca } from "./racas.js";
 import { buscarCampanhaPorId, preencherSelectCampanhas } from "./campanhas.js";
 import { abrirFichaPersonagem } from "./ficha.js";
-import { mostrarModal } from "./ui.js";
+import { mostrarModal, confirmarModal } from "./ui.js";
 
 let unsubscribePersonagens = null;
 let unsubscribeClassesPersonagem = null;
@@ -34,7 +37,7 @@ let petsDisponiveisPersonagem = [];
 let habilidadesIniciaisSelecionadas = [];
 let itensIniciaisSelecionados = [];
 
-let modalCriacaoPersonagemAberto = false;
+let personagemEmEdicao = null;
 
 export function iniciarPersonagens() {
   pararPersonagens();
@@ -45,21 +48,31 @@ export function iniciarPersonagens() {
     ? query(personagensRef, where("mestreId", "==", state.usuarioAtual.uid))
     : query(personagensRef, where("donoId", "==", state.usuarioAtual.uid));
 
-  unsubscribePersonagens = onSnapshot(consulta, (snapshot) => {
-    const personagens = [];
+  unsubscribePersonagens = onSnapshot(
+    consulta,
+    (snapshot) => {
+      const personagens = [];
 
-    snapshot.forEach((documento) => {
-      personagens.push({
-        id: documento.id,
-        ...documento.data()
+      snapshot.forEach((documento) => {
+        personagens.push({
+          id: documento.id,
+          ...documento.data()
+        });
       });
-    });
 
-    setPersonagens(personagens);
-    renderizarPersonagens();
-    renderizarTabelaMestre();
-    atualizarContadorPersonagens();
-  });
+      personagens.sort((a, b) => {
+        return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+      });
+
+      setPersonagens(personagens);
+      renderizarPersonagens();
+      renderizarTabelaMestre();
+      atualizarContadorPersonagens();
+    },
+    (erro) => {
+      console.error("Erro ao carregar personagens:", erro);
+    }
+  );
 
   carregarOpcoesPersonagem();
 }
@@ -102,76 +115,94 @@ export function pararPersonagens() {
 }
 
 function carregarOpcoesPersonagem() {
-  unsubscribeClassesPersonagem = onSnapshot(query(collection(db, "classes"), orderBy("nome", "asc")), (snapshot) => {
-    classesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeClassesPersonagem = onSnapshot(
+    query(collection(db, "classes"), orderBy("nome", "asc")),
+    (snapshot) => {
+      classesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectClassesPersonagem();
-    preencherSelectSubclassesPersonagem();
-    atualizarPreviewPersonagem();
-  });
+      preencherSelectClassesPersonagem();
+      preencherSelectSubclassesPersonagem();
+      atualizarPreviewPersonagem();
+    }
+  );
 
-  unsubscribeSubclassesPersonagem = onSnapshot(query(collection(db, "subclasses"), orderBy("nome", "asc")), (snapshot) => {
-    subclassesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeSubclassesPersonagem = onSnapshot(
+    query(collection(db, "subclasses"), orderBy("nome", "asc")),
+    (snapshot) => {
+      subclassesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectSubclassesPersonagem();
-    atualizarPreviewPersonagem();
-  });
+      preencherSelectSubclassesPersonagem();
+      atualizarPreviewPersonagem();
+    }
+  );
 
-  unsubscribeElementosPersonagem = onSnapshot(query(collection(db, "elementos"), orderBy("nome", "asc")), (snapshot) => {
-    elementosDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeElementosPersonagem = onSnapshot(
+    query(collection(db, "elementos"), orderBy("nome", "asc")),
+    (snapshot) => {
+      elementosDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectElementosPersonagem();
-    atualizarPreviewPersonagem();
-  });
+      preencherSelectElementosPersonagem();
+      atualizarPreviewPersonagem();
+    }
+  );
 
-  unsubscribeHabilidadesPersonagem = onSnapshot(query(collection(db, "habilidades"), orderBy("nome", "asc")), (snapshot) => {
-    habilidadesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeHabilidadesPersonagem = onSnapshot(
+    query(collection(db, "habilidades"), orderBy("nome", "asc")),
+    (snapshot) => {
+      habilidadesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectHabilidadesPersonagem();
-  });
+      preencherSelectHabilidadesPersonagem();
+    }
+  );
 
-  unsubscribeItensPersonagem = onSnapshot(query(collection(db, "itens"), orderBy("nome", "asc")), (snapshot) => {
-    itensDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeItensPersonagem = onSnapshot(
+    query(collection(db, "itens"), orderBy("nome", "asc")),
+    (snapshot) => {
+      itensDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectItensPersonagem();
-  });
+      preencherSelectItensPersonagem();
+    }
+  );
 
-  unsubscribePetsPersonagem = onSnapshot(query(collection(db, "pets"), orderBy("nome", "asc")), (snapshot) => {
-    petsDisponiveisPersonagem = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribePetsPersonagem = onSnapshot(
+    query(collection(db, "pets"), orderBy("nome", "asc")),
+    (snapshot) => {
+      petsDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectPetsPersonagem();
-    atualizarPreviewPersonagem();
-  });
+      preencherSelectPetsPersonagem();
+      atualizarPreviewPersonagem();
+    }
+  );
 }
 
 function abrirModalCriacaoPersonagem() {
-  fecharModalCriacaoPersonagem();
+  fecharModalPersonagem();
 
-  modalCriacaoPersonagemAberto = true;
+  personagemEmEdicao = null;
   habilidadesIniciaisSelecionadas = [];
   itensIniciaisSelecionados = [];
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
-  overlay.id = "modalCriacaoPersonagem";
+  overlay.id = "modalPersonagem";
 
   overlay.innerHTML = `
     <div class="crud-form-modal">
@@ -181,42 +212,18 @@ function abrirModalCriacaoPersonagem() {
           <p>Escolha raça, classe, subclasse, elemento, pet, habilidades e itens iniciais.</p>
         </div>
 
-        <button class="crud-form-close" type="button" id="fecharModalCriacaoPersonagem">×</button>
+        <button class="crud-form-close" type="button" id="fecharModalPersonagem">×</button>
       </div>
 
       <div class="crud-form-body">
-        ${montarFormularioCriacaoPersonagem()}
+        ${montarFormularioPersonagem()}
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalCriacaoPersonagem").addEventListener("click", fecharModalCriacaoPersonagem);
-  document.getElementById("cancelarCriacaoPersonagem").addEventListener("click", fecharModalCriacaoPersonagem);
-  document.getElementById("btnCriarPersonagem").addEventListener("click", criarPersonagem);
-
-  document.getElementById("adicionarHabilidadeInicial").addEventListener("click", async () => {
-    await adicionarSelecionado(
-      "selectHabilidadesIniciais",
-      habilidadesIniciaisSelecionadas,
-      renderizarHabilidadesIniciais
-    );
-  });
-
-  document.getElementById("adicionarItemInicial").addEventListener("click", async () => {
-    await adicionarSelecionado(
-      "selectItensIniciais",
-      itensIniciaisSelecionados,
-      renderizarItensIniciais
-    );
-  });
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalCriacaoPersonagem();
-    }
-  });
+  vincularEventosFormularioPersonagem();
 
   preencherSelectCampanhas();
   preencherSelectRacas();
@@ -230,20 +237,110 @@ function abrirModalCriacaoPersonagem() {
   renderizarHabilidadesIniciais();
   renderizarItensIniciais();
   atualizarPreviewPersonagem();
-  vincularEventosPreviewPersonagem();
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalPersonagem();
+    }
+  });
 }
 
-function fecharModalCriacaoPersonagem() {
-  const overlay = document.getElementById("modalCriacaoPersonagem");
+function abrirModalEdicaoPersonagem(personagem) {
+  fecharModalPersonagem();
+
+  personagemEmEdicao = personagem;
+  habilidadesIniciaisSelecionadas = Array.isArray(personagem.habilidadesIniciais)
+    ? [...personagem.habilidadesIniciais]
+    : [];
+
+  itensIniciaisSelecionados = Array.isArray(personagem.itensIniciais)
+    ? [...personagem.itensIniciais]
+    : [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Editar Personagem</h3>
+          <p>Atualize as informações principais do personagem.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFormularioPersonagem(personagem)}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  vincularEventosFormularioPersonagem();
+
+  preencherSelectCampanhas();
+  preencherSelectRacas();
+  preencherSelectClassesPersonagem();
+  preencherSelectSubclassesPersonagem();
+  preencherSelectElementosPersonagem();
+  preencherSelectPetsPersonagem();
+  preencherSelectHabilidadesPersonagem();
+  preencherSelectItensPersonagem();
+
+  preencherValoresEdicaoPersonagem(personagem);
+
+  renderizarHabilidadesIniciais();
+  renderizarItensIniciais();
+  atualizarPreviewPersonagem();
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalPersonagem();
+    }
+  });
+}
+
+function preencherValoresEdicaoPersonagem(personagem) {
+  setCampoValor("personagemNome", personagem.nome || "");
+  setCampoValor("personagemNivel", personagem.nivel || 1);
+  setCampoValor("personagemCampanha", personagem.campanhaId || "");
+  setCampoValor("personagemRaca", personagem.racaId || personagem.raca?.id || "");
+  setCampoValor("personagemClasse", personagem.classeId || personagem.classe?.id || "");
+
+  preencherSelectClassesPersonagem();
+  preencherSelectSubclassesPersonagem();
+
+  setCampoValor("personagemSubclasse", personagem.subclasseId || personagem.subclasse?.id || "");
+  setCampoValor("personagemElemento", personagem.elementoId || personagem.elemento?.id || "");
+  setCampoValor("personagemPet", personagem.pet?.id || "");
+  setCampoValor("personagemHistoria", personagem.historia || "");
+}
+
+function setCampoValor(id, valor) {
+  const campo = document.getElementById(id);
+
+  if (campo) {
+    campo.value = valor;
+  }
+}
+
+function fecharModalPersonagem() {
+  const overlay = document.getElementById("modalPersonagem");
 
   if (overlay) {
     overlay.remove();
   }
 
-  modalCriacaoPersonagemAberto = false;
+  personagemEmEdicao = null;
 }
 
-function montarFormularioCriacaoPersonagem() {
+function montarFormularioPersonagem(personagem = null) {
+  const modoEdicao = Boolean(personagem);
+
   return `
     <div class="crud-form-content">
       <div class="form-grid">
@@ -253,7 +350,7 @@ function montarFormularioCriacaoPersonagem() {
         </label>
 
         <label>
-          Nível inicial
+          Nível
           <input type="number" id="personagemNivel" value="1" min="1" />
         </label>
 
@@ -293,7 +390,7 @@ function montarFormularioCriacaoPersonagem() {
         </label>
 
         <label>
-          Pet inicial
+          Pet
           <select id="personagemPet">
             <option value="">Carregando pets...</option>
           </select>
@@ -304,7 +401,7 @@ function montarFormularioCriacaoPersonagem() {
         <div class="preview-title-row">
           <div>
             <h4>Prévia do Personagem</h4>
-            <p>Os valores abaixo são calculados a partir da raça, classe e nível inicial.</p>
+            <p>Os valores abaixo são calculados a partir da raça, classe e nível.</p>
           </div>
         </div>
 
@@ -386,14 +483,36 @@ function montarFormularioCriacaoPersonagem() {
       </label>
 
       <div class="action-row">
-        <button class="secondary-btn" type="button" id="cancelarCriacaoPersonagem">Cancelar</button>
-        <button class="primary-btn" type="button" id="btnCriarPersonagem">Criar personagem</button>
+        <button class="secondary-btn" type="button" id="cancelarPersonagem">Cancelar</button>
+        <button class="primary-btn" type="button" id="salvarPersonagem">
+          ${modoEdicao ? "Salvar alterações" : "Criar personagem"}
+        </button>
       </div>
     </div>
   `;
 }
 
-function vincularEventosPreviewPersonagem() {
+function vincularEventosFormularioPersonagem() {
+  document.getElementById("fecharModalPersonagem")?.addEventListener("click", fecharModalPersonagem);
+  document.getElementById("cancelarPersonagem")?.addEventListener("click", fecharModalPersonagem);
+  document.getElementById("salvarPersonagem")?.addEventListener("click", salvarPersonagem);
+
+  document.getElementById("adicionarHabilidadeInicial")?.addEventListener("click", async () => {
+    await adicionarSelecionado(
+      "selectHabilidadesIniciais",
+      habilidadesIniciaisSelecionadas,
+      renderizarHabilidadesIniciais
+    );
+  });
+
+  document.getElementById("adicionarItemInicial")?.addEventListener("click", async () => {
+    await adicionarSelecionado(
+      "selectItensIniciais",
+      itensIniciaisSelecionados,
+      renderizarItensIniciais
+    );
+  });
+
   const camposPreview = [
     "personagemNivel",
     "personagemRaca",
@@ -404,11 +523,7 @@ function vincularEventosPreviewPersonagem() {
   ];
 
   camposPreview.forEach((id) => {
-    const campo = document.getElementById(id);
-
-    if (!campo) return;
-
-    campo.addEventListener("change", () => {
+    document.getElementById(id)?.addEventListener("change", () => {
       if (id === "personagemRaca") {
         preencherSelectClassesPersonagem();
         preencherSelectSubclassesPersonagem();
@@ -418,13 +533,8 @@ function vincularEventosPreviewPersonagem() {
         preencherSelectSubclassesPersonagem();
       }
 
-      const selectRaca = document.getElementById("personagemRaca");
-
-      if (selectRaca) {
-        const raca = buscarRacaPorId(selectRaca.value);
-        atualizarPreviewRaca(raca);
-      }
-
+      const raca = buscarRacaPorId(valorCampo("personagemRaca"));
+      atualizarPreviewRaca(raca);
       atualizarPreviewPersonagem();
     });
   });
@@ -495,6 +605,10 @@ function formatarAtributo(valor) {
 
 function classeEstaRestrita(raca, classe) {
   if (!raca || !classe || !Array.isArray(raca.restricoesClasse)) return false;
+
+  const temNenhuma = raca.restricoesClasse.some((restricao) => restricao.id === "__NONE__");
+
+  if (temNenhuma) return false;
 
   return raca.restricoesClasse.some((restricao) => restricao.id === classe.id);
 }
@@ -575,6 +689,7 @@ function preencherSelectSubclassesPersonagem() {
 
   if (!select) return;
 
+  const subclasseSelecionadaAntes = select.value;
   const classe = buscarClassePorId(valorCampo("personagemClasse"));
 
   select.innerHTML = "";
@@ -604,12 +719,20 @@ function preencherSelectSubclassesPersonagem() {
     option.textContent = subclasse.nome || "Sem nome";
     select.appendChild(option);
   });
+
+  const subclasseAindaPermitida = subclassesPermitidas.some((subclasse) => subclasse.id === subclasseSelecionadaAntes);
+
+  if (subclasseAindaPermitida) {
+    select.value = subclasseSelecionadaAntes;
+  }
 }
 
 function preencherSelectElementosPersonagem() {
   const select = document.getElementById("personagemElemento");
 
   if (!select) return;
+
+  const valorAtual = select.value;
 
   select.innerHTML = "";
 
@@ -626,6 +749,10 @@ function preencherSelectElementosPersonagem() {
     option.textContent = elemento.nome || "Sem nome";
     select.appendChild(option);
   });
+
+  if (valorAtual) {
+    select.value = valorAtual;
+  }
 }
 
 function preencherSelectPetsPersonagem() {
@@ -633,7 +760,9 @@ function preencherSelectPetsPersonagem() {
 
   if (!select) return;
 
-  select.innerHTML = `<option value="">Nenhum pet inicial</option>`;
+  const valorAtual = select.value;
+
+  select.innerHTML = `<option value="">Nenhum pet</option>`;
 
   petsDisponiveisPersonagem.forEach((pet) => {
     const option = document.createElement("option");
@@ -641,6 +770,10 @@ function preencherSelectPetsPersonagem() {
     option.textContent = pet.nome || "Sem nome";
     select.appendChild(option);
   });
+
+  if (valorAtual) {
+    select.value = valorAtual;
+  }
 }
 
 function preencherSelectHabilidadesPersonagem() {
@@ -734,7 +867,7 @@ function renderizarListaSelecionada(containerId, lista, mensagemVazia, callbackR
     chip.classList.add("selected-chip");
 
     chip.innerHTML = `
-      ${item.nome}
+      ${escapeHtml(item.nome)}
       <button type="button" title="Remover">×</button>
     `;
 
@@ -805,12 +938,64 @@ function atualizarPreviewPersonagem() {
   document.getElementById("previewRestricoesClasse").textContent = formatarListaObjetos(raca?.restricoesClasse);
 }
 
+async function salvarPersonagem() {
+  if (personagemEmEdicao) {
+    await salvarEdicaoPersonagem();
+  } else {
+    await criarPersonagem();
+  }
+}
+
 async function criarPersonagem() {
   if (!state.usuarioAtual) {
     await mostrarModal("Você precisa estar logado para criar um personagem.", "Acesso necessário");
     return;
   }
 
+  const dados = montarDadosPersonagem();
+
+  if (!dados) return;
+
+  try {
+    await addDoc(collection(db, "personagens"), {
+      ...dados,
+      criadoEm: serverTimestamp()
+    });
+
+    await mostrarModal("Personagem criado com sucesso.", "Cadastro realizado", "success");
+
+    fecharModalPersonagem();
+    renderizarPersonagens();
+  } catch (erro) {
+    console.error("Erro ao criar personagem:", erro);
+    await mostrarModal("Erro ao criar personagem. Verifique os dados e tente novamente.", "Erro", "danger");
+  }
+}
+
+async function salvarEdicaoPersonagem() {
+  if (!personagemEmEdicao) return;
+
+  const dados = montarDadosPersonagem(personagemEmEdicao);
+
+  if (!dados) return;
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemEmEdicao.id), {
+      ...dados,
+      atualizadoEm: serverTimestamp()
+    });
+
+    await mostrarModal("Personagem atualizado com sucesso.", "Alterações salvas", "success");
+
+    fecharModalPersonagem();
+    renderizarPersonagens();
+  } catch (erro) {
+    console.error("Erro ao editar personagem:", erro);
+    await mostrarModal("Erro ao editar personagem.", "Erro", "danger");
+  }
+}
+
+function montarDadosPersonagem(personagemExistente = null) {
   const nome = textoCampo("personagemNome");
   const nivel = numeroCampo("personagemNivel", 1);
   const campanhaId = valorCampo("personagemCampanha");
@@ -822,18 +1007,18 @@ async function criarPersonagem() {
   const historia = textoCampo("personagemHistoria");
 
   if (!nome) {
-    await mostrarModal("Digite o nome do personagem.", "Campo obrigatório");
-    return;
+    mostrarModal("Digite o nome do personagem.", "Campo obrigatório");
+    return null;
   }
 
   if (!racaId) {
-    await mostrarModal("Selecione uma raça.", "Campo obrigatório");
-    return;
+    mostrarModal("Selecione uma raça.", "Campo obrigatório");
+    return null;
   }
 
   if (!classeId) {
-    await mostrarModal("Selecione uma classe.", "Campo obrigatório");
-    return;
+    mostrarModal("Selecione uma classe.", "Campo obrigatório");
+    return null;
   }
 
   const campanha = campanhaId ? buscarCampanhaPorId(campanhaId) : null;
@@ -844,17 +1029,17 @@ async function criarPersonagem() {
   const pet = buscarPetPorId(petId);
 
   if (!raca || !classe) {
-    await mostrarModal("Raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
-    return;
+    mostrarModal("Raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
+    return null;
   }
 
   if (campanhaId && !campanha) {
-    await mostrarModal("Campanha não encontrada. Escolha outra campanha ou deixe o campo como Nenhuma campanha.", "Erro", "danger");
-    return;
+    mostrarModal("Campanha não encontrada. Escolha outra campanha ou deixe o campo como Nenhuma campanha.", "Erro", "danger");
+    return null;
   }
 
   if (classeEstaRestrita(raca, classe)) {
-    await mostrarModal(
+    mostrarModal(
       `A raça "${raca.nome}" possui restrição para a classe "${classe.nome}".`,
       "Classe restrita",
       "danger"
@@ -863,84 +1048,189 @@ async function criarPersonagem() {
     preencherSelectClassesPersonagem();
     preencherSelectSubclassesPersonagem();
     atualizarPreviewPersonagem();
-    return;
+    return null;
   }
 
   const hpInicial = calcularHpInicial(raca, classe, nivel);
   const manaInicial = calcularManaInicial(raca, classe, nivel);
 
-  try {
-    await addDoc(collection(db, "personagens"), {
-      nome,
-      nivel,
-      donoId: state.usuarioAtual.uid,
-      donoNome: state.dadosUsuarioAtual.nome || state.usuarioAtual.email,
-      donoEmail: state.usuarioAtual.email,
+  const hpAtual = personagemExistente?.hpAtual ?? hpInicial;
+  const manaAtual = personagemExistente?.manaAtual ?? manaInicial;
 
+  return {
+    nome,
+    nivel,
+    donoId: personagemExistente?.donoId || state.usuarioAtual.uid,
+    donoNome: personagemExistente?.donoNome || state.dadosUsuarioAtual.nome || state.usuarioAtual.email,
+    donoEmail: personagemExistente?.donoEmail || state.usuarioAtual.email,
+
+    campanhaId: campanha?.id || "",
+    campanhaNome: campanha?.nome || "Sem campanha",
+    mestreId: campanha?.mestreId || "",
+
+    raca: objetoCompleto(raca),
+    classe: objetoCompleto(classe),
+    subclasse: objetoCompleto(subclasse),
+    elemento: objetoCompleto(elemento),
+    pet: objetoCompleto(pet),
+
+    racaId: raca.id,
+    racaNome: raca.nome,
+    classeId: classe.id,
+    classeNome: classe.nome,
+    subclasseId: subclasse?.id || "",
+    subclasseNome: subclasse?.nome || "",
+    elementoId: elemento?.id || "",
+    elementoNome: elemento?.nome || "",
+
+    historia,
+
+    hpMax: hpInicial,
+    hpAtual: Math.min(hpAtual, hpInicial),
+    manaMax: manaInicial,
+    manaAtual: Math.min(manaAtual, manaInicial),
+
+    forcaFisica: raca.forcaFisica ?? raca.forca ?? 0,
+    forcaMagica: raca.forcaMagica ?? 0,
+    defesaFisica: raca.defesaFisica ?? raca.defesa ?? 0,
+    defesaMagica: raca.defesaMagica ?? 0,
+    velocidade: raca.velocidade ?? 0,
+    resistencia: raca.resistencia ?? 0,
+
+    carismaBonus: raca.carismaBonus || "",
+    fatorMedoBonus: raca.fatorMedoBonus || "",
+
+    fome: personagemExistente?.fome ?? 0,
+    fadiga: personagemExistente?.fadiga ?? 0,
+
+    vantagensRaca: raca.vantagens || "",
+    desvantagensRaca: raca.desvantagens || "",
+    vantagensClasse: classe.vantagens || "",
+    desvantagensClasse: classe.desvantagens || "",
+
+    habilidadeExclusivaRaca: raca.habilidadeExclusiva || null,
+    habilidadeExclusivaClasse: classe.habilidadeExclusiva || null,
+
+    habilidadesIniciais: habilidadesIniciaisSelecionadas,
+    itensIniciais: itensIniciaisSelecionados,
+
+    classesSugeridas: raca.classesSugeridas || [],
+    elementosAfins: raca.elementosAfins || [],
+    restricoesClasse: raca.restricoesClasse || []
+  };
+}
+
+async function excluirPersonagem(personagem) {
+  const confirmar = await confirmarModal({
+    titulo: "Excluir personagem",
+    mensagem: `Tem certeza que deseja excluir "${personagem.nome}"? Essa ação não pode ser desfeita.`,
+    confirmarTexto: "Excluir",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  try {
+    await deleteDoc(doc(db, "personagens", personagem.id));
+    await mostrarModal("Personagem excluído com sucesso.", "Exclusão concluída", "success");
+  } catch (erro) {
+    console.error("Erro ao excluir personagem:", erro);
+    await mostrarModal("Erro ao excluir personagem.", "Erro", "danger");
+  }
+}
+
+function abrirModalVincularCampanha(personagem) {
+  fecharModalVincularCampanha();
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalVincularCampanha";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Vincular Campanha</h3>
+          <p>Escolha uma campanha para o personagem "${escapeHtml(personagem.nome)}".</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalVincularCampanha">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Campanha
+            <select id="vincularCampanhaSelect">
+              <option value="">Nenhuma campanha</option>
+            </select>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarVinculoCampanha">Cancelar</button>
+            <button class="primary-btn" type="button" id="salvarVinculoCampanha">Salvar vínculo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  preencherSelectCampanhas();
+
+  const selectOriginal = document.getElementById("personagemCampanha");
+  const selectVinculo = document.getElementById("vincularCampanhaSelect");
+
+  if (selectOriginal && selectVinculo) {
+    selectVinculo.innerHTML = selectOriginal.innerHTML;
+    selectVinculo.value = personagem.campanhaId || "";
+  }
+
+  document.getElementById("fecharModalVincularCampanha")?.addEventListener("click", fecharModalVincularCampanha);
+  document.getElementById("cancelarVinculoCampanha")?.addEventListener("click", fecharModalVincularCampanha);
+  document.getElementById("salvarVinculoCampanha")?.addEventListener("click", async () => {
+    await salvarVinculoCampanha(personagem);
+  });
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalVincularCampanha();
+    }
+  });
+}
+
+function fecharModalVincularCampanha() {
+  const overlay = document.getElementById("modalVincularCampanha");
+
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+async function salvarVinculoCampanha(personagem) {
+  const campanhaId = valorCampo("vincularCampanhaSelect");
+  const campanha = campanhaId ? buscarCampanhaPorId(campanhaId) : null;
+
+  if (campanhaId && !campanha) {
+    await mostrarModal("Campanha não encontrada.", "Erro", "danger");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "personagens", personagem.id), {
       campanhaId: campanha?.id || "",
       campanhaNome: campanha?.nome || "Sem campanha",
       mestreId: campanha?.mestreId || "",
-
-      raca: objetoCompleto(raca),
-      classe: objetoCompleto(classe),
-      subclasse: objetoCompleto(subclasse),
-      elemento: objetoCompleto(elemento),
-      pet: objetoCompleto(pet),
-
-      racaId: raca.id,
-      racaNome: raca.nome,
-      classeId: classe.id,
-      classeNome: classe.nome,
-      subclasseId: subclasse?.id || "",
-      subclasseNome: subclasse?.nome || "",
-      elementoId: elemento?.id || "",
-      elementoNome: elemento?.nome || "",
-
-      historia,
-
-      hpMax: hpInicial,
-      hpAtual: hpInicial,
-      manaMax: manaInicial,
-      manaAtual: manaInicial,
-
-      forcaFisica: raca.forcaFisica ?? raca.forca ?? 0,
-      forcaMagica: raca.forcaMagica ?? 0,
-      defesaFisica: raca.defesaFisica ?? raca.defesa ?? 0,
-      defesaMagica: raca.defesaMagica ?? 0,
-      velocidade: raca.velocidade ?? 0,
-      resistencia: raca.resistencia ?? 0,
-
-      carismaBonus: raca.carismaBonus || "",
-      fatorMedoBonus: raca.fatorMedoBonus || "",
-
-      fome: 0,
-      fadiga: 0,
-
-      vantagensRaca: raca.vantagens || "",
-      desvantagensRaca: raca.desvantagens || "",
-      vantagensClasse: classe.vantagens || "",
-      desvantagensClasse: classe.desvantagens || "",
-
-      habilidadeExclusivaRaca: raca.habilidadeExclusiva || null,
-      habilidadeExclusivaClasse: classe.habilidadeExclusiva || null,
-
-      habilidadesIniciais: habilidadesIniciaisSelecionadas,
-      itensIniciais: itensIniciaisSelecionados,
-
-      classesSugeridas: raca.classesSugeridas || [],
-      elementosAfins: raca.elementosAfins || [],
-      restricoesClasse: raca.restricoesClasse || [],
-
-      criadoEm: serverTimestamp()
+      atualizadoEm: serverTimestamp()
     });
 
-    await mostrarModal("Personagem criado com sucesso.", "Cadastro realizado", "success");
-
-    fecharModalCriacaoPersonagem();
-    renderizarPersonagens();
+    await mostrarModal("Campanha vinculada com sucesso.", "Alterações salvas", "success");
+    fecharModalVincularCampanha();
   } catch (erro) {
-    console.error("Erro ao criar personagem:", erro);
-    await mostrarModal("Erro ao criar personagem. Verifique os dados e tente novamente.", "Erro", "danger");
+    console.error("Erro ao vincular campanha:", erro);
+    await mostrarModal("Erro ao vincular campanha.", "Erro", "danger");
   }
 }
 
@@ -956,7 +1246,12 @@ export function renderizarPersonagens() {
     : state.personagens.filter((personagem) => personagem.donoId === state.usuarioAtual.uid);
 
   if (personagensDoUsuario.length === 0) {
-    lista.innerHTML = "<p>Nenhum personagem criado ainda.</p>";
+    lista.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhum personagem criado ainda.</h3>
+        <p>Crie um novo personagem para começar a montar sua ficha.</p>
+      </div>
+    `;
     return;
   }
 
@@ -964,24 +1259,85 @@ export function renderizarPersonagens() {
     const card = document.createElement("div");
     card.classList.add("character-created-card");
 
+    const hpPercentual = calcularPercentual(personagem.hpAtual, personagem.hpMax);
+    const manaPercentual = calcularPercentual(personagem.manaAtual, personagem.manaMax);
+    const fomePercentual = Number(personagem.fome || 0);
+    const fadigaPercentual = Number(personagem.fadiga || 0);
+
     card.innerHTML = `
-      <h3>${personagem.nome}</h3>
-      <p><b>Jogador:</b> ${personagem.donoNome || "Não informado"}</p>
-      <p><b>Campanha:</b> ${personagem.campanhaNome || "Sem campanha"}</p>
-      <p><b>Raça:</b> ${personagem.raca?.nome || personagem.racaNome || "Não informada"}</p>
-      <p><b>Classe:</b> ${personagem.classe?.nome || personagem.classeNome || personagem.classe || "Não informada"}</p>
-      <p><b>Subclasse:</b> ${personagem.subclasse?.nome || personagem.subclasseNome || personagem.subclasse || "Não informada"}</p>
-      <p><b>Elemento:</b> ${personagem.elemento?.nome || personagem.elementoNome || personagem.elemento || "Não informado"}</p>
-      <p><b>HP:</b> ${personagem.hpAtual}/${personagem.hpMax} | <b>Mana:</b> ${personagem.manaAtual}/${personagem.manaMax}</p>
-      <button class="secondary-btn">Abrir ficha</button>
+      <div class="resource-card-header">
+        <div>
+          <h4>${escapeHtml(personagem.nome || "Sem nome")}</h4>
+          <p>${escapeHtml(personagem.campanhaNome || "Sem campanha")}</p>
+        </div>
+        <span>Nível ${personagem.nivel || 1}</span>
+      </div>
+
+      <div class="character-summary-grid">
+        <span><b>Jogador:</b> ${escapeHtml(personagem.donoNome || "Não informado")}</span>
+        <span><b>Raça:</b> ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</span>
+        <span><b>Classe:</b> ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</span>
+        <span><b>Subclasse:</b> ${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</span>
+        <span><b>Elemento:</b> ${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</span>
+      </div>
+
+      <div class="status-stack">
+        ${montarBarraStatus("HP", personagem.hpAtual || 0, personagem.hpMax || 0, hpPercentual)}
+        ${montarBarraStatus("Mana", personagem.manaAtual || 0, personagem.manaMax || 0, manaPercentual)}
+        ${montarBarraStatus("Fome", personagem.fome || 0, 100, fomePercentual)}
+        ${montarBarraStatus("Fadiga", personagem.fadiga || 0, 100, fadigaPercentual)}
+      </div>
+
+      <div class="action-row">
+        <button class="primary-btn abrir-ficha-personagem">Abrir ficha</button>
+        <button class="secondary-btn editar-personagem">Editar</button>
+        <button class="secondary-btn vincular-campanha">Vincular campanha</button>
+        <button class="small-btn danger excluir-personagem">Excluir</button>
+      </div>
     `;
 
-    card.querySelector("button").addEventListener("click", () => {
+    card.querySelector(".abrir-ficha-personagem").addEventListener("click", () => {
       abrirFichaPersonagem(personagem);
+    });
+
+    card.querySelector(".editar-personagem").addEventListener("click", () => {
+      abrirModalEdicaoPersonagem(personagem);
+    });
+
+    card.querySelector(".vincular-campanha").addEventListener("click", () => {
+      abrirModalVincularCampanha(personagem);
+    });
+
+    card.querySelector(".excluir-personagem").addEventListener("click", async () => {
+      await excluirPersonagem(personagem);
     });
 
     lista.appendChild(card);
   });
+}
+
+function montarBarraStatus(label, atual, maximo, percentual) {
+  return `
+    <div class="status-line">
+      <div>
+        <span>${label}</span>
+        <strong>${atual}/${maximo}</strong>
+      </div>
+
+      <div class="status-bar">
+        <div style="width:${percentual}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+function calcularPercentual(atual, maximo) {
+  const atualNumero = Number(atual) || 0;
+  const maximoNumero = Number(maximo) || 0;
+
+  if (maximoNumero <= 0) return 0;
+
+  return Math.max(0, Math.min(100, Math.round((atualNumero / maximoNumero) * 100)));
 }
 
 export function renderizarTabelaMestre() {
@@ -1004,15 +1360,19 @@ export function renderizarTabelaMestre() {
     const linha = document.createElement("tr");
 
     linha.innerHTML = `
-      <td>${personagem.nome}</td>
-      <td>${personagem.donoNome || "Não informado"}</td>
-      <td>${personagem.hpAtual}/${personagem.hpMax}</td>
-      <td>${personagem.manaAtual}/${personagem.manaMax}</td>
+      <td>${escapeHtml(personagem.nome || "Sem nome")}</td>
+      <td>${escapeHtml(personagem.donoNome || "Não informado")}</td>
+      <td>${personagem.hpAtual || 0}/${personagem.hpMax || 0}</td>
+      <td>${personagem.manaAtual || 0}/${personagem.manaMax || 0}</td>
       <td>${personagem.fome || 0}%</td>
       <td>${personagem.fadiga || 0}%</td>
       <td>Normal</td>
       <td><button class="small-btn danger">Possessão</button></td>
     `;
+
+    linha.querySelector("button").addEventListener("click", () => {
+      abrirFichaPersonagem(personagem);
+    });
 
     tabela.appendChild(linha);
   });
@@ -1024,6 +1384,14 @@ function atualizarContadorPersonagens() {
   if (contador) {
     contador.textContent = state.personagens.length;
   }
+}
+
+function escapeHtml(texto) {
+  return String(texto ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 export function initPersonagens() {

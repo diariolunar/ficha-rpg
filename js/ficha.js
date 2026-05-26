@@ -2,354 +2,398 @@ import {
   db,
   doc,
   updateDoc,
-  onSnapshot,
   serverTimestamp
 } from "./firebase.js";
 
-import { state, setPersonagemAberto } from "./state.js";
-import { navegarPara, onPageLoaded } from "./navigation.js";
-import { mostrarModal, confirmarModal } from "./ui.js";
+import { mostrarModal } from "./ui.js";
 
-let unsubscribeFicha = null;
+let personagemFichaAtual = null;
 
 export function abrirFichaPersonagem(personagem) {
-  setPersonagemAberto(personagem);
-  navegarPara("ficha");
+  personagemFichaAtual = personagem;
+
+  fecharFichaPersonagem();
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalFichaPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal ficha-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
+          <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFichaPersonagem(personagem)}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
+
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", salvarStatusFicha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharFichaPersonagem();
+    }
+  });
 }
 
-function calcularPercentual(atual, maximo) {
-  if (!maximo || maximo <= 0) return 0;
-  return Math.max(0, Math.min(100, (atual / maximo) * 100));
-}
+function fecharFichaPersonagem() {
+  const overlay = document.getElementById("modalFichaPersonagem");
 
-function formatarListaObjetos(lista) {
-  if (!Array.isArray(lista) || lista.length === 0) {
-    return "Não informado";
+  if (overlay) {
+    overlay.remove();
   }
-
-  return lista.map((item) => item.nome || item).join(", ");
 }
 
-function formatarAtributo(valor) {
-  const mapa = {
-    forcaFisica: "Força Física",
-    forcaMagica: "Força Mágica",
-    defesaFisica: "Defesa Física",
-    defesaMagica: "Defesa Mágica",
-    velocidade: "Velocidade",
-    resistencia: "Resistência",
-    carisma: "Carisma",
-    fatorMedo: "Fator Medo"
-  };
+function montarFichaPersonagem(personagem) {
+  const hpPercentual = calcularPercentual(personagem.hpAtual, personagem.hpMax);
+  const manaPercentual = calcularPercentual(personagem.manaAtual, personagem.manaMax);
+  const fomePercentual = Number(personagem.fome || 0);
+  const fadigaPercentual = Number(personagem.fadiga || 0);
 
-  return mapa[valor] || "Não informado";
+  return `
+    <div class="ficha-layout">
+      <div class="detail-card">
+        <h3>Status principais</h3>
+
+        <div class="status-stack">
+          ${montarBarraStatus("HP", personagem.hpAtual || 0, personagem.hpMax || 0, hpPercentual)}
+          ${montarBarraStatus("Mana", personagem.manaAtual || 0, personagem.manaMax || 0, manaPercentual)}
+          ${montarBarraStatus("Fome", personagem.fome || 0, 100, fomePercentual)}
+          ${montarBarraStatus("Fadiga", personagem.fadiga || 0, 100, fadigaPercentual)}
+        </div>
+
+        <div class="form-grid">
+          <label>
+            HP Atual
+            <input type="number" id="fichaHpAtual" value="${personagem.hpAtual || 0}" />
+          </label>
+
+          <label>
+            HP Máximo
+            <input type="number" id="fichaHpMax" value="${personagem.hpMax || 0}" />
+          </label>
+
+          <label>
+            Mana Atual
+            <input type="number" id="fichaManaAtual" value="${personagem.manaAtual || 0}" />
+          </label>
+
+          <label>
+            Mana Máxima
+            <input type="number" id="fichaManaMax" value="${personagem.manaMax || 0}" />
+          </label>
+
+          <label>
+            Fome
+            <input type="number" id="fichaFome" value="${personagem.fome || 0}" />
+          </label>
+
+          <label>
+            Fadiga
+            <input type="number" id="fichaFadiga" value="${personagem.fadiga || 0}" />
+          </label>
+        </div>
+
+        <button class="primary-btn" type="button" id="salvarStatusFicha">Salvar status</button>
+      </div>
+
+      <div class="detail-card">
+        <h3>Identidade</h3>
+
+        <div class="detail-grid">
+          <div class="detail-item"><span>Jogador</span><strong>${escapeHtml(personagem.donoNome || "Não informado")}</strong></div>
+          <div class="detail-item"><span>Campanha</span><strong>${escapeHtml(personagem.campanhaNome || "Sem campanha")}</strong></div>
+          <div class="detail-item"><span>Raça</span><strong>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</strong></div>
+          <div class="detail-item"><span>Classe</span><strong>${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</strong></div>
+          <div class="detail-item"><span>Subclasse</span><strong>${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</strong></div>
+          <div class="detail-item"><span>Elemento</span><strong>${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</strong></div>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <h3>Atributos</h3>
+
+        <div class="detail-grid">
+          <div class="detail-item"><span>Força Física</span><strong>${personagem.forcaFisica || 0}</strong></div>
+          <div class="detail-item"><span>Força Mágica</span><strong>${personagem.forcaMagica || 0}</strong></div>
+          <div class="detail-item"><span>Defesa Física</span><strong>${personagem.defesaFisica || 0}</strong></div>
+          <div class="detail-item"><span>Defesa Mágica</span><strong>${personagem.defesaMagica || 0}</strong></div>
+          <div class="detail-item"><span>Velocidade</span><strong>${personagem.velocidade || 0}</strong></div>
+          <div class="detail-item"><span>Resistência</span><strong>${personagem.resistencia || 0}</strong></div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Carisma</h4>
+          <p>${escapeHtml(personagem.carismaBonus || "Não informado")}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>Fator Medo</h4>
+          <p>${escapeHtml(personagem.fatorMedoBonus || "Não informado")}</p>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <h3>Habilidades</h3>
+
+        ${montarHabilidades(personagem)}
+      </div>
+
+      <div class="detail-card">
+        <h3>Itens</h3>
+
+        ${montarItens(personagem)}
+      </div>
+
+      <div class="detail-card">
+        <h3>Pet</h3>
+
+        ${montarPet(personagem)}
+      </div>
+
+      <div class="detail-card">
+        <h3>Vantagens e Desvantagens</h3>
+
+        <div class="detail-section">
+          <h4>Vantagens da Raça</h4>
+          <p>${escapeHtml(personagem.vantagensRaca || "Não informado")}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>Desvantagens da Raça</h4>
+          <p>${escapeHtml(personagem.desvantagensRaca || "Não informado")}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>Vantagens da Classe</h4>
+          <p>${escapeHtml(personagem.vantagensClasse || "Não informado")}</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>Desvantagens da Classe</h4>
+          <p>${escapeHtml(personagem.desvantagensClasse || "Não informado")}</p>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <h3>História / Descrição</h3>
+        <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
+      </div>
+    </div>
+  `;
 }
 
-function nomeDoObjeto(objeto, fallback = "Não informado") {
-  if (!objeto) return fallback;
-
-  if (typeof objeto === "string") return objeto;
-
-  return objeto.nome || fallback;
-}
-
-function montarListaHabilidades(personagem) {
+function montarHabilidades(personagem) {
   const habilidades = [];
 
-  if (personagem.habilidadeExclusivaRaca?.nome) {
+  if (personagem.habilidadeExclusivaRaca) {
     habilidades.push({
       ...personagem.habilidadeExclusivaRaca,
       origem: "Raça"
     });
   }
 
-  if (personagem.habilidadeExclusivaClasse?.nome) {
+  if (personagem.habilidadeExclusivaClasse) {
     habilidades.push({
       ...personagem.habilidadeExclusivaClasse,
       origem: "Classe"
     });
   }
 
-  (personagem.habilidadesIniciais || []).forEach((habilidade) => {
-    habilidades.push({
-      ...habilidade,
-      origem: "Inicial"
+  if (Array.isArray(personagem.habilidadesIniciais)) {
+    personagem.habilidadesIniciais.forEach((habilidade) => {
+      habilidades.push({
+        ...habilidade,
+        origem: "Inicial"
+      });
     });
-  });
-
-  if (habilidades.length === 0) {
-    return "<li>Nenhuma habilidade adicionada.</li>";
   }
 
-  return habilidades.map((habilidade) => {
-    const cooldownAtual = personagem.cooldowns?.[habilidade.id] || 0;
-
-    return `
-      <li>
-        <b>${habilidade.nome}</b> <small>(${habilidade.origem})</small>
-        ${cooldownAtual > 0 ? `<br><small>Cooldown: ${cooldownAtual} turno(s)</small>` : ""}
-        <br>
-        <button class="small-btn usar-habilidade" data-id="${habilidade.id}" data-nome="${habilidade.nome}">Usar habilidade</button>
-      </li>
-    `;
-  }).join("");
-}
-
-function montarListaItens(personagem) {
-  const itens = personagem.itensIniciais || [];
-
-  if (itens.length === 0) {
-    return "<li>Nenhum item adicionado.</li>";
+  if (!habilidades.length) {
+    return `<p>Nenhuma habilidade cadastrada para este personagem.</p>`;
   }
 
-  return itens.map((item) => {
-    return `
-      <li>
-        <b>${item.nome}</b>
-        <br>
-        <button class="small-btn usar-item" data-id="${item.id}" data-nome="${item.nome}">Usar item</button>
-      </li>
-    `;
-  }).join("");
+  return `
+    <div class="resource-list">
+      ${habilidades
+        .map((habilidade) => {
+          return `
+            <div class="resource-card">
+              <div class="resource-card-header">
+                <h4>${escapeHtml(habilidade.nome || "Habilidade sem nome")}</h4>
+                <span>${escapeHtml(habilidade.origem || "Habilidade")}</span>
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
-async function usarHabilidade(id, nome) {
-  const personagem = state.personagemAberto;
+function montarItens(personagem) {
+  const itens = Array.isArray(personagem.itensIniciais)
+    ? personagem.itensIniciais
+    : [];
 
-  if (!personagem?.id) return;
+  if (!itens.length) {
+    return `<p>Nenhum item cadastrado para este personagem.</p>`;
+  }
 
-  const cooldownAtual = personagem.cooldowns?.[id] || 0;
+  return `
+    <div class="resource-list">
+      ${itens
+        .map((item) => {
+          return `
+            <div class="resource-card">
+              <div class="resource-card-header">
+                <h4>${escapeHtml(item.nome || "Item sem nome")}</h4>
+                <span>Item</span>
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
 
-  if (cooldownAtual > 0) {
-    await mostrarModal(`A habilidade "${nome}" ainda está em cooldown por ${cooldownAtual} turno(s).`, "Cooldown ativo");
+function montarPet(personagem) {
+  const pet = personagem.pet;
+
+  if (!pet) {
+    return `<p>Nenhum pet vinculado a este personagem.</p>`;
+  }
+
+  return `
+    <div class="detail-grid">
+      <div class="detail-item"><span>Nome</span><strong>${escapeHtml(pet.nome || "Sem nome")}</strong></div>
+      <div class="detail-item"><span>Espécie</span><strong>${escapeHtml(pet.especie || "Não informado")}</strong></div>
+      <div class="detail-item"><span>Rank</span><strong>${escapeHtml(pet.rank || "Não informado")}</strong></div>
+      <div class="detail-item"><span>Elemento Afim</span><strong>${escapeHtml(pet.elementoAfim || "Não informado")}</strong></div>
+    </div>
+
+    <div class="detail-section">
+      <h4>Habilidades</h4>
+      <p>${escapeHtml(formatarValor(pet.habilidades))}</p>
+    </div>
+
+    <div class="detail-section">
+      <h4>Bônus ao Dono</h4>
+      <p>${escapeHtml(pet.bonusDono || "Não informado")}</p>
+    </div>
+  `;
+}
+
+async function salvarStatusFicha() {
+  if (!personagemFichaAtual) {
+    await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
   }
 
-  const custoPadrao = 0;
-  const cooldownPadrao = 1;
+  const hpMax = numeroCampo("fichaHpMax");
+  const manaMax = numeroCampo("fichaManaMax");
 
-  if ((personagem.manaAtual || 0) < custoPadrao) {
-    await mostrarModal("Mana insuficiente para usar esta habilidade.", "Mana insuficiente", "danger");
-    return;
-  }
+  const hpAtual = limitarNumero(numeroCampo("fichaHpAtual"), 0, hpMax);
+  const manaAtual = limitarNumero(numeroCampo("fichaManaAtual"), 0, manaMax);
+  const fome = limitarNumero(numeroCampo("fichaFome"), 0, 100);
+  const fadiga = limitarNumero(numeroCampo("fichaFadiga"), 0, 100);
 
-  const confirmar = await confirmarModal({
-    titulo: "Usar habilidade",
-    mensagem: `Deseja usar a habilidade "${nome}"?`,
-    confirmarTexto: "Usar",
-    cancelarTexto: "Cancelar",
-    tipo: "info"
-  });
-
-  if (!confirmar) return;
-
-  const novosCooldowns = {
-    ...(personagem.cooldowns || {}),
-    [id]: cooldownPadrao
-  };
-
-  await updateDoc(doc(db, "personagens", personagem.id), {
-    manaAtual: Math.max(0, (personagem.manaAtual || 0) - custoPadrao),
-    cooldowns: novosCooldowns,
-    ultimaAcao: `Usou a habilidade ${nome}`,
-    atualizadoEm: serverTimestamp()
-  });
-
-  await mostrarModal(`Habilidade "${nome}" usada.`, "Ação registrada", "success");
-}
-
-async function usarItem(id, nome) {
-  const personagem = state.personagemAberto;
-
-  if (!personagem?.id) return;
-
-  const confirmar = await confirmarModal({
-    titulo: "Usar item",
-    mensagem: `Deseja usar o item "${nome}"?`,
-    confirmarTexto: "Usar",
-    cancelarTexto: "Cancelar",
-    tipo: "info"
-  });
-
-  if (!confirmar) return;
-
-  await updateDoc(doc(db, "personagens", personagem.id), {
-    ultimaAcao: `Usou o item ${nome}`,
-    atualizadoEm: serverTimestamp()
-  });
-
-  await mostrarModal(`Item "${nome}" usado.`, "Ação registrada", "success");
-}
-
-function vincularAcoesFicha() {
-  document.querySelectorAll(".usar-habilidade").forEach((botao) => {
-    botao.addEventListener("click", () => {
-      usarHabilidade(botao.dataset.id, botao.dataset.nome);
-    });
-  });
-
-  document.querySelectorAll(".usar-item").forEach((botao) => {
-    botao.addEventListener("click", () => {
-      usarItem(botao.dataset.id, botao.dataset.nome);
-    });
-  });
-}
-
-export function renderizarFicha() {
-  const personagem = state.personagemAberto;
-
-  const fichaNome = document.getElementById("fichaNome");
-
-  if (!fichaNome) return;
-
-  if (!personagem) {
-    return;
-  }
-
-  const avisoPossessao = document.getElementById("avisoPossessao");
-
-  if (avisoPossessao) {
-    if (personagem.posse?.ativa) {
-      avisoPossessao.classList.remove("hidden");
-    } else {
-      avisoPossessao.classList.add("hidden");
-    }
-  }
-
-  const raca = personagem.raca || null;
-  const classe = personagem.classe || null;
-  const subclasse = personagem.subclasse || null;
-  const elemento = personagem.elemento || null;
-  const pet = personagem.pet || null;
-
-  const racaNome = nomeDoObjeto(raca, personagem.racaNome || "Não informada");
-  const classeNome = nomeDoObjeto(classe, personagem.classeNome || personagem.classe || "Sem classe");
-  const subclasseNome = nomeDoObjeto(subclasse, personagem.subclasseNome || personagem.subclasse || "Não informada");
-  const elementoNome = nomeDoObjeto(elemento, personagem.elementoNome || personagem.elemento || "Não informado");
-
-  document.getElementById("fichaNome").textContent = personagem.nome;
-  document.getElementById("fichaResumo").textContent = `${classeNome} ${racaNome}`;
-  document.getElementById("fichaCampanha").textContent = `Campanha: ${personagem.campanhaNome || "Não informada"}`;
-
-  document.getElementById("fichaHp").textContent = `${personagem.hpAtual}/${personagem.hpMax}`;
-  document.getElementById("fichaMana").textContent = `${personagem.manaAtual}/${personagem.manaMax}`;
-  document.getElementById("fichaFome").textContent = `${personagem.fome || 0}%`;
-  document.getElementById("fichaFadiga").textContent = `${personagem.fadiga || 0}%`;
-
-  document.getElementById("barraHp").style.width = `${calcularPercentual(personagem.hpAtual, personagem.hpMax)}%`;
-  document.getElementById("barraMana").style.width = `${calcularPercentual(personagem.manaAtual, personagem.manaMax)}%`;
-  document.getElementById("barraFome").style.width = `${personagem.fome || 0}%`;
-  document.getElementById("barraFadiga").style.width = `${personagem.fadiga || 0}%`;
-
-  document.getElementById("fichaIdentidade").innerHTML = `
-    <li><b>Nível:</b> ${personagem.nivel || 1}</li>
-    <li><b>Jogador:</b> ${personagem.donoNome || "Não informado"}</li>
-    <li><b>Raça:</b> ${racaNome}</li>
-    <li><b>Classe:</b> ${classeNome}</li>
-    <li><b>Subclasse:</b> ${subclasseNome}</li>
-    <li><b>Elemento:</b> ${elementoNome}</li>
-    <li><b>Última ação:</b> ${personagem.ultimaAcao || "Nenhuma ação registrada"}</li>
-  `;
-
-  document.getElementById("fichaAtributos").innerHTML = `
-    <li><b>Força Física:</b> ${personagem.forcaFisica ?? personagem.forca ?? 0}</li>
-    <li><b>Força Mágica:</b> ${personagem.forcaMagica ?? 0}</li>
-    <li><b>Defesa Física:</b> ${personagem.defesaFisica ?? personagem.defesa ?? 0}</li>
-    <li><b>Defesa Mágica:</b> ${personagem.defesaMagica ?? 0}</li>
-    <li><b>Velocidade:</b> ${personagem.velocidade ?? 0}</li>
-    <li><b>Resistência:</b> ${personagem.resistencia ?? 0}</li>
-    <li><b>Carisma:</b> ${personagem.carismaBonus || "Não informado"}</li>
-    <li><b>Fator Medo:</b> ${personagem.fatorMedoBonus || "Não informado"}</li>
-  `;
-
-  document.getElementById("fichaRaca").innerHTML = `
-    <li><b>Nome:</b> ${racaNome}</li>
-    <li><b>Vantagens/Bônus:</b> ${personagem.vantagensRaca || personagem.vantagens || raca?.vantagens || "Não informado"}</li>
-    <li><b>Desvantagens/Penalidades:</b> ${personagem.desvantagensRaca || personagem.desvantagens || raca?.desvantagens || "Não informado"}</li>
-    <li><b>Classes Sugeridas:</b> ${formatarListaObjetos(personagem.classesSugeridas || raca?.classesSugeridas)}</li>
-    <li><b>Elementos Afins:</b> ${formatarListaObjetos(personagem.elementosAfins || raca?.elementosAfins)}</li>
-    <li><b>Habilidade Exclusiva:</b> ${personagem.habilidadeExclusivaRaca?.nome || raca?.habilidadeExclusiva?.nome || "Não informado"}</li>
-    <li><b>Restrição de Classe:</b> ${formatarListaObjetos(personagem.restricoesClasse || raca?.restricoesClasse)}</li>
-  `;
-
-  document.getElementById("fichaClasse").innerHTML = `
-    <li><b>Classe:</b> ${classeNome}</li>
-    <li><b>Subclasse:</b> ${subclasseNome}</li>
-    <li><b>HP por Nível:</b> ${classe?.hpPorNivel ?? "Não informado"}</li>
-    <li><b>Mana por Nível:</b> ${classe?.manaPorNivel ?? "Não informado"}</li>
-    <li><b>Atributo Principal:</b> ${formatarAtributo(classe?.atributoPrincipal)}</li>
-    <li><b>Atributo Secundário:</b> ${formatarAtributo(classe?.atributoSecundario)}</li>
-    <li><b>Tipo de Dano:</b> ${classe?.tipoDano || "Não informado"}</li>
-    <li><b>Tipo de Defesa:</b> ${classe?.tipoDefesa || "Não informado"}</li>
-    <li><b>Armas Permitidas:</b> ${classe?.armasPermitidas || "Não informado"}</li>
-    <li><b>Armaduras Permitidas:</b> ${classe?.armadurasPermitidas || "Não informado"}</li>
-    <li><b>Habilidade Exclusiva:</b> ${personagem.habilidadeExclusivaClasse?.nome || classe?.habilidadeExclusiva?.nome || "Não informado"}</li>
-    <li><b>Vantagens:</b> ${personagem.vantagensClasse || classe?.vantagens || "Não informado"}</li>
-    <li><b>Desvantagens:</b> ${personagem.desvantagensClasse || classe?.desvantagens || "Não informado"}</li>
-  `;
-
-  document.getElementById("fichaElemento").innerHTML = `
-    <li><b>Nome:</b> ${elementoNome}</li>
-    <li><b>Tipo:</b> ${elemento?.tipo || "Não informado"}</li>
-    <li><b>Natureza:</b> ${elemento?.natureza || "Não informado"}</li>
-    <li><b>Dano Base:</b> ${elemento?.danoBase ?? "Não informado"}</li>
-    <li><b>Efeito Principal:</b> ${elemento?.efeitoPrincipal || "Não informado"}</li>
-    <li><b>Status Causado:</b> ${elemento?.statusCausado || "Não informado"}</li>
-    <li><b>Custo de Mana Médio:</b> ${elemento?.custoManaMedio ?? "Não informado"}</li>
-    <li><b>Risco/Consequência:</b> ${elemento?.riscoConsequencia || "Não informado"}</li>
-  `;
-
-  document.getElementById("fichaHabilidades").innerHTML = montarListaHabilidades(personagem);
-  document.getElementById("fichaItens").innerHTML = montarListaItens(personagem);
-
-  document.getElementById("fichaPet").innerHTML = pet
-    ? `
-      <li><b>Nome:</b> ${pet.nome || "Não informado"}</li>
-      <li><b>Espécie:</b> ${pet.especie || "Não informado"}</li>
-      <li><b>Rank:</b> ${pet.rank || "Não informado"}</li>
-      <li><b>Tipo de Suporte:</b> ${pet.tipoSuporte || "Não informado"}</li>
-      <li><b>Elemento Afim:</b> ${pet.elementoAfim?.nome || "Não informado"}</li>
-      <li><b>Bônus ao Dono:</b> ${pet.bonusDono || "Não informado"}</li>
-    `
-    : `<li>Nenhum pet selecionado.</li>`;
-
-  document.getElementById("fichaHistoria").textContent = personagem.historia || "Sem história cadastrada.";
-
-  vincularAcoesFicha();
-}
-
-function iniciarEscutaFicha() {
-  if (unsubscribeFicha) {
-    unsubscribeFicha();
-    unsubscribeFicha = null;
-  }
-
-  const personagem = state.personagemAberto;
-
-  if (!personagem?.id) {
-    renderizarFicha();
-    return;
-  }
-
-  unsubscribeFicha = onSnapshot(doc(db, "personagens", personagem.id), (snapshot) => {
-    if (!snapshot.exists()) return;
-
-    setPersonagemAberto({
-      id: snapshot.id,
-      ...snapshot.data()
+  try {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+      hpAtual,
+      hpMax,
+      manaAtual,
+      manaMax,
+      fome,
+      fadiga,
+      atualizadoEm: serverTimestamp()
     });
 
-    renderizarFicha();
-  });
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
+      hpAtual,
+      hpMax,
+      manaAtual,
+      manaMax,
+      fome,
+      fadiga
+    };
+
+    await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
+
+    abrirFichaPersonagem(personagemFichaAtual);
+  } catch (erro) {
+    console.error("Erro ao salvar status da ficha:", erro);
+    await mostrarModal("Erro ao salvar status da ficha.", "Erro", "danger");
+  }
 }
 
-export function initFicha() {
-  onPageLoaded((pagina) => {
-    if (pagina === "ficha") {
-      iniciarEscutaFicha();
-    } else if (unsubscribeFicha) {
-      unsubscribeFicha();
-      unsubscribeFicha = null;
-    }
-  });
+function montarBarraStatus(label, atual, maximo, percentual) {
+  return `
+    <div class="status-line">
+      <div>
+        <span>${label}</span>
+        <strong>${atual}/${maximo}</strong>
+      </div>
+
+      <div class="status-bar">
+        <div style="width:${percentual}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+function calcularPercentual(atual, maximo) {
+  const atualNumero = Number(atual) || 0;
+  const maximoNumero = Number(maximo) || 0;
+
+  if (maximoNumero <= 0) return 0;
+
+  return Math.max(0, Math.min(100, Math.round((atualNumero / maximoNumero) * 100)));
+}
+
+function numeroCampo(id) {
+  return Number(document.getElementById(id)?.value) || 0;
+}
+
+function limitarNumero(valor, minimo, maximo) {
+  return Math.max(minimo, Math.min(maximo, valor));
+}
+
+function formatarValor(valor) {
+  if (valor === null || valor === undefined || valor === "") {
+    return "Não informado";
+  }
+
+  if (Array.isArray(valor)) {
+    if (!valor.length) return "Não informado";
+    return valor.map((item) => item.nome || item).join(", ");
+  }
+
+  if (typeof valor === "object") {
+    return valor.nome || "Não informado";
+  }
+
+  return String(valor);
+}
+
+function escapeHtml(texto) {
+  return String(texto ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
