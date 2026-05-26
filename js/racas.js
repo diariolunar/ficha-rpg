@@ -86,35 +86,53 @@ export function pararRacas() {
 }
 
 function carregarOpcoesRelacionadasRaca() {
-  unsubscribeClasses = onSnapshot(query(collection(db, "classes"), orderBy("nome", "asc")), (snapshot) => {
-    classesDisponiveis = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeClasses = onSnapshot(
+    query(collection(db, "classes"), orderBy("nome", "asc")),
+    (snapshot) => {
+      classesDisponiveis = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectClassesRaca();
-    preencherSelectClassesRacaEdicao();
-  });
+      preencherSelectClassesRaca();
+      preencherSelectClassesRacaEdicao();
+    },
+    (erro) => {
+      console.error("Erro ao carregar classes para raças:", erro);
+    }
+  );
 
-  unsubscribeElementos = onSnapshot(query(collection(db, "elementos"), orderBy("nome", "asc")), (snapshot) => {
-    elementosDisponiveis = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeElementos = onSnapshot(
+    query(collection(db, "elementos"), orderBy("nome", "asc")),
+    (snapshot) => {
+      elementosDisponiveis = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectElementosRaca();
-    preencherSelectElementosRacaEdicao();
-  });
+      preencherSelectElementosRaca();
+      preencherSelectElementosRacaEdicao();
+    },
+    (erro) => {
+      console.error("Erro ao carregar elementos para raças:", erro);
+    }
+  );
 
-  unsubscribeHabilidades = onSnapshot(query(collection(db, "habilidades"), orderBy("nome", "asc")), (snapshot) => {
-    habilidadesDisponiveis = snapshot.docs.map((documento) => ({
-      id: documento.id,
-      ...documento.data()
-    }));
+  unsubscribeHabilidades = onSnapshot(
+    query(collection(db, "habilidades"), orderBy("nome", "asc")),
+    (snapshot) => {
+      habilidadesDisponiveis = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
 
-    preencherSelectHabilidadesRaca();
-    preencherSelectHabilidadesRacaEdicao();
-  });
+      preencherSelectHabilidadesRaca();
+      preencherSelectHabilidadesRacaEdicao();
+    },
+    (erro) => {
+      console.error("Erro ao carregar habilidades para raças:", erro);
+    }
+  );
 }
 
 function sincronizarRacaSelecionada() {
@@ -228,19 +246,19 @@ function abrirModalCadastroRaca() {
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalCadastroRaca").addEventListener("click", fecharModalCadastroRaca);
-  document.getElementById("cancelarCadastroRaca").addEventListener("click", fecharModalCadastroRaca);
-  document.getElementById("salvarRaca").addEventListener("click", salvarRaca);
+  document.getElementById("fecharModalCadastroRaca")?.addEventListener("click", fecharModalCadastroRaca);
+  document.getElementById("cancelarCadastroRaca")?.addEventListener("click", fecharModalCadastroRaca);
+  document.getElementById("salvarRaca")?.addEventListener("click", salvarRaca);
 
-  document.getElementById("adicionarClasseSugerida").addEventListener("click", () => {
+  document.getElementById("adicionarClasseSugerida")?.addEventListener("click", () => {
     adicionarSelecionado("selectClassesSugeridas", classesSugeridasSelecionadas, renderizarClassesSugeridas);
   });
 
-  document.getElementById("adicionarElementoAfim").addEventListener("click", () => {
+  document.getElementById("adicionarElementoAfim")?.addEventListener("click", () => {
     adicionarSelecionado("selectElementosAfins", elementosAfinsSelecionados, renderizarElementosAfins);
   });
 
-  document.getElementById("adicionarRestricaoClasse").addEventListener("click", () => {
+  document.getElementById("adicionarRestricaoClasse")?.addEventListener("click", () => {
     adicionarSelecionado("selectRestricaoClasse", restricoesClasseSelecionadas, renderizarRestricoesClasse);
   });
 
@@ -253,6 +271,7 @@ function abrirModalCadastroRaca() {
   preencherSelectClassesRaca();
   preencherSelectElementosRaca();
   preencherSelectHabilidadesRaca();
+
   renderizarClassesSugeridas();
   renderizarElementosAfins();
   renderizarRestricoesClasse();
@@ -270,22 +289,71 @@ function montarFormularioCadastroRaca() {
   return `
     <div class="crud-form-content">
       <div class="form-grid">
-        <label>Nome da Raça<input type="text" id="racaNome" placeholder="Ex: Humano, Elfo, Orc..." /></label>
-        <label>HP Base<input type="number" id="racaHpBase" placeholder="Ex: 30" /></label>
-        <label>Mana Base<input type="number" id="racaManaBase" placeholder="Ex: 50" /></label>
-        <label>Força Física<input type="number" id="racaForcaFisica" placeholder="Ex: 2" /></label>
-        <label>Força Mágica<input type="number" id="racaForcaMagica" placeholder="Ex: 2" /></label>
-        <label>Defesa Física<input type="number" id="racaDefesaFisica" placeholder="Ex: 2" /></label>
-        <label>Defesa Mágica<input type="number" id="racaDefesaMagica" placeholder="Ex: 2" /></label>
-        <label>Velocidade<input type="number" id="racaVelocidade" placeholder="Ex: 2" /></label>
-        <label>Resistência<input type="number" id="racaResistencia" placeholder="Ex: 2" /></label>
+        <label>
+          Nome da Raça
+          <input type="text" id="racaNome" placeholder="Ex: Humano, Elfo, Orc..." />
+        </label>
+
+        <label>
+          HP Base
+          <input type="number" id="racaHpBase" placeholder="Ex: 30" />
+        </label>
+
+        <label>
+          Mana Base
+          <input type="number" id="racaManaBase" placeholder="Ex: 50" />
+        </label>
+
+        <label>
+          Força Física
+          <input type="number" id="racaForcaFisica" placeholder="Ex: 2" />
+        </label>
+
+        <label>
+          Força Mágica
+          <input type="number" id="racaForcaMagica" placeholder="Ex: 2" />
+        </label>
+
+        <label>
+          Defesa Física
+          <input type="number" id="racaDefesaFisica" placeholder="Ex: 2" />
+        </label>
+
+        <label>
+          Defesa Mágica
+          <input type="number" id="racaDefesaMagica" placeholder="Ex: 2" />
+        </label>
+
+        <label>
+          Velocidade
+          <input type="number" id="racaVelocidade" placeholder="Ex: 2" />
+        </label>
+
+        <label>
+          Resistência
+          <input type="number" id="racaResistencia" placeholder="Ex: 2" />
+        </label>
       </div>
 
-      <label>Carisma<input type="text" id="racaCarisma" placeholder="Ex: +2 em teste de persuasão" /></label>
-      <label>Fator Medo<input type="text" id="racaFatorMedo" placeholder="Ex: +1 em intimidação" /></label>
+      <label>
+        Carisma
+        <input type="text" id="racaCarisma" placeholder="Ex: +2 em teste de persuasão" />
+      </label>
 
-      <label>Vantagens/Bônus<textarea id="racaVantagens" placeholder="Descreva as vantagens da raça..."></textarea></label>
-      <label>Desvantagens/Penalidades<textarea id="racaDesvantagens" placeholder="Descreva as penalidades da raça..."></textarea></label>
+      <label>
+        Fator Medo
+        <input type="text" id="racaFatorMedo" placeholder="Ex: +1 em intimidação" />
+      </label>
+
+      <label>
+        Vantagens/Bônus
+        <textarea id="racaVantagens" placeholder="Descreva as vantagens da raça..."></textarea>
+      </label>
+
+      <label>
+        Desvantagens/Penalidades
+        <textarea id="racaDesvantagens" placeholder="Descreva as penalidades da raça..."></textarea>
+      </label>
 
       <div class="multi-select-box">
         <label>
@@ -742,11 +810,11 @@ export function renderizarRacas() {
         <span>Resistência: <b>${raca.resistencia || 0}</b></span>
       </div>
 
-      <p><b>Vantagens:</b> ${raca.vantagens || "Não informado"}</p>
-      <p><b>Desvantagens:</b> ${raca.desvantagens || "Não informado"}</p>
-      <p><b>Classes Sugeridas:</b> ${formatarListaObjetos(raca.classesSugeridas)}</p>
-      <p><b>Elementos Afins:</b> ${formatarListaObjetos(raca.elementosAfins)}</p>
-      <p><b>Restrições:</b> ${formatarListaObjetos(raca.restricoesClasse)}</p>
+      <p><b>Vantagens:</b> ${escapeHtml(raca.vantagens || "Não informado")}</p>
+      <p><b>Desvantagens:</b> ${escapeHtml(raca.desvantagens || "Não informado")}</p>
+      <p><b>Classes Sugeridas:</b> ${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p>
+      <p><b>Elementos Afins:</b> ${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p>
+      <p><b>Restrições:</b> ${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p>
 
       <div class="action-row">
         <button class="secondary-btn visualizar-raca">Visualizar</button>
@@ -763,6 +831,7 @@ export function renderizarRacas() {
     card.querySelector(".editar-raca").addEventListener("click", () => {
       setRacaSelecionada(raca);
       navegarPara("cadastrosRacaDetalhe");
+
       setTimeout(() => {
         renderizarDetalheRaca(true);
       }, 300);
@@ -793,7 +862,7 @@ function renderizarDetalheRaca(modoEdicao = false) {
       </div>
     `;
 
-    document.getElementById("voltarListaRacas").addEventListener("click", () => {
+    document.getElementById("voltarListaRacas")?.addEventListener("click", () => {
       navegarPara("cadastrosRacas");
     });
 
@@ -821,14 +890,14 @@ function renderizarDetalheRaca(modoEdicao = false) {
         <div class="detail-item"><span>Resistência</span><strong>${raca.resistencia || 0}</strong></div>
       </div>
 
-      <div class="detail-section"><h4>Carisma</h4><p>${raca.carismaBonus || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Fator Medo</h4><p>${raca.fatorMedoBonus || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Vantagens/Bônus</h4><p>${raca.vantagens || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Desvantagens/Penalidades</h4><p>${raca.desvantagens || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Classes Sugeridas</h4><p>${formatarListaObjetos(raca.classesSugeridas)}</p></div>
-      <div class="detail-section"><h4>Elementos Afins</h4><p>${formatarListaObjetos(raca.elementosAfins)}</p></div>
-      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${raca.habilidadeExclusiva?.nome || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Restrição de Classe</h4><p>${formatarListaObjetos(raca.restricoesClasse)}</p></div>
+      <div class="detail-section"><h4>Carisma</h4><p>${escapeHtml(raca.carismaBonus || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Fator Medo</h4><p>${escapeHtml(raca.fatorMedoBonus || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Vantagens/Bônus</h4><p>${escapeHtml(raca.vantagens || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Desvantagens/Penalidades</h4><p>${escapeHtml(raca.desvantagens || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Classes Sugeridas</h4><p>${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p></div>
+      <div class="detail-section"><h4>Elementos Afins</h4><p>${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p></div>
+      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${escapeHtml(raca.habilidadeExclusiva?.nome || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Restrição de Classe</h4><p>${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p></div>
 
       <div class="action-row">
         <button class="secondary-btn" id="voltarListaRacas">Voltar</button>
@@ -838,15 +907,15 @@ function renderizarDetalheRaca(modoEdicao = false) {
     </div>
   `;
 
-  document.getElementById("voltarListaRacas").addEventListener("click", () => {
+  document.getElementById("voltarListaRacas")?.addEventListener("click", () => {
     navegarPara("cadastrosRacas");
   });
 
-  document.getElementById("abrirEdicaoRaca").addEventListener("click", () => {
+  document.getElementById("abrirEdicaoRaca")?.addEventListener("click", () => {
     renderizarDetalheRaca(true);
   });
 
-  document.getElementById("excluirRacaDetalhe").addEventListener("click", excluirRaca);
+  document.getElementById("excluirRacaDetalhe")?.addEventListener("click", excluirRaca);
 }
 
 function renderizarFormularioEdicaoRaca(container, raca) {
@@ -908,23 +977,23 @@ function renderizarFormularioEdicaoRaca(container, raca) {
   renderizarEditElementosAfins();
   renderizarEditRestricoesClasse();
 
-  document.getElementById("editAdicionarClasseSugerida").addEventListener("click", () => {
+  document.getElementById("editAdicionarClasseSugerida")?.addEventListener("click", () => {
     adicionarSelecionado("editSelectClassesSugeridas", editClassesSugeridasSelecionadas, renderizarEditClassesSugeridas);
   });
 
-  document.getElementById("editAdicionarElementoAfim").addEventListener("click", () => {
+  document.getElementById("editAdicionarElementoAfim")?.addEventListener("click", () => {
     adicionarSelecionado("editSelectElementosAfins", editElementosAfinsSelecionados, renderizarEditElementosAfins);
   });
 
-  document.getElementById("editAdicionarRestricaoClasse").addEventListener("click", () => {
+  document.getElementById("editAdicionarRestricaoClasse")?.addEventListener("click", () => {
     adicionarSelecionado("editSelectRestricaoClasse", editRestricoesClasseSelecionadas, renderizarEditRestricoesClasse);
   });
 
-  document.getElementById("cancelarEdicaoRaca").addEventListener("click", () => {
+  document.getElementById("cancelarEdicaoRaca")?.addEventListener("click", () => {
     renderizarDetalheRaca(false);
   });
 
-  document.getElementById("salvarEdicaoRaca").addEventListener("click", salvarEdicaoRaca);
+  document.getElementById("salvarEdicaoRaca")?.addEventListener("click", salvarEdicaoRaca);
 }
 
 function montarMultiEdicao(label, selectId, botaoId, listaId) {
@@ -946,10 +1015,27 @@ function montarMultiEdicao(label, selectId, botaoId, listaId) {
   `;
 }
 
+function atualizarContadorRacas() {
+  const contador = document.getElementById("contadorRacas");
+
+  if (contador) {
+    contador.textContent = state.racasDisponiveis.length;
+  }
+}
+
+function escapeHtml(texto) {
+  return String(texto)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 export function initRacas() {
   onPageLoaded((pagina) => {
     if (pagina === "cadastrosRacas") {
       renderizarRacas();
+
       document.getElementById("abrirCadastroRacas")?.addEventListener("click", abrirModalCadastroRaca);
     }
 
