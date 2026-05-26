@@ -25,7 +25,7 @@ let subclassesDisponiveis = [];
 let subclassesSelecionadas = [];
 let editSubclassesSelecionadas = [];
 
-let modalCadastroClasseAberto = false;
+let importacaoClassesPendentes = [];
 
 export function iniciarClasses() {
   pararClasses();
@@ -33,22 +33,26 @@ export function iniciarClasses() {
   const classesRef = collection(db, "classes");
   const classesQuery = query(classesRef, orderBy("nome", "asc"));
 
-  unsubscribeClasses = onSnapshot(classesQuery, (snapshot) => {
-    const classes = [];
+  unsubscribeClasses = onSnapshot(
+    classesQuery,
+    (snapshot) => {
+      const classes = [];
 
-    snapshot.forEach((documento) => {
-      classes.push({
-        id: documento.id,
-        ...documento.data()
+      snapshot.forEach((documento) => {
+        classes.push({
+          id: documento.id,
+          ...documento.data()
+        });
       });
-    });
 
-    setClasses(classes);
-    sincronizarClasseSelecionada();
-    renderizarClasses();
-  }, (erro) => {
-    console.error("Erro ao carregar classes:", erro);
-  });
+      setClasses(classes);
+      sincronizarClasseSelecionada();
+      renderizarClasses();
+    },
+    (erro) => {
+      console.error("Erro ao carregar classes:", erro);
+    }
+  );
 
   carregarOpcoesRelacionadasClasse();
 }
@@ -84,37 +88,45 @@ function carregarOpcoesRelacionadasClasse() {
   const habilidadesQuery = query(collection(db, "habilidades"), orderBy("nome", "asc"));
   const subclassesQuery = query(collection(db, "subclasses"), orderBy("nome", "asc"));
 
-  unsubscribeHabilidades = onSnapshot(habilidadesQuery, (snapshot) => {
-    habilidadesDisponiveis = [];
+  unsubscribeHabilidades = onSnapshot(
+    habilidadesQuery,
+    (snapshot) => {
+      habilidadesDisponiveis = [];
 
-    snapshot.forEach((documento) => {
-      habilidadesDisponiveis.push({
-        id: documento.id,
-        ...documento.data()
+      snapshot.forEach((documento) => {
+        habilidadesDisponiveis.push({
+          id: documento.id,
+          ...documento.data()
+        });
       });
-    });
 
-    preencherSelectHabilidadesClasse();
-    preencherSelectHabilidadesClasseEdicao();
-  }, (erro) => {
-    console.error("Erro ao carregar habilidades para classes:", erro);
-  });
+      preencherSelectHabilidadesClasse();
+      preencherSelectHabilidadesClasseEdicao();
+    },
+    (erro) => {
+      console.error("Erro ao carregar habilidades para classes:", erro);
+    }
+  );
 
-  unsubscribeSubclasses = onSnapshot(subclassesQuery, (snapshot) => {
-    subclassesDisponiveis = [];
+  unsubscribeSubclasses = onSnapshot(
+    subclassesQuery,
+    (snapshot) => {
+      subclassesDisponiveis = [];
 
-    snapshot.forEach((documento) => {
-      subclassesDisponiveis.push({
-        id: documento.id,
-        ...documento.data()
+      snapshot.forEach((documento) => {
+        subclassesDisponiveis.push({
+          id: documento.id,
+          ...documento.data()
+        });
       });
-    });
 
-    preencherSelectSubclassesClasse();
-    preencherSelectSubclassesClasseEdicao();
-  }, (erro) => {
-    console.error("Erro ao carregar subclasses para classes:", erro);
-  });
+      preencherSelectSubclassesClasse();
+      preencherSelectSubclassesClasseEdicao();
+    },
+    (erro) => {
+      console.error("Erro ao carregar subclasses para classes:", erro);
+    }
+  );
 }
 
 function numeroCampo(id) {
@@ -137,10 +149,17 @@ function textoSelectSelecionado(id) {
   return select.selectedOptions[0].textContent;
 }
 
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function abrirModalCadastroClasse() {
   fecharModalCadastroClasse();
 
-  modalCadastroClasseAberto = true;
   subclassesSelecionadas = [];
 
   const overlay = document.createElement("div");
@@ -166,11 +185,11 @@ function abrirModalCadastroClasse() {
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalCadastroClasse").addEventListener("click", fecharModalCadastroClasse);
-  document.getElementById("cancelarCadastroClasse").addEventListener("click", fecharModalCadastroClasse);
-  document.getElementById("salvarClasse").addEventListener("click", salvarClasse);
+  document.getElementById("fecharModalCadastroClasse")?.addEventListener("click", fecharModalCadastroClasse);
+  document.getElementById("cancelarCadastroClasse")?.addEventListener("click", fecharModalCadastroClasse);
+  document.getElementById("salvarClasse")?.addEventListener("click", salvarClasse);
 
-  document.getElementById("adicionarSubclasseDisponivel").addEventListener("click", () => {
+  document.getElementById("adicionarSubclasseDisponivel")?.addEventListener("click", () => {
     adicionarSelecionado(
       "selectSubclassesDisponiveis",
       subclassesSelecionadas,
@@ -195,8 +214,6 @@ function fecharModalCadastroClasse() {
   if (overlay) {
     overlay.remove();
   }
-
-  modalCadastroClasseAberto = false;
 }
 
 function montarFormularioCadastroClasse() {
@@ -311,6 +328,15 @@ async function salvarClasse() {
     return;
   }
 
+  const jaExiste = state.classesDisponiveis.some((classe) => {
+    return normalizarTexto(classe.nome || "") === normalizarTexto(nome);
+  });
+
+  if (jaExiste) {
+    await mostrarModal(`A classe "${nome}" já existe no sistema.`, "Classe duplicada", "danger");
+    return;
+  }
+
   const habilidadeExclusivaId = valorCampo("classeHabilidadeExclusiva");
   const habilidadeExclusivaNome = textoSelectSelecionado("classeHabilidadeExclusiva");
 
@@ -346,7 +372,7 @@ async function salvarClasse() {
     renderizarClasses();
   } catch (erro) {
     console.error("Erro ao salvar classe:", erro);
-    await mostrarModal("Erro ao salvar classe. Verifique as regras do Firestore.", "Erro", "danger");
+    await mostrarModal("Erro ao salvar classe.", "Erro", "danger");
   }
 }
 
@@ -360,6 +386,18 @@ async function salvarEdicaoClasse() {
 
   if (!nome) {
     await mostrarModal("Digite o nome da classe.", "Campo obrigatório");
+    return;
+  }
+
+  const jaExiste = state.classesDisponiveis.some((classe) => {
+    const mesmoNome = normalizarTexto(classe.nome || "") === normalizarTexto(nome);
+    const outroRegistro = classe.id !== state.classeSelecionada.id;
+
+    return mesmoNome && outroRegistro;
+  });
+
+  if (jaExiste) {
+    await mostrarModal(`Já existe outra classe chamada "${nome}".`, "Classe duplicada", "danger");
     return;
   }
 
@@ -433,6 +471,429 @@ async function excluirClasse() {
   }
 }
 
+function abrirModalImportacaoClasses() {
+  fecharModalImportacaoClasses();
+
+  importacaoClassesPendentes = [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalImportacaoClasses";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Importar Classes em Massa</h3>
+          <p>Cole várias classes seguindo o modelo. Separe uma classe da outra usando uma linha com três traços: ---</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalImportacaoClasses">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Texto para importação
+            <textarea id="textoImportacaoClasses" rows="18" placeholder="Cole aqui as classes no modelo indicado..."></textarea>
+          </label>
+
+          <div class="detail-section">
+            <h4>Modelo esperado</h4>
+            <p>
+              Nome da Classe: Mago<br>
+              HP por Nível: 5<br>
+              Mana por Nível: 20<br>
+              Atributo Principal: Força Mágica<br>
+              Atributo Secundário: Defesa Mágica<br>
+              Tipo de Dano: Mágico<br>
+              Tipo de Defesa: Mágica<br>
+              Armas Permitidas: Cajados, grimórios e varinhas.<br>
+              Armaduras Permitidas: Mantôs, roupas leves e vestes encantadas.<br>
+              Habilidade Exclusiva: Bola de Fogo<br>
+              Vantagens: Alta afinidade com magia.<br>
+              Desvantagens: Baixa resistência física.<br>
+              Subclasses Disponíveis: Feiticeiro, Invocador<br>
+              ---<br>
+              Nome da Classe: Bárbaro<br>
+              HP por Nível: 20
+            </p>
+          </div>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarImportacaoClasses">Cancelar</button>
+            <button class="primary-btn" type="button" id="analisarImportacaoClasses">Analisar texto</button>
+          </div>
+
+          <div id="previewImportacaoClasses" class="list-card" style="display:none;">
+            <h3>Prévia da importação</h3>
+
+            <div id="listaPreviewImportacaoClasses" class="resource-list"></div>
+
+            <div class="action-row">
+              <button class="secondary-btn" type="button" id="limparPreviewImportacaoClasses">Revisar texto</button>
+              <button class="primary-btn" type="button" id="confirmarImportacaoClasses">Cadastrar todos</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalImportacaoClasses")?.addEventListener("click", fecharModalImportacaoClasses);
+  document.getElementById("cancelarImportacaoClasses")?.addEventListener("click", fecharModalImportacaoClasses);
+  document.getElementById("analisarImportacaoClasses")?.addEventListener("click", analisarImportacaoClasses);
+  document.getElementById("limparPreviewImportacaoClasses")?.addEventListener("click", limparPreviewImportacaoClasses);
+  document.getElementById("confirmarImportacaoClasses")?.addEventListener("click", confirmarImportacaoClasses);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalImportacaoClasses();
+    }
+  });
+}
+
+function fecharModalImportacaoClasses() {
+  const overlay = document.getElementById("modalImportacaoClasses");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  importacaoClassesPendentes = [];
+}
+
+async function analisarImportacaoClasses() {
+  const texto = document.getElementById("textoImportacaoClasses")?.value.trim() || "";
+
+  if (!texto) {
+    await mostrarModal("Cole o texto com as classes antes de analisar.", "Campo obrigatório");
+    return;
+  }
+
+  const resultado = interpretarTextoClasses(texto);
+
+  if (resultado.erros.length > 0 && resultado.classes.length === 0) {
+    await mostrarModal(resultado.erros.join("\n"), "Não foi possível importar", "danger");
+    return;
+  }
+
+  importacaoClassesPendentes = resultado.classes;
+  renderizarPreviewImportacaoClasses(resultado.erros);
+}
+
+function interpretarTextoClasses(texto) {
+  const blocos = texto
+    .split(/\n\s*---\s*\n/g)
+    .map((bloco) => bloco.trim())
+    .filter(Boolean);
+
+  const classes = [];
+  const erros = [];
+  const nomesNoTexto = new Set();
+
+  blocos.forEach((bloco, index) => {
+    const campos = extrairCamposDoBloco(bloco);
+    const numero = index + 1;
+
+    const nome = buscarCampo(campos, ["nome da classe", "classe", "nome"]);
+
+    if (!nome) {
+      erros.push(`Bloco ${numero}: nome da classe não encontrado.`);
+      return;
+    }
+
+    const nomeNormalizado = normalizarTexto(nome);
+
+    if (nomesNoTexto.has(nomeNormalizado)) {
+      erros.push(`Bloco ${numero}: a classe "${nome}" está repetida no texto e foi ignorada.`);
+      return;
+    }
+
+    nomesNoTexto.add(nomeNormalizado);
+
+    const jaExiste = state.classesDisponiveis.some((classe) => {
+      return normalizarTexto(classe.nome || "") === nomeNormalizado;
+    });
+
+    if (jaExiste) {
+      erros.push(`Bloco ${numero}: a classe "${nome}" já existe no sistema e foi ignorada.`);
+      return;
+    }
+
+    const habilidadeNome = buscarCampo(campos, ["habilidade exclusiva"]);
+    const habilidade = habilidadeNome ? encontrarPorNome(habilidadesDisponiveis, habilidadeNome) : null;
+
+    if (habilidadeNome && !habilidade) {
+      erros.push(`Bloco ${numero}: habilidade exclusiva "${habilidadeNome}" não encontrada. A classe será cadastrada sem habilidade exclusiva.`);
+    }
+
+    const classe = {
+      nome,
+      hpPorNivel: numeroTexto(buscarCampo(campos, ["hp por nível", "hp por nivel"])),
+      manaPorNivel: numeroTexto(buscarCampo(campos, ["mana por nível", "mana por nivel"])),
+      atributoPrincipal: interpretarAtributo(buscarCampo(campos, ["atributo principal"]), erros, numero),
+      atributoSecundario: interpretarAtributo(buscarCampo(campos, ["atributo secundário", "atributo secundario"]), erros, numero),
+      tipoDano: buscarCampo(campos, ["tipo de dano"]) || "",
+      tipoDefesa: buscarCampo(campos, ["tipo de defesa"]) || "",
+      armasPermitidas: buscarCampo(campos, ["armas permitidas"]) || "",
+      armadurasPermitidas: buscarCampo(campos, ["armaduras permitidas"]) || "",
+      habilidadeExclusiva: habilidade
+        ? {
+            id: habilidade.id,
+            nome: habilidade.nome
+          }
+        : null,
+      vantagens: buscarCampo(campos, ["vantagens"]) || "",
+      desvantagens: buscarCampo(campos, ["desvantagens"]) || "",
+      subclassesDisponiveis: interpretarListaSubclasses(
+        buscarCampo(campos, ["subclasses disponíveis", "subclasses disponiveis", "subclasse disponível", "subclasse disponivel"]),
+        erros,
+        numero
+      )
+    };
+
+    classes.push(classe);
+  });
+
+  return {
+    classes,
+    erros
+  };
+}
+
+function extrairCamposDoBloco(bloco) {
+  const campos = {};
+  const linhas = bloco.split("\n").map((linha) => linha.trim()).filter(Boolean);
+
+  linhas.forEach((linha) => {
+    const separador = linha.indexOf(":");
+
+    if (separador === -1) return;
+
+    const chave = normalizarTexto(linha.slice(0, separador));
+    const valor = linha.slice(separador + 1).trim();
+
+    campos[chave] = valor;
+  });
+
+  return campos;
+}
+
+function buscarCampo(campos, nomesPossiveis) {
+  for (const nome of nomesPossiveis) {
+    const chave = normalizarTexto(nome);
+
+    if (campos[chave] !== undefined) {
+      return campos[chave];
+    }
+  }
+
+  return "";
+}
+
+function numeroTexto(valor) {
+  if (!valor) return 0;
+
+  const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
+
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function interpretarAtributo(valor, erros, numeroBloco) {
+  if (!valor) return "";
+
+  const normalizado = normalizarTexto(valor);
+
+  const mapa = {
+    "forca fisica": "forcaFisica",
+    "forca magica": "forcaMagica",
+    "defesa fisica": "defesaFisica",
+    "defesa magica": "defesaMagica",
+    velocidade: "velocidade",
+    resistencia: "resistencia"
+  };
+
+  if (mapa[normalizado]) {
+    return mapa[normalizado];
+  }
+
+  const valoresValidos = Object.keys(mapa).join(", ");
+  erros.push(`Bloco ${numeroBloco}: atributo "${valor}" não reconhecido. Use: ${valoresValidos}.`);
+
+  return "";
+}
+
+function interpretarListaSubclasses(texto, erros, numeroBloco) {
+  if (!texto) return [];
+
+  return texto
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((nome) => {
+      const encontrado = encontrarPorNome(subclassesDisponiveis, nome);
+
+      if (encontrado) {
+        return {
+          id: encontrado.id,
+          nome: encontrado.nome
+        };
+      }
+
+      erros.push(`Bloco ${numeroBloco}: subclasse "${nome}" não encontrada. Ela aparecerá como texto, mas não ficará vinculada a um cadastro existente.`);
+
+      return {
+        id: "",
+        nome
+      };
+    })
+    .filter((item) => item.nome);
+}
+
+function encontrarPorNome(lista, nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return lista.find((item) => normalizarTexto(item.nome || "") === nomeNormalizado) || null;
+}
+
+function renderizarPreviewImportacaoClasses(erros = []) {
+  const preview = document.getElementById("previewImportacaoClasses");
+  const lista = document.getElementById("listaPreviewImportacaoClasses");
+
+  if (!preview || !lista) return;
+
+  preview.style.display = "block";
+  lista.innerHTML = "";
+
+  if (erros.length > 0) {
+    const aviso = document.createElement("div");
+    aviso.classList.add("detail-section");
+
+    aviso.innerHTML = `
+      <h4>Avisos encontrados</h4>
+      <p>${erros.map((erro) => escapeHtml(erro)).join("<br>")}</p>
+    `;
+
+    lista.appendChild(aviso);
+  }
+
+  if (importacaoClassesPendentes.length === 0) {
+    lista.innerHTML += "<p>Nenhuma classe válida encontrada.</p>";
+    return;
+  }
+
+  importacaoClassesPendentes.forEach((classe) => {
+    const card = document.createElement("div");
+    card.classList.add("resource-card");
+
+    card.innerHTML = `
+      <div class="resource-card-header">
+        <h4>${escapeHtml(classe.nome)}</h4>
+        <span>Classe</span>
+      </div>
+
+      <div class="resource-card-stats">
+        <span>HP/Nível: <b>${classe.hpPorNivel}</b></span>
+        <span>Mana/Nível: <b>${classe.manaPorNivel}</b></span>
+        <span>Dano: <b>${escapeHtml(classe.tipoDano || "—")}</b></span>
+        <span>Defesa: <b>${escapeHtml(classe.tipoDefesa || "—")}</b></span>
+      </div>
+
+      <p><b>Atributo Principal:</b> ${escapeHtml(formatarAtributo(classe.atributoPrincipal))}</p>
+      <p><b>Atributo Secundário:</b> ${escapeHtml(formatarAtributo(classe.atributoSecundario))}</p>
+      <p><b>Habilidade Exclusiva:</b> ${escapeHtml(classe.habilidadeExclusiva?.nome || "Não informado")}</p>
+      <p><b>Subclasses Disponíveis:</b> ${escapeHtml(formatarListaObjetos(classe.subclassesDisponiveis))}</p>
+    `;
+
+    lista.appendChild(card);
+  });
+}
+
+function limparPreviewImportacaoClasses() {
+  const preview = document.getElementById("previewImportacaoClasses");
+
+  if (preview) {
+    preview.style.display = "none";
+  }
+
+  importacaoClassesPendentes = [];
+}
+
+async function confirmarImportacaoClasses() {
+  if (!state.usuarioAtual) {
+    await mostrarModal("Você precisa estar logado.", "Acesso necessário");
+    return;
+  }
+
+  if (state.dadosUsuarioAtual?.tipo !== "mestre") {
+    await mostrarModal("Apenas o Mestre pode importar classes.", "Permissão negada");
+    return;
+  }
+
+  if (importacaoClassesPendentes.length === 0) {
+    await mostrarModal("Nenhuma classe foi analisada para cadastro.", "Importação vazia");
+    return;
+  }
+
+  const classesSemDuplicidade = importacaoClassesPendentes.filter((classe) => {
+    return !state.classesDisponiveis.some((existente) => {
+      return normalizarTexto(existente.nome || "") === normalizarTexto(classe.nome || "");
+    });
+  });
+
+  const ignoradas = importacaoClassesPendentes.length - classesSemDuplicidade.length;
+
+  if (classesSemDuplicidade.length === 0) {
+    await mostrarModal(
+      "Todas as classes analisadas já existem no sistema. Nenhum cadastro foi realizado.",
+      "Importação cancelada",
+      "danger"
+    );
+    return;
+  }
+
+  const mensagemConfirmacao = ignoradas > 0
+    ? `Foram encontradas ${ignoradas} classe(s) que já existem no sistema e serão ignoradas. Deseja cadastrar as ${classesSemDuplicidade.length} classe(s) restante(s)?`
+    : `Deseja cadastrar ${classesSemDuplicidade.length} classe(s) agora?`;
+
+  const confirmar = await confirmarModal({
+    titulo: "Confirmar importação",
+    mensagem: mensagemConfirmacao,
+    confirmarTexto: "Cadastrar",
+    cancelarTexto: "Cancelar",
+    tipo: "success"
+  });
+
+  if (!confirmar) return;
+
+  try {
+    const cadastros = classesSemDuplicidade.map((classe) => {
+      return addDoc(collection(db, "classes"), {
+        ...classe,
+        criadoPor: state.usuarioAtual.uid,
+        criadoEm: serverTimestamp()
+      });
+    });
+
+    await Promise.all(cadastros);
+
+    await mostrarModal(
+      `${classesSemDuplicidade.length} classe(s) cadastrada(s) com sucesso.`,
+      "Importação concluída",
+      "success"
+    );
+
+    fecharModalImportacaoClasses();
+    renderizarClasses();
+  } catch (erro) {
+    console.error("Erro ao importar classes:", erro);
+    await mostrarModal("Erro ao importar classes.", "Erro", "danger");
+  }
+}
+
 export function renderizarClasses() {
   const listaClasses = document.getElementById("listaClasses");
 
@@ -458,14 +919,14 @@ export function renderizarClasses() {
       <div class="resource-card-stats">
         <span>HP/Nível: <b>${classe.hpPorNivel || 0}</b></span>
         <span>Mana/Nível: <b>${classe.manaPorNivel || 0}</b></span>
-        <span>Dano: <b>${classe.tipoDano || "—"}</b></span>
-        <span>Defesa: <b>${classe.tipoDefesa || "—"}</b></span>
+        <span>Dano: <b>${escapeHtml(classe.tipoDano || "—")}</b></span>
+        <span>Defesa: <b>${escapeHtml(classe.tipoDefesa || "—")}</b></span>
       </div>
 
-      <p><b>Atributo Principal:</b> ${formatarAtributo(classe.atributoPrincipal)}</p>
-      <p><b>Atributo Secundário:</b> ${formatarAtributo(classe.atributoSecundario)}</p>
-      <p><b>Habilidade Exclusiva:</b> ${classe.habilidadeExclusiva?.nome || "Não informado"}</p>
-      <p><b>Subclasses Disponíveis:</b> ${formatarListaObjetos(classe.subclassesDisponiveis)}</p>
+      <p><b>Atributo Principal:</b> ${escapeHtml(formatarAtributo(classe.atributoPrincipal))}</p>
+      <p><b>Atributo Secundário:</b> ${escapeHtml(formatarAtributo(classe.atributoSecundario))}</p>
+      <p><b>Habilidade Exclusiva:</b> ${escapeHtml(classe.habilidadeExclusiva?.nome || "Não informado")}</p>
+      <p><b>Subclasses Disponíveis:</b> ${escapeHtml(formatarListaObjetos(classe.subclassesDisponiveis))}</p>
 
       <div class="action-row">
         <button class="secondary-btn visualizar-classe">Visualizar</button>
@@ -512,7 +973,7 @@ export function renderizarDetalheClasse(modoEdicao = false) {
       </div>
     `;
 
-    document.getElementById("voltarListaClasses").addEventListener("click", () => {
+    document.getElementById("voltarListaClasses")?.addEventListener("click", () => {
       navegarPara("cadastrosClasses");
     });
 
@@ -534,16 +995,16 @@ export function renderizarDetalheClasse(modoEdicao = false) {
         <div class="detail-item"><span>Mana por Nível</span><strong>${classe.manaPorNivel || 0}</strong></div>
         <div class="detail-item"><span>Atributo Principal</span><strong>${formatarAtributo(classe.atributoPrincipal)}</strong></div>
         <div class="detail-item"><span>Atributo Secundário</span><strong>${formatarAtributo(classe.atributoSecundario)}</strong></div>
-        <div class="detail-item"><span>Tipo de Dano</span><strong>${classe.tipoDano || "Não informado"}</strong></div>
-        <div class="detail-item"><span>Tipo de Defesa</span><strong>${classe.tipoDefesa || "Não informado"}</strong></div>
+        <div class="detail-item"><span>Tipo de Dano</span><strong>${escapeHtml(classe.tipoDano || "Não informado")}</strong></div>
+        <div class="detail-item"><span>Tipo de Defesa</span><strong>${escapeHtml(classe.tipoDefesa || "Não informado")}</strong></div>
       </div>
 
-      <div class="detail-section"><h4>Armas Permitidas</h4><p>${classe.armasPermitidas || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Armaduras Permitidas</h4><p>${classe.armadurasPermitidas || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${classe.habilidadeExclusiva?.nome || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Vantagens</h4><p>${classe.vantagens || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Desvantagens</h4><p>${classe.desvantagens || "Não informado"}</p></div>
-      <div class="detail-section"><h4>Subclasses Disponíveis</h4><p>${formatarListaObjetos(classe.subclassesDisponiveis)}</p></div>
+      <div class="detail-section"><h4>Armas Permitidas</h4><p>${escapeHtml(classe.armasPermitidas || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Armaduras Permitidas</h4><p>${escapeHtml(classe.armadurasPermitidas || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${escapeHtml(classe.habilidadeExclusiva?.nome || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Vantagens</h4><p>${escapeHtml(classe.vantagens || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Desvantagens</h4><p>${escapeHtml(classe.desvantagens || "Não informado")}</p></div>
+      <div class="detail-section"><h4>Subclasses Disponíveis</h4><p>${escapeHtml(formatarListaObjetos(classe.subclassesDisponiveis))}</p></div>
 
       <div class="action-row">
         <button class="secondary-btn" id="voltarListaClasses">Voltar</button>
@@ -553,15 +1014,15 @@ export function renderizarDetalheClasse(modoEdicao = false) {
     </div>
   `;
 
-  document.getElementById("voltarListaClasses").addEventListener("click", () => {
+  document.getElementById("voltarListaClasses")?.addEventListener("click", () => {
     navegarPara("cadastrosClasses");
   });
 
-  document.getElementById("abrirEdicaoClasse").addEventListener("click", () => {
+  document.getElementById("abrirEdicaoClasse")?.addEventListener("click", () => {
     renderizarDetalheClasse(true);
   });
 
-  document.getElementById("excluirClasseDetalhe").addEventListener("click", excluirClasse);
+  document.getElementById("excluirClasseDetalhe")?.addEventListener("click", excluirClasse);
 }
 
 function renderizarFormularioEdicaoClasse(container, classe) {
@@ -640,7 +1101,7 @@ function renderizarFormularioEdicaoClasse(container, classe) {
 
   renderizarSubclassesSelecionadasClasseEdicao();
 
-  document.getElementById("editAdicionarSubclasseDisponivel").addEventListener("click", () => {
+  document.getElementById("editAdicionarSubclasseDisponivel")?.addEventListener("click", () => {
     adicionarSelecionado(
       "editSelectSubclassesDisponiveis",
       editSubclassesSelecionadas,
@@ -648,11 +1109,11 @@ function renderizarFormularioEdicaoClasse(container, classe) {
     );
   });
 
-  document.getElementById("cancelarEdicaoClasse").addEventListener("click", () => {
+  document.getElementById("cancelarEdicaoClasse")?.addEventListener("click", () => {
     renderizarDetalheClasse(false);
   });
 
-  document.getElementById("salvarEdicaoClasse").addEventListener("click", salvarEdicaoClasse);
+  document.getElementById("salvarEdicaoClasse")?.addEventListener("click", salvarEdicaoClasse);
 }
 
 function opcoesAtributos(valorSelecionado) {
@@ -695,6 +1156,8 @@ function preencherSelectGenerico(selectId, lista, mensagemVazia) {
 
   if (!select) return;
 
+  const valorAtual = select.value;
+
   select.innerHTML = "";
 
   if (!Array.isArray(lista) || lista.length === 0) {
@@ -710,6 +1173,10 @@ function preencherSelectGenerico(selectId, lista, mensagemVazia) {
     option.textContent = item.nome || "Sem nome";
     select.appendChild(option);
   });
+
+  if (valorAtual) {
+    select.value = valorAtual;
+  }
 }
 
 async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
@@ -796,7 +1263,7 @@ function formatarListaObjetos(lista) {
     return "Não informado";
   }
 
-  return lista.map((item) => item.nome).join(", ");
+  return lista.map((item) => item.nome || item).join(", ");
 }
 
 function formatarAtributo(valor) {
@@ -826,6 +1293,7 @@ export function initClasses() {
       renderizarClasses();
 
       document.getElementById("abrirCadastroClasses")?.addEventListener("click", abrirModalCadastroClasse);
+      document.getElementById("abrirImportacaoClasses")?.addEventListener("click", abrirModalImportacaoClasses);
     }
 
     if (pagina === "cadastrosClasseDetalhe") {

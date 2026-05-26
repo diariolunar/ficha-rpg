@@ -54,29 +54,6 @@ const crud = criarCadastroCrud({
       opcoes: ranks
     },
     {
-      nome: "classeCompativel",
-      label: "Classe Compatível",
-      tipo: "multi",
-      colecao: "classes",
-      permitirTodas: true,
-      mensagemVazia: "Nenhuma classe cadastrada"
-    },
-    {
-      nome: "subclasseCompativel",
-      label: "Subclasse Compatível",
-      tipo: "multi",
-      colecao: "subclasses",
-      permitirTodas: true,
-      mensagemVazia: "Nenhuma subclasse cadastrada"
-    },
-    {
-      nome: "elemento",
-      label: "Elemento",
-      tipo: "select",
-      colecao: "elementos",
-      mensagemVazia: "Nenhum elemento cadastrado"
-    },
-    {
       nome: "custoManaEnergia",
       label: "Custo de Mana / Energia",
       tipo: "number",

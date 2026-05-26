@@ -1,5 +1,24 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
 
+const tiposElemento = [
+  { valor: "primario", nome: "Primário" },
+  { valor: "secundario", nome: "Secundário" },
+  { valor: "raro", nome: "Raro" },
+  { valor: "proibido", nome: "Proibido" },
+  { valor: "divino", nome: "Divino" },
+  { valor: "demonico", nome: "Demoníaco" },
+  { valor: "personalizado", nome: "Personalizado" }
+];
+
+const naturezasElemento = [
+  { valor: "ofensiva", nome: "Ofensiva" },
+  { valor: "defensiva", nome: "Defensiva" },
+  { valor: "suporte", nome: "Suporte" },
+  { valor: "controle", nome: "Controle" },
+  { valor: "cura", nome: "Cura" },
+  { valor: "mista", nome: "Mista" }
+];
+
 const crud = criarCadastroCrud({
   colecao: "elementos",
   nomeSingular: "Elemento",
@@ -23,14 +42,14 @@ const crud = criarCadastroCrud({
     {
       nome: "tipo",
       label: "Tipo",
-      tipo: "text",
-      placeholder: "Ex: Principal, Sub-elemento, Raro, Proibido..."
+      tipo: "select",
+      opcoes: tiposElemento
     },
     {
       nome: "natureza",
       label: "Natureza",
-      tipo: "text",
-      placeholder: "Ex: Ofensiva, defensiva, suporte, controle..."
+      tipo: "select",
+      opcoes: naturezasElemento
     },
     {
       nome: "danoBase",
@@ -42,61 +61,37 @@ const crud = criarCadastroCrud({
       nome: "efeitoPrincipal",
       label: "Efeito Principal",
       tipo: "textarea",
-      placeholder: "Ex: Queimadura, congelamento, sangramento..."
+      placeholder: "Ex: Queima, congela, paralisa, cura, fortalece..."
     },
     {
       nome: "statusCausado",
       label: "Status Causado",
-      tipo: "textarea",
-      placeholder: "Ex: Queimando, congelado, envenenado..."
+      tipo: "text",
+      placeholder: "Ex: Queimadura, congelamento, veneno..."
     },
     {
       nome: "vantagemContra",
       label: "Vantagem Contra",
-      tipo: "multi",
-      colecao: "elementos",
-      mensagemVazia: "Nenhum elemento cadastrado"
+      tipo: "textarea",
+      placeholder: "Ex: Forte contra gelo, madeira, mortos-vivos..."
     },
     {
       nome: "fraquezaContra",
       label: "Fraqueza Contra",
-      tipo: "multi",
-      colecao: "elementos",
-      mensagemVazia: "Nenhum elemento cadastrado"
+      tipo: "textarea",
+      placeholder: "Ex: Fraco contra água, luz, terra..."
     },
     {
       nome: "resistenciaNatural",
       label: "Resistência Natural",
       tipo: "textarea",
-      placeholder: "Explique resistências naturais desse elemento..."
+      placeholder: "Ex: Reduz dano de fogo, resiste a veneno..."
     },
     {
       nome: "combinacoesPossiveis",
       label: "Combinações Possíveis",
-      tipo: "multi",
-      colecao: "elementos",
-      mensagemVazia: "Nenhum elemento cadastrado"
-    },
-    {
-      nome: "classesAfins",
-      label: "Classes Afins",
-      tipo: "multi",
-      colecao: "classes",
-      mensagemVazia: "Nenhuma classe cadastrada"
-    },
-    {
-      nome: "racasAfins",
-      label: "Raças Afins",
-      tipo: "multi",
-      colecao: "racas",
-      mensagemVazia: "Nenhuma raça cadastrada"
-    },
-    {
-      nome: "habilidadesCompativeis",
-      label: "Habilidades Compatíveis",
-      tipo: "multi",
-      colecao: "habilidades",
-      mensagemVazia: "Nenhuma habilidade cadastrada"
+      tipo: "textarea",
+      placeholder: "Ex: Água + Frio = Gelo; Fogo + Ar = Explosão..."
     },
     {
       nome: "custoManaMedio",
@@ -108,7 +103,7 @@ const crud = criarCadastroCrud({
       nome: "riscoConsequencia",
       label: "Risco / Consequência",
       tipo: "textarea",
-      placeholder: "Ex: Exaustão, dano colateral, perda de controle..."
+      placeholder: "Ex: Pode causar exaustão, queimadura no usuário, instabilidade..."
     }
   ]
 });
