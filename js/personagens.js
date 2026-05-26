@@ -195,6 +195,9 @@ function carregarOpcoesPersonagem() {
       preencherSelectClassesPersonagem();
       preencherSelectSubclassesPersonagem();
       atualizarPreviewPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar classes para personagens:", erro);
     }
   );
 
@@ -208,6 +211,9 @@ function carregarOpcoesPersonagem() {
 
       preencherSelectSubclassesPersonagem();
       atualizarPreviewPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar subclasses para personagens:", erro);
     }
   );
 
@@ -221,6 +227,9 @@ function carregarOpcoesPersonagem() {
 
       preencherSelectElementosPersonagem();
       atualizarPreviewPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar elementos para personagens:", erro);
     }
   );
 
@@ -233,6 +242,9 @@ function carregarOpcoesPersonagem() {
       }));
 
       preencherSelectHabilidadesPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar habilidades para personagens:", erro);
     }
   );
 
@@ -245,6 +257,9 @@ function carregarOpcoesPersonagem() {
       }));
 
       preencherSelectItensPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar itens para personagens:", erro);
     }
   );
 
@@ -258,6 +273,9 @@ function carregarOpcoesPersonagem() {
 
       preencherSelectPetsPersonagem();
       atualizarPreviewPersonagem();
+    },
+    (erro) => {
+      console.error("Erro ao carregar pets para personagens:", erro);
     }
   );
 }
@@ -378,9 +396,11 @@ function preencherValoresEdicaoPersonagem(personagem) {
   setCampoValor("personagemNivel", personagem.nivel || 1);
   setCampoValor("personagemCampanha", personagem.campanhaId || "");
   setCampoValor("personagemRaca", personagem.racaId || personagem.raca?.id || "");
-  setCampoValor("personagemClasse", personagem.classeId || personagem.classe?.id || "");
 
   preencherSelectClassesPersonagem();
+
+  setCampoValor("personagemClasse", personagem.classeId || personagem.classe?.id || "");
+
   preencherSelectSubclassesPersonagem();
 
   setCampoValor("personagemSubclasse", personagem.subclasseId || personagem.subclasse?.id || "");
@@ -1316,6 +1336,8 @@ async function salvarVinculoCampanha(personagem) {
 }
 
 export function renderizarPersonagens() {
+  aplicarEstilosCardsPersonagem();
+
   const lista = document.getElementById("listaPersonagens");
 
   if (!lista) return;
@@ -1338,7 +1360,7 @@ export function renderizarPersonagens() {
 
   personagensDoUsuario.forEach((personagem) => {
     const card = document.createElement("div");
-    card.classList.add("character-created-card");
+    card.classList.add("character-created-card", "personagem-card-refinado");
 
     const hpPercentual = calcularPercentual(personagem.hpAtual, personagem.hpMax);
     const manaPercentual = calcularPercentual(personagem.manaAtual, personagem.manaMax);
@@ -1346,30 +1368,35 @@ export function renderizarPersonagens() {
     const fadigaPercentual = Number(personagem.fadiga || 0);
 
     card.innerHTML = `
-      <div class="resource-card-header">
-        <div>
+      <div class="personagem-card-top">
+        <div class="personagem-avatar">
+          ${(personagem.nome || "?").charAt(0).toUpperCase()}
+        </div>
+
+        <div class="personagem-title">
           <h4>${escapeHtml(personagem.nome || "Sem nome")}</h4>
           <p>${escapeHtml(personagem.campanhaNome || "Sem campanha")}</p>
         </div>
-        <span>Nível ${personagem.nivel || 1}</span>
+
+        <span class="personagem-level">Nível ${personagem.nivel || 1}</span>
       </div>
 
-      <div class="character-summary-grid">
-        <span><b>Jogador:</b> ${escapeHtml(personagem.donoNome || "Não informado")}</span>
-        <span><b>Raça:</b> ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</span>
-        <span><b>Classe:</b> ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</span>
-        <span><b>Subclasse:</b> ${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</span>
-        <span><b>Elemento:</b> ${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</span>
+      <div class="personagem-info-grid">
+        <span><b>Jogador</b>${escapeHtml(personagem.donoNome || "Não informado")}</span>
+        <span><b>Raça</b>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</span>
+        <span><b>Classe</b>${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</span>
+        <span><b>Subclasse</b>${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</span>
+        <span><b>Elemento</b>${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</span>
       </div>
 
-      <div class="status-stack">
+      <div class="personagem-status-grid">
         ${montarBarraStatus("HP", personagem.hpAtual || 0, personagem.hpMax || 0, hpPercentual)}
         ${montarBarraStatus("Mana", personagem.manaAtual || 0, personagem.manaMax || 0, manaPercentual)}
         ${montarBarraStatus("Fome", personagem.fome || 0, 100, fomePercentual)}
         ${montarBarraStatus("Fadiga", personagem.fadiga || 0, 100, fadigaPercentual)}
       </div>
 
-      <div class="action-row">
+      <div class="personagem-actions">
         <button class="primary-btn abrir-ficha-personagem">Abrir ficha</button>
         <button class="secondary-btn editar-personagem">Editar</button>
         <button class="secondary-btn vincular-campanha">Vincular campanha</button>
@@ -1465,6 +1492,184 @@ function atualizarContadorPersonagens() {
   if (contador) {
     contador.textContent = state.personagens.length;
   }
+}
+
+function aplicarEstilosCardsPersonagem() {
+  if (document.getElementById("cardsPersonagemStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "cardsPersonagemStyles";
+
+  style.textContent = `
+    .character-list {
+      display: grid;
+      gap: 18px;
+    }
+
+    .personagem-card-refinado {
+      padding: 24px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 88% 0%, rgba(255,255,255,0.07), transparent 30%),
+        linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+      border: 1px solid rgba(255,255,255,0.11);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .personagem-card-top {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .personagem-avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 900;
+      background: linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.055));
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .personagem-title h4 {
+      margin: 0;
+      color: #fff;
+      font-size: 26px;
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+
+    .personagem-title p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,0.58);
+      font-weight: 700;
+    }
+
+    .personagem-level {
+      border-radius: 999px;
+      padding: 9px 14px;
+      color: #fff;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .personagem-info-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .personagem-info-grid span {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .personagem-info-grid b {
+      color: rgba(255,255,255,0.44);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .personagem-status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .personagem-status-grid .status-line {
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .personagem-status-grid .status-line > div:first-child {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+    }
+
+    .personagem-status-grid .status-bar {
+      height: 9px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .personagem-status-grid .status-bar div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.42));
+    }
+
+    .personagem-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 18px;
+    }
+
+    @media (max-width: 1080px) {
+      .personagem-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .personagem-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .personagem-card-top {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .personagem-level {
+        grid-column: 1 / -1;
+        justify-self: start;
+      }
+
+      .personagem-info-grid,
+      .personagem-status-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .personagem-actions {
+        justify-content: stretch;
+      }
+
+      .personagem-actions button {
+        width: 100%;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
 }
 
 function escapeHtml(texto) {
