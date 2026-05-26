@@ -20,6 +20,7 @@ import { abrirFichaPersonagem } from "./ficha.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 
 let unsubscribePersonagens = null;
+let unsubscribePersonagensCriadosPeloMestre = null;
 let unsubscribeClassesPersonagem = null;
 let unsubscribeSubclassesPersonagem = null;
 let unsubscribeElementosPersonagem = null;
@@ -38,49 +39,114 @@ let habilidadesIniciaisSelecionadas = [];
 let itensIniciaisSelecionados = [];
 
 let personagemEmEdicao = null;
+let personagensPorCampanhaDoMestre = [];
+let personagensCriadosPeloMestre = [];
 
 export function iniciarPersonagens() {
   pararPersonagens();
 
   const personagensRef = collection(db, "personagens");
 
-  const consulta = state.dadosUsuarioAtual?.tipo === "mestre"
-    ? query(personagensRef, where("mestreId", "==", state.usuarioAtual.uid))
-    : query(personagensRef, where("donoId", "==", state.usuarioAtual.uid));
+  if (state.dadosUsuarioAtual?.tipo === "mestre") {
+    const consultaCampanhasMestre = query(
+      personagensRef,
+      where("mestreId", "==", state.usuarioAtual.uid)
+    );
 
-  unsubscribePersonagens = onSnapshot(
-    consulta,
-    (snapshot) => {
-      const personagens = [];
+    const consultaCriadosPeloMestre = query(
+      personagensRef,
+      where("donoId", "==", state.usuarioAtual.uid)
+    );
 
-      snapshot.forEach((documento) => {
-        personagens.push({
+    unsubscribePersonagens = onSnapshot(
+      consultaCampanhasMestre,
+      (snapshot) => {
+        personagensPorCampanhaDoMestre = snapshot.docs.map((documento) => ({
           id: documento.id,
           ...documento.data()
+        }));
+
+        atualizarListaPersonagensCombinada();
+      },
+      (erro) => {
+        console.error("Erro ao carregar personagens das campanhas do mestre:", erro);
+      }
+    );
+
+    unsubscribePersonagensCriadosPeloMestre = onSnapshot(
+      consultaCriadosPeloMestre,
+      (snapshot) => {
+        personagensCriadosPeloMestre = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarListaPersonagensCombinada();
+      },
+      (erro) => {
+        console.error("Erro ao carregar personagens criados pelo mestre:", erro);
+      }
+    );
+  } else {
+    const consulta = query(
+      personagensRef,
+      where("donoId", "==", state.usuarioAtual.uid)
+    );
+
+    unsubscribePersonagens = onSnapshot(
+      consulta,
+      (snapshot) => {
+        const personagens = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        personagens.sort((a, b) => {
+          return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
         });
-      });
 
-      personagens.sort((a, b) => {
-        return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
-      });
-
-      setPersonagens(personagens);
-      renderizarPersonagens();
-      renderizarTabelaMestre();
-      atualizarContadorPersonagens();
-    },
-    (erro) => {
-      console.error("Erro ao carregar personagens:", erro);
-    }
-  );
+        setPersonagens(personagens);
+        renderizarPersonagens();
+        renderizarTabelaMestre();
+        atualizarContadorPersonagens();
+      },
+      (erro) => {
+        console.error("Erro ao carregar personagens:", erro);
+      }
+    );
+  }
 
   carregarOpcoesPersonagem();
+}
+
+function atualizarListaPersonagensCombinada() {
+  const mapa = new Map();
+
+  [...personagensPorCampanhaDoMestre, ...personagensCriadosPeloMestre].forEach((personagem) => {
+    mapa.set(personagem.id, personagem);
+  });
+
+  const personagens = Array.from(mapa.values());
+
+  personagens.sort((a, b) => {
+    return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+  });
+
+  setPersonagens(personagens);
+  renderizarPersonagens();
+  renderizarTabelaMestre();
+  atualizarContadorPersonagens();
 }
 
 export function pararPersonagens() {
   if (unsubscribePersonagens) {
     unsubscribePersonagens();
     unsubscribePersonagens = null;
+  }
+
+  if (unsubscribePersonagensCriadosPeloMestre) {
+    unsubscribePersonagensCriadosPeloMestre();
+    unsubscribePersonagensCriadosPeloMestre = null;
   }
 
   if (unsubscribeClassesPersonagem) {
@@ -112,6 +178,9 @@ export function pararPersonagens() {
     unsubscribePetsPersonagem();
     unsubscribePetsPersonagem = null;
   }
+
+  personagensPorCampanhaDoMestre = [];
+  personagensCriadosPeloMestre = [];
 }
 
 function carregarOpcoesPersonagem() {
@@ -1057,6 +1126,12 @@ function montarDadosPersonagem(personagemExistente = null) {
   const hpAtual = personagemExistente?.hpAtual ?? hpInicial;
   const manaAtual = personagemExistente?.manaAtual ?? manaInicial;
 
+  const mestreId = campanha?.mestreId || (
+    state.dadosUsuarioAtual?.tipo === "mestre"
+      ? state.usuarioAtual.uid
+      : personagemExistente?.mestreId || ""
+  );
+
   return {
     nome,
     nivel,
@@ -1066,7 +1141,7 @@ function montarDadosPersonagem(personagemExistente = null) {
 
     campanhaId: campanha?.id || "",
     campanhaNome: campanha?.nome || "Sem campanha",
-    mestreId: campanha?.mestreId || "",
+    mestreId,
 
     raca: objetoCompleto(raca),
     classe: objetoCompleto(classe),
@@ -1218,11 +1293,17 @@ async function salvarVinculoCampanha(personagem) {
     return;
   }
 
+  const mestreId = campanha?.mestreId || (
+    state.dadosUsuarioAtual?.tipo === "mestre"
+      ? state.usuarioAtual.uid
+      : ""
+  );
+
   try {
     await updateDoc(doc(db, "personagens", personagem.id), {
       campanhaId: campanha?.id || "",
       campanhaNome: campanha?.nome || "Sem campanha",
-      mestreId: campanha?.mestreId || "",
+      mestreId,
       atualizadoEm: serverTimestamp()
     });
 
@@ -1367,7 +1448,7 @@ export function renderizarTabelaMestre() {
       <td>${personagem.fome || 0}%</td>
       <td>${personagem.fadiga || 0}%</td>
       <td>Normal</td>
-      <td><button class="small-btn danger">Possessão</button></td>
+      <td><button class="small-btn danger">Abrir ficha</button></td>
     `;
 
     linha.querySelector("button").addEventListener("click", () => {
