@@ -34,6 +34,8 @@ let petsDisponiveisPersonagem = [];
 let habilidadesIniciaisSelecionadas = [];
 let itensIniciaisSelecionados = [];
 
+let modalCriacaoPersonagemAberto = false;
+
 export function iniciarPersonagens() {
   pararPersonagens();
 
@@ -101,38 +103,330 @@ export function pararPersonagens() {
 
 function carregarOpcoesPersonagem() {
   unsubscribeClassesPersonagem = onSnapshot(query(collection(db, "classes"), orderBy("nome", "asc")), (snapshot) => {
-    classesDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    classesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectClassesPersonagem();
     preencherSelectSubclassesPersonagem();
     atualizarPreviewPersonagem();
   });
 
   unsubscribeSubclassesPersonagem = onSnapshot(query(collection(db, "subclasses"), orderBy("nome", "asc")), (snapshot) => {
-    subclassesDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    subclassesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectSubclassesPersonagem();
     atualizarPreviewPersonagem();
   });
 
   unsubscribeElementosPersonagem = onSnapshot(query(collection(db, "elementos"), orderBy("nome", "asc")), (snapshot) => {
-    elementosDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    elementosDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectElementosPersonagem();
     atualizarPreviewPersonagem();
   });
 
   unsubscribeHabilidadesPersonagem = onSnapshot(query(collection(db, "habilidades"), orderBy("nome", "asc")), (snapshot) => {
-    habilidadesDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    habilidadesDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectHabilidadesPersonagem();
   });
 
   unsubscribeItensPersonagem = onSnapshot(query(collection(db, "itens"), orderBy("nome", "asc")), (snapshot) => {
-    itensDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    itensDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectItensPersonagem();
   });
 
   unsubscribePetsPersonagem = onSnapshot(query(collection(db, "pets"), orderBy("nome", "asc")), (snapshot) => {
-    petsDisponiveisPersonagem = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    petsDisponiveisPersonagem = snapshot.docs.map((documento) => ({
+      id: documento.id,
+      ...documento.data()
+    }));
+
     preencherSelectPetsPersonagem();
     atualizarPreviewPersonagem();
+  });
+}
+
+function abrirModalCriacaoPersonagem() {
+  fecharModalCriacaoPersonagem();
+
+  modalCriacaoPersonagemAberto = true;
+  habilidadesIniciaisSelecionadas = [];
+  itensIniciaisSelecionados = [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalCriacaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Criar Personagem</h3>
+          <p>Escolha raça, classe, subclasse, elemento, pet, habilidades e itens iniciais.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalCriacaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFormularioCriacaoPersonagem()}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalCriacaoPersonagem").addEventListener("click", fecharModalCriacaoPersonagem);
+  document.getElementById("cancelarCriacaoPersonagem").addEventListener("click", fecharModalCriacaoPersonagem);
+  document.getElementById("btnCriarPersonagem").addEventListener("click", criarPersonagem);
+
+  document.getElementById("adicionarHabilidadeInicial").addEventListener("click", async () => {
+    await adicionarSelecionado(
+      "selectHabilidadesIniciais",
+      habilidadesIniciaisSelecionadas,
+      renderizarHabilidadesIniciais
+    );
+  });
+
+  document.getElementById("adicionarItemInicial").addEventListener("click", async () => {
+    await adicionarSelecionado(
+      "selectItensIniciais",
+      itensIniciaisSelecionados,
+      renderizarItensIniciais
+    );
+  });
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalCriacaoPersonagem();
+    }
+  });
+
+  preencherSelectCampanhas();
+  preencherSelectRacas();
+  preencherSelectClassesPersonagem();
+  preencherSelectSubclassesPersonagem();
+  preencherSelectElementosPersonagem();
+  preencherSelectPetsPersonagem();
+  preencherSelectHabilidadesPersonagem();
+  preencherSelectItensPersonagem();
+
+  renderizarHabilidadesIniciais();
+  renderizarItensIniciais();
+  atualizarPreviewPersonagem();
+  vincularEventosPreviewPersonagem();
+}
+
+function fecharModalCriacaoPersonagem() {
+  const overlay = document.getElementById("modalCriacaoPersonagem");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  modalCriacaoPersonagemAberto = false;
+}
+
+function montarFormularioCriacaoPersonagem() {
+  return `
+    <div class="crud-form-content">
+      <div class="form-grid">
+        <label>
+          Nome do personagem
+          <input type="text" id="personagemNome" placeholder="Ex: Kael" />
+        </label>
+
+        <label>
+          Nível inicial
+          <input type="number" id="personagemNivel" value="1" min="1" />
+        </label>
+
+        <label>
+          Campanha
+          <select id="personagemCampanha">
+            <option value="">Nenhuma campanha</option>
+          </select>
+        </label>
+
+        <label>
+          Raça
+          <select id="personagemRaca">
+            <option value="">Carregando raças...</option>
+          </select>
+        </label>
+
+        <label>
+          Classe
+          <select id="personagemClasse">
+            <option value="">Carregando classes...</option>
+          </select>
+        </label>
+
+        <label>
+          Subclasse
+          <select id="personagemSubclasse">
+            <option value="">Selecione uma classe primeiro</option>
+          </select>
+        </label>
+
+        <label>
+          Elemento
+          <select id="personagemElemento">
+            <option value="">Carregando elementos...</option>
+          </select>
+        </label>
+
+        <label>
+          Pet inicial
+          <select id="personagemPet">
+            <option value="">Carregando pets...</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="base-preview character-preview">
+        <div class="preview-title-row">
+          <div>
+            <h4>Prévia do Personagem</h4>
+            <p>Os valores abaixo são calculados a partir da raça, classe e nível inicial.</p>
+          </div>
+        </div>
+
+        <div class="preview-grid">
+          <span>HP Inicial <b id="previewHpFinal">0</b></span>
+          <span>Mana Inicial <b id="previewManaFinal">0</b></span>
+          <span>Força Física <b id="previewForcaFisica">0</b></span>
+          <span>Força Mágica <b id="previewForcaMagica">0</b></span>
+          <span>Defesa Física <b id="previewDefesaFisica">0</b></span>
+          <span>Defesa Mágica <b id="previewDefesaMagica">0</b></span>
+          <span>Velocidade <b id="previewVelocidade">0</b></span>
+          <span>Resistência <b id="previewResistencia">0</b></span>
+        </div>
+
+        <div class="preview-section-grid">
+          <div class="preview-section">
+            <h5>Identidade</h5>
+            <p><strong>Raça:</strong> <span id="previewRacaNome">Nenhuma raça selecionada.</span></p>
+            <p><strong>Classe:</strong> <span id="previewClasseNome">Nenhuma classe selecionada.</span></p>
+            <p><strong>Subclasse:</strong> <span id="previewSubclasseNome">Nenhuma subclasse selecionada.</span></p>
+            <p><strong>Elemento:</strong> <span id="previewElementoNome">Nenhum elemento selecionado.</span></p>
+            <p><strong>Pet:</strong> <span id="previewPetNome">Nenhum pet selecionado.</span></p>
+          </div>
+
+          <div class="preview-section">
+            <h5>Classe</h5>
+            <p><strong>Atributo Principal:</strong> <span id="previewAtributoPrincipal">Não informado</span></p>
+            <p><strong>Atributo Secundário:</strong> <span id="previewAtributoSecundario">Não informado</span></p>
+            <p><strong>Tipo de Dano:</strong> <span id="previewTipoDano">Nenhuma classe selecionada.</span></p>
+            <p><strong>Tipo de Defesa:</strong> <span id="previewTipoDefesa">Nenhuma classe selecionada.</span></p>
+            <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeClasse">Nenhuma classe selecionada.</span></p>
+            <p><strong>Vantagens:</strong> <span id="previewVantagensClasse">Nenhuma classe selecionada.</span></p>
+          </div>
+
+          <div class="preview-section">
+            <h5>Raça</h5>
+            <p><strong>Carisma:</strong> <span id="previewCarismaBonus">Nenhuma raça selecionada.</span></p>
+            <p><strong>Fator Medo:</strong> <span id="previewFatorMedoBonus">Nenhuma raça selecionada.</span></p>
+            <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeRaca">Nenhuma raça selecionada.</span></p>
+            <p><strong>Vantagens:</strong> <span id="previewVantagensRaca">Nenhuma raça selecionada.</span></p>
+            <p><strong>Restrições de Classe:</strong> <span id="previewRestricoesClasse">Não informado</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="multi-select-box">
+        <label>
+          Habilidades iniciais
+          <select id="selectHabilidadesIniciais">
+            <option value="">Carregando habilidades...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarHabilidadeInicial">Adicionar habilidade</button>
+
+        <div id="listaHabilidadesIniciaisSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma habilidade inicial selecionada.</span>
+        </div>
+      </div>
+
+      <div class="multi-select-box">
+        <label>
+          Itens iniciais
+          <select id="selectItensIniciais">
+            <option value="">Carregando itens...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarItemInicial">Adicionar item</button>
+
+        <div id="listaItensIniciaisSelecionados" class="selected-list">
+          <span class="empty-selection">Nenhum item inicial selecionado.</span>
+        </div>
+      </div>
+
+      <label>
+        História / descrição do personagem
+        <textarea id="personagemHistoria" placeholder="Escreva a história, aparência ou detalhes importantes..."></textarea>
+      </label>
+
+      <div class="action-row">
+        <button class="secondary-btn" type="button" id="cancelarCriacaoPersonagem">Cancelar</button>
+        <button class="primary-btn" type="button" id="btnCriarPersonagem">Criar personagem</button>
+      </div>
+    </div>
+  `;
+}
+
+function vincularEventosPreviewPersonagem() {
+  const camposPreview = [
+    "personagemNivel",
+    "personagemRaca",
+    "personagemClasse",
+    "personagemSubclasse",
+    "personagemElemento",
+    "personagemPet"
+  ];
+
+  camposPreview.forEach((id) => {
+    const campo = document.getElementById(id);
+
+    if (!campo) return;
+
+    campo.addEventListener("change", () => {
+      if (id === "personagemRaca") {
+        preencherSelectClassesPersonagem();
+        preencherSelectSubclassesPersonagem();
+      }
+
+      if (id === "personagemClasse") {
+        preencherSelectSubclassesPersonagem();
+      }
+
+      const selectRaca = document.getElementById("personagemRaca");
+
+      if (selectRaca) {
+        const raca = buscarRacaPorId(selectRaca.value);
+        atualizarPreviewRaca(raca);
+      }
+
+      atualizarPreviewPersonagem();
+    });
   });
 }
 
@@ -207,6 +501,12 @@ function classeEstaRestrita(raca, classe) {
 
 function filtrarClassesPermitidasPorRaca(raca) {
   if (!raca || !Array.isArray(raca.restricoesClasse) || raca.restricoesClasse.length === 0) {
+    return classesDisponiveisPersonagem;
+  }
+
+  const temNenhuma = raca.restricoesClasse.some((restricao) => restricao.id === "__NONE__");
+
+  if (temNenhuma) {
     return classesDisponiveisPersonagem;
   }
 
@@ -634,49 +934,14 @@ async function criarPersonagem() {
       criadoEm: serverTimestamp()
     });
 
-    limparFormularioPersonagem();
-
     await mostrarModal("Personagem criado com sucesso.", "Cadastro realizado", "success");
+
+    fecharModalCriacaoPersonagem();
+    renderizarPersonagens();
   } catch (erro) {
     console.error("Erro ao criar personagem:", erro);
     await mostrarModal("Erro ao criar personagem. Verifique os dados e tente novamente.", "Erro", "danger");
   }
-}
-
-function limparFormularioPersonagem() {
-  const campos = [
-    "personagemNome",
-    "personagemCampanha",
-    "personagemRaca",
-    "personagemClasse",
-    "personagemSubclasse",
-    "personagemElemento",
-    "personagemPet",
-    "personagemHistoria"
-  ];
-
-  campos.forEach((id) => {
-    const campo = document.getElementById(id);
-
-    if (campo) {
-      campo.value = "";
-    }
-  });
-
-  const nivel = document.getElementById("personagemNivel");
-
-  if (nivel) {
-    nivel.value = "1";
-  }
-
-  habilidadesIniciaisSelecionadas = [];
-  itensIniciaisSelecionados = [];
-
-  renderizarHabilidadesIniciais();
-  renderizarItensIniciais();
-  preencherSelectClassesPersonagem();
-  preencherSelectSubclassesPersonagem();
-  atualizarPreviewPersonagem();
 }
 
 export function renderizarPersonagens() {
@@ -764,84 +1029,9 @@ function atualizarContadorPersonagens() {
 export function initPersonagens() {
   onPageLoaded((pagina) => {
     if (pagina === "personagens") {
-      preencherSelectCampanhas();
-      preencherSelectRacas();
-      preencherSelectClassesPersonagem();
-      preencherSelectSubclassesPersonagem();
-      preencherSelectElementosPersonagem();
-      preencherSelectPetsPersonagem();
-      preencherSelectHabilidadesPersonagem();
-      preencherSelectItensPersonagem();
-
       renderizarPersonagens();
-      renderizarHabilidadesIniciais();
-      renderizarItensIniciais();
-      atualizarPreviewPersonagem();
 
-      const camposPreview = [
-        "personagemNivel",
-        "personagemRaca",
-        "personagemClasse",
-        "personagemSubclasse",
-        "personagemElemento",
-        "personagemPet"
-      ];
-
-      camposPreview.forEach((id) => {
-        const campo = document.getElementById(id);
-
-        if (campo) {
-          campo.addEventListener("change", () => {
-            if (id === "personagemRaca") {
-              preencherSelectClassesPersonagem();
-              preencherSelectSubclassesPersonagem();
-            }
-
-            if (id === "personagemClasse") {
-              preencherSelectSubclassesPersonagem();
-            }
-
-            const selectRaca = document.getElementById("personagemRaca");
-
-            if (selectRaca) {
-              const raca = buscarRacaPorId(selectRaca.value);
-              atualizarPreviewRaca(raca);
-            }
-
-            atualizarPreviewPersonagem();
-          });
-        }
-      });
-
-      const btnCriarPersonagem = document.getElementById("btnCriarPersonagem");
-
-      if (btnCriarPersonagem) {
-        btnCriarPersonagem.addEventListener("click", criarPersonagem);
-      }
-
-      const btnAdicionarHabilidade = document.getElementById("adicionarHabilidadeInicial");
-
-      if (btnAdicionarHabilidade) {
-        btnAdicionarHabilidade.addEventListener("click", async () => {
-          await adicionarSelecionado(
-            "selectHabilidadesIniciais",
-            habilidadesIniciaisSelecionadas,
-            renderizarHabilidadesIniciais
-          );
-        });
-      }
-
-      const btnAdicionarItem = document.getElementById("adicionarItemInicial");
-
-      if (btnAdicionarItem) {
-        btnAdicionarItem.addEventListener("click", async () => {
-          await adicionarSelecionado(
-            "selectItensIniciais",
-            itensIniciaisSelecionados,
-            renderizarItensIniciais
-          );
-        });
-      }
+      document.getElementById("abrirCriacaoPersonagem")?.addEventListener("click", abrirModalCriacaoPersonagem);
     }
 
     if (pagina === "mestre") {

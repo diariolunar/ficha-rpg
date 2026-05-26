@@ -1,156 +1,16 @@
 <section class="page">
-  <div class="page-header">
-    <h2>Personagens</h2>
-    <p>Crie personagens usando raças, classes, subclasses, elementos, habilidades, itens e pets cadastrados pelo Mestre.</p>
-  </div>
-
-  <div class="form-card">
-    <h3>Criar Personagem</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome do personagem
-        <input type="text" id="personagemNome" placeholder="Ex: Kael" />
-      </label>
-
-      <label>
-        Nível inicial
-        <input type="number" id="personagemNivel" value="1" min="1" />
-      </label>
-
-      <label>
-        Campanha
-        <select id="personagemCampanha">
-          <option value="">Nenhuma campanha</option>
-        </select>
-      </label>
-
-      <label>
-        Raça
-        <select id="personagemRaca">
-          <option value="">Carregando raças...</option>
-        </select>
-      </label>
-
-      <label>
-        Classe
-        <select id="personagemClasse">
-          <option value="">Carregando classes...</option>
-        </select>
-      </label>
-
-      <label>
-        Subclasse
-        <select id="personagemSubclasse">
-          <option value="">Selecione uma classe primeiro</option>
-        </select>
-      </label>
-
-      <label>
-        Elemento
-        <select id="personagemElemento">
-          <option value="">Carregando elementos...</option>
-        </select>
-      </label>
-
-      <label>
-        Pet inicial
-        <select id="personagemPet">
-          <option value="">Carregando pets...</option>
-        </select>
-      </label>
+  <div class="page-header page-header-actions">
+    <div>
+      <h2>Personagens</h2>
+      <p>Gerencie seus personagens criados e abra a ficha completa quando precisar.</p>
     </div>
 
-    <div class="base-preview character-preview">
-      <div class="preview-title-row">
-        <div>
-          <h4>Prévia do Personagem</h4>
-          <p>Os valores abaixo são calculados a partir da raça, classe e nível inicial.</p>
-        </div>
-      </div>
-
-      <div class="preview-grid">
-        <span>HP Inicial <b id="previewHpFinal">0</b></span>
-        <span>Mana Inicial <b id="previewManaFinal">0</b></span>
-        <span>Força Física <b id="previewForcaFisica">0</b></span>
-        <span>Força Mágica <b id="previewForcaMagica">0</b></span>
-        <span>Defesa Física <b id="previewDefesaFisica">0</b></span>
-        <span>Defesa Mágica <b id="previewDefesaMagica">0</b></span>
-        <span>Velocidade <b id="previewVelocidade">0</b></span>
-        <span>Resistência <b id="previewResistencia">0</b></span>
-      </div>
-
-      <div class="preview-section-grid">
-        <div class="preview-section">
-          <h5>Identidade</h5>
-          <p><strong>Raça:</strong> <span id="previewRacaNome">Nenhuma raça selecionada.</span></p>
-          <p><strong>Classe:</strong> <span id="previewClasseNome">Nenhuma classe selecionada.</span></p>
-          <p><strong>Subclasse:</strong> <span id="previewSubclasseNome">Nenhuma subclasse selecionada.</span></p>
-          <p><strong>Elemento:</strong> <span id="previewElementoNome">Nenhum elemento selecionado.</span></p>
-          <p><strong>Pet:</strong> <span id="previewPetNome">Nenhum pet selecionado.</span></p>
-        </div>
-
-        <div class="preview-section">
-          <h5>Classe</h5>
-          <p><strong>Atributo Principal:</strong> <span id="previewAtributoPrincipal">Não informado</span></p>
-          <p><strong>Atributo Secundário:</strong> <span id="previewAtributoSecundario">Não informado</span></p>
-          <p><strong>Tipo de Dano:</strong> <span id="previewTipoDano">Nenhuma classe selecionada.</span></p>
-          <p><strong>Tipo de Defesa:</strong> <span id="previewTipoDefesa">Nenhuma classe selecionada.</span></p>
-          <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeClasse">Nenhuma classe selecionada.</span></p>
-          <p><strong>Vantagens:</strong> <span id="previewVantagensClasse">Nenhuma classe selecionada.</span></p>
-        </div>
-
-        <div class="preview-section">
-          <h5>Raça</h5>
-          <p><strong>Carisma:</strong> <span id="previewCarismaBonus">Nenhuma raça selecionada.</span></p>
-          <p><strong>Fator Medo:</strong> <span id="previewFatorMedoBonus">Nenhuma raça selecionada.</span></p>
-          <p><strong>Habilidade Exclusiva:</strong> <span id="previewHabilidadeRaca">Nenhuma raça selecionada.</span></p>
-          <p><strong>Vantagens:</strong> <span id="previewVantagensRaca">Nenhuma raça selecionada.</span></p>
-          <p><strong>Restrições de Classe:</strong> <span id="previewRestricoesClasse">Não informado</span></p>
-        </div>
-      </div>
-    </div>
-
-    <div class="multi-select-box">
-      <label>
-        Habilidades iniciais
-        <select id="selectHabilidadesIniciais">
-          <option value="">Carregando habilidades...</option>
-        </select>
-      </label>
-
-      <button class="secondary-btn" type="button" id="adicionarHabilidadeInicial">Adicionar habilidade</button>
-
-      <div id="listaHabilidadesIniciaisSelecionadas" class="selected-list">
-        <span class="empty-selection">Nenhuma habilidade inicial selecionada.</span>
-      </div>
-    </div>
-
-    <div class="multi-select-box">
-      <label>
-        Itens iniciais
-        <select id="selectItensIniciais">
-          <option value="">Carregando itens...</option>
-        </select>
-      </label>
-
-      <button class="secondary-btn" type="button" id="adicionarItemInicial">Adicionar item</button>
-
-      <div id="listaItensIniciaisSelecionados" class="selected-list">
-        <span class="empty-selection">Nenhum item inicial selecionado.</span>
-      </div>
-    </div>
-
-    <label>
-      História / descrição do personagem
-      <textarea id="personagemHistoria" placeholder="Escreva a história, aparência ou detalhes importantes..."></textarea>
-    </label>
-
-    <button class="primary-btn" id="btnCriarPersonagem">Criar personagem</button>
+    <button class="primary-btn" id="abrirCriacaoPersonagem">+ Criar novo personagem</button>
   </div>
 
   <div class="list-card">
     <h3>Meus personagens</h3>
+
     <div id="listaPersonagens" class="character-list">
       <p>Carregando personagens...</p>
     </div>
