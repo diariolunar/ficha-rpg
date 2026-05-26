@@ -25,6 +25,8 @@ let subclassesDisponiveis = [];
 let subclassesSelecionadas = [];
 let editSubclassesSelecionadas = [];
 
+let modalCadastroClasseAberto = false;
+
 export function iniciarClasses() {
   pararClasses();
 
@@ -135,6 +137,162 @@ function textoSelectSelecionado(id) {
   return select.selectedOptions[0].textContent;
 }
 
+function abrirModalCadastroClasse() {
+  fecharModalCadastroClasse();
+
+  modalCadastroClasseAberto = true;
+  subclassesSelecionadas = [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalCadastroClasse";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Cadastrar Classe</h3>
+          <p>Preencha as informações abaixo e salve para adicionar esta classe à lista.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalCadastroClasse">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFormularioCadastroClasse()}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalCadastroClasse").addEventListener("click", fecharModalCadastroClasse);
+  document.getElementById("cancelarCadastroClasse").addEventListener("click", fecharModalCadastroClasse);
+  document.getElementById("salvarClasse").addEventListener("click", salvarClasse);
+
+  document.getElementById("adicionarSubclasseDisponivel").addEventListener("click", () => {
+    adicionarSelecionado(
+      "selectSubclassesDisponiveis",
+      subclassesSelecionadas,
+      renderizarSubclassesSelecionadasClasse
+    );
+  });
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalCadastroClasse();
+    }
+  });
+
+  preencherSelectHabilidadesClasse();
+  preencherSelectSubclassesClasse();
+  renderizarSubclassesSelecionadasClasse();
+}
+
+function fecharModalCadastroClasse() {
+  const overlay = document.getElementById("modalCadastroClasse");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  modalCadastroClasseAberto = false;
+}
+
+function montarFormularioCadastroClasse() {
+  return `
+    <div class="crud-form-content">
+      <div class="form-grid">
+        <label>
+          Nome da Classe
+          <input type="text" id="classeNome" placeholder="Ex: Mago, Bárbaro, Domador, Espadachim..." />
+        </label>
+
+        <label>
+          HP por Nível
+          <input type="number" id="classeHpPorNivel" placeholder="Ex: 10" />
+        </label>
+
+        <label>
+          Mana por Nível
+          <input type="number" id="classeManaPorNivel" placeholder="Ex: 15" />
+        </label>
+
+        <label>
+          Atributo Principal
+          <select id="classeAtributoPrincipal">
+            ${opcoesAtributos("")}
+          </select>
+        </label>
+
+        <label>
+          Atributo Secundário
+          <select id="classeAtributoSecundario">
+            ${opcoesAtributos("")}
+          </select>
+        </label>
+
+        <label>
+          Tipo de Dano
+          <input type="text" id="classeTipoDano" placeholder="Ex: Físico, Mágico, Misto, Elemental..." />
+        </label>
+
+        <label>
+          Tipo de Defesa
+          <input type="text" id="classeTipoDefesa" placeholder="Ex: Defesa física, defesa mágica, evasão..." />
+        </label>
+      </div>
+
+      <label>
+        Armas Permitidas
+        <textarea id="classeArmasPermitidas" placeholder="Ex: Espadas leves, cajados, arcos, adagas..."></textarea>
+      </label>
+
+      <label>
+        Armaduras Permitidas
+        <textarea id="classeArmadurasPermitidas" placeholder="Ex: Armaduras leves, mantos mágicos, couro, placas..."></textarea>
+      </label>
+
+      <label>
+        Habilidade Exclusiva
+        <select id="classeHabilidadeExclusiva">
+          <option value="">Carregando habilidades...</option>
+        </select>
+      </label>
+
+      <label>
+        Vantagens
+        <textarea id="classeVantagens" placeholder="Ex: Bônus em magia, maior controle elemental, pode invocar criaturas..."></textarea>
+      </label>
+
+      <label>
+        Desvantagens
+        <textarea id="classeDesvantagens" placeholder="Ex: Baixa defesa física, restrição de armas pesadas, alto custo de mana..."></textarea>
+      </label>
+
+      <div class="multi-select-box">
+        <label>
+          Subclasses Disponíveis
+          <select id="selectSubclassesDisponiveis">
+            <option value="">Carregando subclasses...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarSubclasseDisponivel">Adicionar subclasse</button>
+
+        <div id="listaSubclassesDisponiveisSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma subclasse selecionada.</span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="secondary-btn" type="button" id="cancelarCadastroClasse">Cancelar</button>
+        <button class="primary-btn" type="button" id="salvarClasse">Salvar classe</button>
+      </div>
+    </div>
+  `;
+}
+
 async function salvarClasse() {
   if (!state.usuarioAtual) {
     await mostrarModal("Você precisa estar logado.", "Acesso necessário");
@@ -182,9 +340,10 @@ async function salvarClasse() {
   try {
     await addDoc(collection(db, "classes"), classe);
 
-    limparFormularioClasse();
+    await mostrarModal("Classe salva com sucesso.", "Cadastro realizado", "success");
 
-    await mostrarModal("Classe salva no Firebase.", "Cadastro realizado", "success");
+    fecharModalCadastroClasse();
+    renderizarClasses();
   } catch (erro) {
     console.error("Erro ao salvar classe:", erro);
     await mostrarModal("Erro ao salvar classe. Verifique as regras do Firestore.", "Erro", "danger");
@@ -272,34 +431,6 @@ async function excluirClasse() {
     console.error("Erro ao excluir classe:", erro);
     await mostrarModal("Erro ao excluir classe.", "Erro", "danger");
   }
-}
-
-function limparFormularioClasse() {
-  const campos = [
-    "classeNome",
-    "classeHpPorNivel",
-    "classeManaPorNivel",
-    "classeAtributoPrincipal",
-    "classeAtributoSecundario",
-    "classeTipoDano",
-    "classeTipoDefesa",
-    "classeArmasPermitidas",
-    "classeArmadurasPermitidas",
-    "classeHabilidadeExclusiva",
-    "classeVantagens",
-    "classeDesvantagens"
-  ];
-
-  campos.forEach((id) => {
-    const campo = document.getElementById(id);
-
-    if (campo) {
-      campo.value = "";
-    }
-  });
-
-  subclassesSelecionadas = [];
-  renderizarSubclassesSelecionadasClasse();
 }
 
 export function renderizarClasses() {
@@ -399,66 +530,20 @@ export function renderizarDetalheClasse(modoEdicao = false) {
       <p class="detail-subtitle">Classe cadastrada pelo Mestre</p>
 
       <div class="detail-grid">
-        <div class="detail-item">
-          <span>HP por Nível</span>
-          <strong>${classe.hpPorNivel || 0}</strong>
-        </div>
-
-        <div class="detail-item">
-          <span>Mana por Nível</span>
-          <strong>${classe.manaPorNivel || 0}</strong>
-        </div>
-
-        <div class="detail-item">
-          <span>Atributo Principal</span>
-          <strong>${formatarAtributo(classe.atributoPrincipal)}</strong>
-        </div>
-
-        <div class="detail-item">
-          <span>Atributo Secundário</span>
-          <strong>${formatarAtributo(classe.atributoSecundario)}</strong>
-        </div>
-
-        <div class="detail-item">
-          <span>Tipo de Dano</span>
-          <strong>${classe.tipoDano || "Não informado"}</strong>
-        </div>
-
-        <div class="detail-item">
-          <span>Tipo de Defesa</span>
-          <strong>${classe.tipoDefesa || "Não informado"}</strong>
-        </div>
+        <div class="detail-item"><span>HP por Nível</span><strong>${classe.hpPorNivel || 0}</strong></div>
+        <div class="detail-item"><span>Mana por Nível</span><strong>${classe.manaPorNivel || 0}</strong></div>
+        <div class="detail-item"><span>Atributo Principal</span><strong>${formatarAtributo(classe.atributoPrincipal)}</strong></div>
+        <div class="detail-item"><span>Atributo Secundário</span><strong>${formatarAtributo(classe.atributoSecundario)}</strong></div>
+        <div class="detail-item"><span>Tipo de Dano</span><strong>${classe.tipoDano || "Não informado"}</strong></div>
+        <div class="detail-item"><span>Tipo de Defesa</span><strong>${classe.tipoDefesa || "Não informado"}</strong></div>
       </div>
 
-      <div class="detail-section">
-        <h4>Armas Permitidas</h4>
-        <p>${classe.armasPermitidas || "Não informado"}</p>
-      </div>
-
-      <div class="detail-section">
-        <h4>Armaduras Permitidas</h4>
-        <p>${classe.armadurasPermitidas || "Não informado"}</p>
-      </div>
-
-      <div class="detail-section">
-        <h4>Habilidade Exclusiva</h4>
-        <p>${classe.habilidadeExclusiva?.nome || "Não informado"}</p>
-      </div>
-
-      <div class="detail-section">
-        <h4>Vantagens</h4>
-        <p>${classe.vantagens || "Não informado"}</p>
-      </div>
-
-      <div class="detail-section">
-        <h4>Desvantagens</h4>
-        <p>${classe.desvantagens || "Não informado"}</p>
-      </div>
-
-      <div class="detail-section">
-        <h4>Subclasses Disponíveis</h4>
-        <p>${formatarListaObjetos(classe.subclassesDisponiveis)}</p>
-      </div>
+      <div class="detail-section"><h4>Armas Permitidas</h4><p>${classe.armasPermitidas || "Não informado"}</p></div>
+      <div class="detail-section"><h4>Armaduras Permitidas</h4><p>${classe.armadurasPermitidas || "Não informado"}</p></div>
+      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${classe.habilidadeExclusiva?.nome || "Não informado"}</p></div>
+      <div class="detail-section"><h4>Vantagens</h4><p>${classe.vantagens || "Não informado"}</p></div>
+      <div class="detail-section"><h4>Desvantagens</h4><p>${classe.desvantagens || "Não informado"}</p></div>
+      <div class="detail-section"><h4>Subclasses Disponíveis</h4><p>${formatarListaObjetos(classe.subclassesDisponiveis)}</p></div>
 
       <div class="action-row">
         <button class="secondary-btn" id="voltarListaClasses">Voltar</button>
@@ -489,20 +574,9 @@ function renderizarFormularioEdicaoClasse(container, classe) {
       <h3>Editar Classe</h3>
 
       <div class="form-grid">
-        <label>
-          Nome da Classe
-          <input type="text" id="editClasseNome" value="${escapeHtml(classe.nome || "")}" />
-        </label>
-
-        <label>
-          HP por Nível
-          <input type="number" id="editClasseHpPorNivel" value="${classe.hpPorNivel || 0}" />
-        </label>
-
-        <label>
-          Mana por Nível
-          <input type="number" id="editClasseManaPorNivel" value="${classe.manaPorNivel || 0}" />
-        </label>
+        <label>Nome da Classe<input type="text" id="editClasseNome" value="${escapeHtml(classe.nome || "")}" /></label>
+        <label>HP por Nível<input type="number" id="editClasseHpPorNivel" value="${classe.hpPorNivel || 0}" /></label>
+        <label>Mana por Nível<input type="number" id="editClasseManaPorNivel" value="${classe.manaPorNivel || 0}" /></label>
 
         <label>
           Atributo Principal
@@ -518,26 +592,12 @@ function renderizarFormularioEdicaoClasse(container, classe) {
           </select>
         </label>
 
-        <label>
-          Tipo de Dano
-          <input type="text" id="editClasseTipoDano" value="${escapeHtml(classe.tipoDano || "")}" />
-        </label>
-
-        <label>
-          Tipo de Defesa
-          <input type="text" id="editClasseTipoDefesa" value="${escapeHtml(classe.tipoDefesa || "")}" />
-        </label>
+        <label>Tipo de Dano<input type="text" id="editClasseTipoDano" value="${escapeHtml(classe.tipoDano || "")}" /></label>
+        <label>Tipo de Defesa<input type="text" id="editClasseTipoDefesa" value="${escapeHtml(classe.tipoDefesa || "")}" /></label>
       </div>
 
-      <label>
-        Armas Permitidas
-        <textarea id="editClasseArmasPermitidas">${escapeHtml(classe.armasPermitidas || "")}</textarea>
-      </label>
-
-      <label>
-        Armaduras Permitidas
-        <textarea id="editClasseArmadurasPermitidas">${escapeHtml(classe.armadurasPermitidas || "")}</textarea>
-      </label>
+      <label>Armas Permitidas<textarea id="editClasseArmasPermitidas">${escapeHtml(classe.armasPermitidas || "")}</textarea></label>
+      <label>Armaduras Permitidas<textarea id="editClasseArmadurasPermitidas">${escapeHtml(classe.armadurasPermitidas || "")}</textarea></label>
 
       <label>
         Habilidade Exclusiva
@@ -546,15 +606,8 @@ function renderizarFormularioEdicaoClasse(container, classe) {
         </select>
       </label>
 
-      <label>
-        Vantagens
-        <textarea id="editClasseVantagens">${escapeHtml(classe.vantagens || "")}</textarea>
-      </label>
-
-      <label>
-        Desvantagens
-        <textarea id="editClasseDesvantagens">${escapeHtml(classe.desvantagens || "")}</textarea>
-      </label>
+      <label>Vantagens<textarea id="editClasseVantagens">${escapeHtml(classe.vantagens || "")}</textarea></label>
+      <label>Desvantagens<textarea id="editClasseDesvantagens">${escapeHtml(classe.desvantagens || "")}</textarea></label>
 
       <div class="multi-select-box">
         <label>
@@ -770,28 +823,9 @@ function escapeHtml(texto) {
 export function initClasses() {
   onPageLoaded((pagina) => {
     if (pagina === "cadastrosClasses") {
-      const botaoSalvarClasse = document.getElementById("salvarClasse");
-
-      if (botaoSalvarClasse) {
-        botaoSalvarClasse.addEventListener("click", salvarClasse);
-      }
-
-      const botaoAdicionarSubclasse = document.getElementById("adicionarSubclasseDisponivel");
-
-      if (botaoAdicionarSubclasse) {
-        botaoAdicionarSubclasse.addEventListener("click", () => {
-          adicionarSelecionado(
-            "selectSubclassesDisponiveis",
-            subclassesSelecionadas,
-            renderizarSubclassesSelecionadasClasse
-          );
-        });
-      }
-
-      preencherSelectHabilidadesClasse();
-      preencherSelectSubclassesClasse();
-      renderizarSubclassesSelecionadasClasse();
       renderizarClasses();
+
+      document.getElementById("abrirCadastroClasses")?.addEventListener("click", abrirModalCadastroClasse);
     }
 
     if (pagina === "cadastrosClasseDetalhe") {

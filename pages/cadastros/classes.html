@@ -1,112 +1,16 @@
 <section class="page">
-  <div class="page-header">
-    <h2>Cadastro de Classes</h2>
-    <p>Crie classes com progressão por nível, atributos principais, equipamentos permitidos, habilidade exclusiva e subclasses disponíveis.</p>
-  </div>
-
-  <div class="form-card">
-    <h3>Cadastrar Classe</h3>
-
-    <div class="form-grid">
-      <label>
-        Nome da Classe
-        <input type="text" id="classeNome" placeholder="Ex: Mago, Bárbaro, Domador, Espadachim..." />
-      </label>
-
-      <label>
-        HP por Nível
-        <input type="number" id="classeHpPorNivel" placeholder="Ex: 10" />
-      </label>
-
-      <label>
-        Mana por Nível
-        <input type="number" id="classeManaPorNivel" placeholder="Ex: 15" />
-      </label>
-
-      <label>
-        Atributo Principal
-        <select id="classeAtributoPrincipal">
-          <option value="">Selecione</option>
-          <option value="forcaFisica">Força Física</option>
-          <option value="forcaMagica">Força Mágica</option>
-          <option value="defesaFisica">Defesa Física</option>
-          <option value="defesaMagica">Defesa Mágica</option>
-          <option value="velocidade">Velocidade</option>
-          <option value="resistencia">Resistência</option>
-        </select>
-      </label>
-
-      <label>
-        Atributo Secundário
-        <select id="classeAtributoSecundario">
-          <option value="">Selecione</option>
-          <option value="forcaFisica">Força Física</option>
-          <option value="forcaMagica">Força Mágica</option>
-          <option value="defesaFisica">Defesa Física</option>
-          <option value="defesaMagica">Defesa Mágica</option>
-          <option value="velocidade">Velocidade</option>
-          <option value="resistencia">Resistência</option>
-        </select>
-      </label>
-
-      <label>
-        Tipo de Dano
-        <input type="text" id="classeTipoDano" placeholder="Ex: Físico, Mágico, Misto, Elemental..." />
-      </label>
-
-      <label>
-        Tipo de Defesa
-        <input type="text" id="classeTipoDefesa" placeholder="Ex: Defesa física, defesa mágica, evasão..." />
-      </label>
+  <div class="page-header page-header-actions">
+    <div>
+      <h2>Cadastro de Classes</h2>
+      <p>Gerencie as classes disponíveis para os personagens.</p>
     </div>
 
-    <label>
-      Armas Permitidas
-      <textarea id="classeArmasPermitidas" placeholder="Ex: Espadas leves, cajados, arcos, adagas..."></textarea>
-    </label>
-
-    <label>
-      Armaduras Permitidas
-      <textarea id="classeArmadurasPermitidas" placeholder="Ex: Armaduras leves, mantos mágicos, couro, placas..."></textarea>
-    </label>
-
-    <label>
-      Habilidade Exclusiva
-      <select id="classeHabilidadeExclusiva">
-        <option value="">Carregando habilidades...</option>
-      </select>
-    </label>
-
-    <label>
-      Vantagens
-      <textarea id="classeVantagens" placeholder="Ex: Bônus em magia, maior controle elemental, pode invocar criaturas..."></textarea>
-    </label>
-
-    <label>
-      Desvantagens
-      <textarea id="classeDesvantagens" placeholder="Ex: Baixa defesa física, restrição de armas pesadas, alto custo de mana..."></textarea>
-    </label>
-
-    <div class="multi-select-box">
-      <label>
-        Subclasses Disponíveis
-        <select id="selectSubclassesDisponiveis">
-          <option value="">Carregando subclasses...</option>
-        </select>
-      </label>
-
-      <button class="secondary-btn" type="button" id="adicionarSubclasseDisponivel">Adicionar subclasse</button>
-
-      <div id="listaSubclassesDisponiveisSelecionadas" class="selected-list">
-        <span class="empty-selection">Nenhuma subclasse selecionada.</span>
-      </div>
-    </div>
-
-    <button class="primary-btn" id="salvarClasse">Salvar classe</button>
+    <button class="primary-btn" id="abrirCadastroClasses">+ Cadastrar nova classe</button>
   </div>
 
   <div class="list-card">
     <h3>Classes cadastradas</h3>
+
     <div id="listaClasses" class="resource-list">
       <p>Carregando classes...</p>
     </div>

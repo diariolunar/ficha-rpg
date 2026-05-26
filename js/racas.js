@@ -32,6 +32,8 @@ let editClassesSugeridasSelecionadas = [];
 let editElementosAfinsSelecionados = [];
 let editRestricoesClasseSelecionadas = [];
 
+let modalCadastroRacaAberto = false;
+
 export function iniciarRacas() {
   pararRacas();
 
@@ -190,6 +192,158 @@ function habilidadeSelecionada(idSelect) {
   };
 }
 
+function abrirModalCadastroRaca() {
+  fecharModalCadastroRaca();
+
+  modalCadastroRacaAberto = true;
+  classesSugeridasSelecionadas = [];
+  elementosAfinsSelecionados = [];
+  restricoesClasseSelecionadas = [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalCadastroRaca";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Cadastrar Raça</h3>
+          <p>Preencha as informações abaixo e salve para adicionar esta raça à lista.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalCadastroRaca">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFormularioCadastroRaca()}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalCadastroRaca").addEventListener("click", fecharModalCadastroRaca);
+  document.getElementById("cancelarCadastroRaca").addEventListener("click", fecharModalCadastroRaca);
+  document.getElementById("salvarRaca").addEventListener("click", salvarRaca);
+
+  document.getElementById("adicionarClasseSugerida").addEventListener("click", () => {
+    adicionarSelecionado("selectClassesSugeridas", classesSugeridasSelecionadas, renderizarClassesSugeridas);
+  });
+
+  document.getElementById("adicionarElementoAfim").addEventListener("click", () => {
+    adicionarSelecionado("selectElementosAfins", elementosAfinsSelecionados, renderizarElementosAfins);
+  });
+
+  document.getElementById("adicionarRestricaoClasse").addEventListener("click", () => {
+    adicionarSelecionado("selectRestricaoClasse", restricoesClasseSelecionadas, renderizarRestricoesClasse);
+  });
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalCadastroRaca();
+    }
+  });
+
+  preencherSelectClassesRaca();
+  preencherSelectElementosRaca();
+  preencherSelectHabilidadesRaca();
+  renderizarClassesSugeridas();
+  renderizarElementosAfins();
+  renderizarRestricoesClasse();
+}
+
+function fecharModalCadastroRaca() {
+  const overlay = document.getElementById("modalCadastroRaca");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  modalCadastroRacaAberto = false;
+}
+
+function montarFormularioCadastroRaca() {
+  return `
+    <div class="crud-form-content">
+      <div class="form-grid">
+        <label>Nome da Raça<input type="text" id="racaNome" placeholder="Ex: Humano, Elfo, Orc..." /></label>
+        <label>HP Base<input type="number" id="racaHpBase" placeholder="Ex: 30" /></label>
+        <label>Mana Base<input type="number" id="racaManaBase" placeholder="Ex: 50" /></label>
+        <label>Força Física<input type="number" id="racaForcaFisica" placeholder="Ex: 2" /></label>
+        <label>Força Mágica<input type="number" id="racaForcaMagica" placeholder="Ex: 2" /></label>
+        <label>Defesa Física<input type="number" id="racaDefesaFisica" placeholder="Ex: 2" /></label>
+        <label>Defesa Mágica<input type="number" id="racaDefesaMagica" placeholder="Ex: 2" /></label>
+        <label>Velocidade<input type="number" id="racaVelocidade" placeholder="Ex: 2" /></label>
+        <label>Resistência<input type="number" id="racaResistencia" placeholder="Ex: 2" /></label>
+      </div>
+
+      <label>Carisma<input type="text" id="racaCarisma" placeholder="Ex: +2 em teste de persuasão" /></label>
+      <label>Fator Medo<input type="text" id="racaFatorMedo" placeholder="Ex: +1 em intimidação" /></label>
+
+      <label>Vantagens/Bônus<textarea id="racaVantagens" placeholder="Descreva as vantagens da raça..."></textarea></label>
+      <label>Desvantagens/Penalidades<textarea id="racaDesvantagens" placeholder="Descreva as penalidades da raça..."></textarea></label>
+
+      <div class="multi-select-box">
+        <label>
+          Classes Sugeridas
+          <select id="selectClassesSugeridas">
+            <option value="">Carregando classes...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarClasseSugerida">Adicionar</button>
+
+        <div id="listaClassesSugeridasSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma classe sugerida selecionada.</span>
+        </div>
+      </div>
+
+      <div class="multi-select-box">
+        <label>
+          Elementos Afins
+          <select id="selectElementosAfins">
+            <option value="">Carregando elementos...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarElementoAfim">Adicionar</button>
+
+        <div id="listaElementosAfinsSelecionados" class="selected-list">
+          <span class="empty-selection">Nenhum elemento afim selecionado.</span>
+        </div>
+      </div>
+
+      <label>
+        Habilidade Exclusiva
+        <select id="racaHabilidadeExclusiva">
+          <option value="">Carregando habilidades...</option>
+        </select>
+      </label>
+
+      <div class="multi-select-box">
+        <label>
+          Restrição de Classe
+          <select id="selectRestricaoClasse">
+            <option value="">Carregando classes...</option>
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarRestricaoClasse">Adicionar</button>
+
+        <div id="listaRestricaoClasseSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma restrição de classe selecionada.</span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="secondary-btn" type="button" id="cancelarCadastroRaca">Cancelar</button>
+        <button class="primary-btn" type="button" id="salvarRaca">Salvar raça</button>
+      </div>
+    </div>
+  `;
+}
+
 async function salvarRaca() {
   if (!state.usuarioAtual) {
     await mostrarModal("Você precisa estar logado.", "Acesso necessário");
@@ -231,9 +385,10 @@ async function salvarRaca() {
       criadoEm: serverTimestamp()
     });
 
-    limparFormularioRaca();
-
     await mostrarModal("Raça salva com sucesso.", "Cadastro realizado", "success");
+
+    fecharModalCadastroRaca();
+    renderizarRacas();
   } catch (erro) {
     console.error("Erro ao salvar raça:", erro);
     await mostrarModal("Erro ao salvar raça.", "Erro", "danger");
@@ -317,41 +472,6 @@ async function excluirRaca() {
     console.error("Erro ao excluir raça:", erro);
     await mostrarModal("Erro ao excluir raça.", "Erro", "danger");
   }
-}
-
-function limparFormularioRaca() {
-  const campos = [
-    "racaNome",
-    "racaHpBase",
-    "racaManaBase",
-    "racaForcaFisica",
-    "racaForcaMagica",
-    "racaDefesaFisica",
-    "racaDefesaMagica",
-    "racaVelocidade",
-    "racaResistencia",
-    "racaCarisma",
-    "racaFatorMedo",
-    "racaVantagens",
-    "racaDesvantagens",
-    "racaHabilidadeExclusiva"
-  ];
-
-  campos.forEach((id) => {
-    const campo = document.getElementById(id);
-
-    if (campo) {
-      campo.value = "";
-    }
-  });
-
-  classesSugeridasSelecionadas = [];
-  elementosAfinsSelecionados = [];
-  restricoesClasseSelecionadas = [];
-
-  renderizarClassesSugeridas();
-  renderizarElementosAfins();
-  renderizarRestricoesClasse();
 }
 
 function preencherSelectClassesRaca() {
@@ -821,28 +941,9 @@ function escapeHtml(texto) {
 export function initRacas() {
   onPageLoaded((pagina) => {
     if (pagina === "cadastrosRacas") {
-      preencherSelectClassesRaca();
-      preencherSelectElementosRaca();
-      preencherSelectHabilidadesRaca();
-
-      renderizarClassesSugeridas();
-      renderizarElementosAfins();
-      renderizarRestricoesClasse();
       renderizarRacas();
 
-      document.getElementById("salvarRaca")?.addEventListener("click", salvarRaca);
-
-      document.getElementById("adicionarClasseSugerida")?.addEventListener("click", () => {
-        adicionarSelecionado("selectClassesSugeridas", classesSugeridasSelecionadas, renderizarClassesSugeridas);
-      });
-
-      document.getElementById("adicionarElementoAfim")?.addEventListener("click", () => {
-        adicionarSelecionado("selectElementosAfins", elementosAfinsSelecionados, renderizarElementosAfins);
-      });
-
-      document.getElementById("adicionarRestricaoClasse")?.addEventListener("click", () => {
-        adicionarSelecionado("selectRestricaoClasse", restricoesClasseSelecionadas, renderizarRestricoesClasse);
-      });
+      document.getElementById("abrirCadastroRacas")?.addEventListener("click", abrirModalCadastroRaca);
     }
 
     if (pagina === "cadastrosRacaDetalhe") {
