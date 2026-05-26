@@ -596,3 +596,121 @@
   line-height: 1.6;
   margin-bottom: 18px;
 }
+
+.page-header-actions {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.page-header-actions > div {
+  max-width: 760px;
+}
+
+.page-header-actions .primary-btn {
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.crud-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 42px 22px;
+  overflow-y: auto;
+}
+
+.crud-form-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 84px);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
+    rgba(9, 9, 10, 0.98);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.crud-form-header {
+  padding: 24px 26px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.crud-form-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 25px;
+  letter-spacing: -0.03em;
+}
+
+.crud-form-header p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.crud-form-close {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.055);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.crud-form-close:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.crud-form-body {
+  padding: 26px;
+  overflow-y: auto;
+}
+
+.crud-form-content label {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 760px) {
+  .page-header-actions {
+    flex-direction: column;
+  }
+
+  .page-header-actions .primary-btn {
+    width: 100%;
+  }
+
+  .crud-form-overlay {
+    padding: 18px 12px;
+  }
+
+  .crud-form-modal {
+    max-height: calc(100vh - 36px);
+  }
+
+  .crud-form-header {
+    padding: 20px;
+  }
+
+  .crud-form-body {
+    padding: 20px;
+  }
+}

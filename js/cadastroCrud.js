@@ -23,6 +23,10 @@ export function criarCadastroCrud(config) {
   const opcoesRelacionadas = {};
   let multiselectsCadastro = {};
   let multiselectsEdicao = {};
+  let cadastroModalAberto = false;
+
+  const abrirCadastroId = config.abrirCadastroId || `abrirCadastro${capitalizar(config.colecao)}`;
+  const formContainerId = config.formContainerId;
 
   function iniciar() {
     parar();
@@ -85,7 +89,7 @@ export function criarCadastroCrud(config) {
           });
         });
 
-        if (document.getElementById(config.formContainerId)) {
+        if (cadastroModalAberto && document.getElementById(formContainerId)) {
           renderizarFormularioCadastro();
         }
 
@@ -111,8 +115,9 @@ export function criarCadastroCrud(config) {
   function init() {
     onPageLoaded((pagina) => {
       if (pagina === config.paginaLista) {
+        cadastroModalAberto = false;
         multiselectsCadastro = criarEstadoMultiselect();
-        renderizarFormularioCadastro();
+        vincularBotaoAbrirCadastro();
         renderizarLista();
       }
 
@@ -120,6 +125,62 @@ export function criarCadastroCrud(config) {
         renderizarDetalhe(false);
       }
     });
+  }
+
+  function vincularBotaoAbrirCadastro() {
+    const botao = document.getElementById(abrirCadastroId);
+
+    if (!botao) return;
+
+    botao.addEventListener("click", abrirModalCadastro);
+  }
+
+  function abrirModalCadastro() {
+    fecharModalCadastro();
+
+    cadastroModalAberto = true;
+    multiselectsCadastro = criarEstadoMultiselect();
+
+    const overlay = document.createElement("div");
+    overlay.className = "crud-form-overlay";
+    overlay.id = "crudFormOverlay";
+
+    overlay.innerHTML = `
+      <div class="crud-form-modal">
+        <div class="crud-form-header">
+          <div>
+            <h3>Cadastrar ${config.nomeSingular}</h3>
+            <p>Preencha as informações abaixo e salve para adicionar este registro à lista.</p>
+          </div>
+
+          <button class="crud-form-close" type="button" id="fecharCadastroModal">×</button>
+        </div>
+
+        <div class="crud-form-body" id="${formContainerId}"></div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    document.getElementById("fecharCadastroModal").addEventListener("click", fecharModalCadastro);
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        fecharModalCadastro();
+      }
+    });
+
+    renderizarFormularioCadastro();
+  }
+
+  function fecharModalCadastro() {
+    const overlay = document.getElementById("crudFormOverlay");
+
+    if (overlay) {
+      overlay.remove();
+    }
+
+    cadastroModalAberto = false;
   }
 
   function criarEstadoMultiselect() {
@@ -135,13 +196,13 @@ export function criarCadastroCrud(config) {
   }
 
   function renderizarFormularioCadastro() {
-    const container = document.getElementById(config.formContainerId);
+    const container = document.getElementById(formContainerId);
 
     if (!container) return;
 
     container.innerHTML = montarFormulario({
       prefixo: "",
-      titulo: `Cadastrar ${config.nomeSingular}`,
+      titulo: "",
       botaoId: config.botaoSalvarId,
       botaoTexto: `Salvar ${config.nomeSingular.toLowerCase()}`,
       valores: {},
@@ -160,6 +221,8 @@ export function criarCadastroCrud(config) {
   function montarFormulario({ prefixo, titulo, botaoId, botaoTexto, valores, multiselects, modoEdicao }) {
     const camposHtml = config.campos.map((campo) => montarCampo(campo, prefixo, valores, multiselects)).join("");
 
+    const tituloHtml = titulo ? `<h3>${titulo}</h3>` : "";
+
     const botoes = modoEdicao
       ? `
         <div class="action-row">
@@ -167,11 +230,16 @@ export function criarCadastroCrud(config) {
           <button class="primary-btn" type="button" id="${botaoId}">${botaoTexto}</button>
         </div>
       `
-      : `<button class="primary-btn" type="button" id="${botaoId}">${botaoTexto}</button>`;
+      : `
+        <div class="action-row">
+          <button class="secondary-btn" type="button" id="cancelarCadastroModal">Cancelar</button>
+          <button class="primary-btn" type="button" id="${botaoId}">${botaoTexto}</button>
+        </div>
+      `;
 
     return `
-      <div class="form-card">
-        <h3>${titulo}</h3>
+      <div class="crud-form-content">
+        ${tituloHtml}
         ${camposHtml}
         ${botoes}
       </div>
@@ -333,6 +401,12 @@ export function criarCadastroCrud(config) {
       botaoSalvar.addEventListener("click", onSalvar);
     }
 
+    const botaoCancelarModal = document.getElementById("cancelarCadastroModal");
+
+    if (botaoCancelarModal) {
+      botaoCancelarModal.addEventListener("click", fecharModalCadastro);
+    }
+
     const botaoCancelar = document.getElementById(`${prefixo}Cancelar`);
 
     if (botaoCancelar) {
@@ -476,9 +550,11 @@ export function criarCadastroCrud(config) {
       });
 
       multiselectsCadastro = criarEstadoMultiselect();
-      renderizarFormularioCadastro();
 
       await mostrarModal(`${config.nomeSingular} salvo com sucesso.`, "Cadastro realizado", "success");
+
+      fecharModalCadastro();
+      renderizarLista();
     } catch (erro) {
       console.error(`Erro ao salvar ${config.nomeSingular}:`, erro);
       await mostrarModal(`Erro ao salvar ${config.nomeSingular}.`, "Erro", "danger");
@@ -784,6 +860,12 @@ export function criarCadastroCrud(config) {
       .replaceAll('"', "&quot;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
+  }
+
+  function capitalizar(texto) {
+    return String(texto || "")
+      .charAt(0)
+      .toUpperCase() + String(texto || "").slice(1);
   }
 
   return {
