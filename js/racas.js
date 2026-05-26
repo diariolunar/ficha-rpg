@@ -32,6 +32,8 @@ let editClassesSugeridasSelecionadas = [];
 let editElementosAfinsSelecionados = [];
 let editRestricoesClasseSelecionadas = [];
 
+let importacaoRacasPendentes = [];
+
 export function iniciarRacas() {
   pararRacas();
 
@@ -566,6 +568,436 @@ async function excluirRaca() {
   }
 }
 
+function abrirModalImportacaoRacas() {
+  fecharModalImportacaoRacas();
+
+  importacaoRacasPendentes = [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalImportacaoRacas";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Importar Raças em Massa</h3>
+          <p>Cole várias raças seguindo o modelo. Separe uma raça da outra usando uma linha com três traços: ---</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalImportacaoRacas">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Texto para importação
+            <textarea id="textoImportacaoRacas" rows="18" placeholder="Cole aqui as raças no modelo indicado..."></textarea>
+          </label>
+
+          <div class="detail-section">
+            <h4>Modelo esperado</h4>
+            <p>
+              Raça: Elfo<br>
+              HP Base: 40<br>
+              Mana Base: 100<br>
+              Força Física: 2<br>
+              Força Mágica: 5<br>
+              Defesa Física: 2<br>
+              Defesa Mágica: 4<br>
+              Velocidade: 5<br>
+              Resistência: 3<br>
+              Carisma: +2 em testes sociais<br>
+              Fator Medo: Nenhum<br>
+              Vantagens/Bônus: Alta afinidade mágica.<br>
+              Desvantagens/Penalidades: Baixa resistência física.<br>
+              Classes Sugeridas: Todas<br>
+              Elementos Afins: Luz, Água<br>
+              Habilidade Exclusiva: Visão Élfica<br>
+              Restrição de Classe: Nenhuma<br>
+              ---<br>
+              Raça: Orc<br>
+              HP Base: 80
+            </p>
+          </div>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarImportacaoRacas">Cancelar</button>
+            <button class="primary-btn" type="button" id="analisarImportacaoRacas">Analisar texto</button>
+          </div>
+
+          <div id="previewImportacaoRacas" class="list-card" style="display:none;">
+            <h3>Prévia da importação</h3>
+
+            <div id="listaPreviewImportacaoRacas" class="resource-list"></div>
+
+            <div class="action-row">
+              <button class="secondary-btn" type="button" id="limparPreviewImportacaoRacas">Revisar texto</button>
+              <button class="primary-btn" type="button" id="confirmarImportacaoRacas">Cadastrar todos</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
+  document.getElementById("cancelarImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
+  document.getElementById("analisarImportacaoRacas")?.addEventListener("click", analisarImportacaoRacas);
+  document.getElementById("limparPreviewImportacaoRacas")?.addEventListener("click", limparPreviewImportacaoRacas);
+  document.getElementById("confirmarImportacaoRacas")?.addEventListener("click", confirmarImportacaoRacas);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalImportacaoRacas();
+    }
+  });
+}
+
+function fecharModalImportacaoRacas() {
+  const overlay = document.getElementById("modalImportacaoRacas");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  importacaoRacasPendentes = [];
+}
+
+async function analisarImportacaoRacas() {
+  const texto = document.getElementById("textoImportacaoRacas")?.value.trim() || "";
+
+  if (!texto) {
+    await mostrarModal("Cole o texto com as raças antes de analisar.", "Campo obrigatório");
+    return;
+  }
+
+  const resultado = interpretarTextoRacas(texto);
+
+  if (resultado.erros.length > 0 && resultado.racas.length === 0) {
+    await mostrarModal(resultado.erros.join("\n"), "Não foi possível importar", "danger");
+    return;
+  }
+
+  importacaoRacasPendentes = resultado.racas;
+  renderizarPreviewImportacaoRacas(resultado.erros);
+}
+
+function interpretarTextoRacas(texto) {
+  const blocos = texto
+    .split(/\n\s*---\s*\n/g)
+    .map((bloco) => bloco.trim())
+    .filter(Boolean);
+
+  const racas = [];
+  const erros = [];
+  const nomesNoTexto = new Set();
+
+  blocos.forEach((bloco, index) => {
+    const campos = extrairCamposDoBloco(bloco);
+    const numero = index + 1;
+
+    const nome = buscarCampo(campos, ["raça", "raca", "nome", "nome da raça", "nome da raca"]);
+
+    if (!nome) {
+      erros.push(`Bloco ${numero}: nome da raça não encontrado.`);
+      return;
+    }
+
+    const nomeNormalizado = normalizarTexto(nome);
+
+    if (nomesNoTexto.has(nomeNormalizado)) {
+      erros.push(`Bloco ${numero}: a raça "${nome}" está repetida no texto e foi ignorada.`);
+      return;
+    }
+
+    nomesNoTexto.add(nomeNormalizado);
+
+    const jaExiste = state.racasDisponiveis.some((raca) => {
+      return normalizarTexto(raca.nome || "") === nomeNormalizado;
+    });
+
+    if (jaExiste) {
+      erros.push(`Bloco ${numero}: a raça "${nome}" já existe no sistema e foi ignorada.`);
+      return;
+    }
+
+    const habilidadeNome = buscarCampo(campos, ["habilidade exclusiva"]);
+    const habilidade = habilidadeNome ? encontrarPorNome(habilidadesDisponiveis, habilidadeNome) : null;
+
+    if (habilidadeNome && !habilidade) {
+      erros.push(`Bloco ${numero}: habilidade exclusiva "${habilidadeNome}" não encontrada. A raça será cadastrada sem habilidade exclusiva.`);
+    }
+
+    const raca = {
+      nome,
+      hpBase: numeroTexto(buscarCampo(campos, ["hp base", "hp"])),
+      manaBase: numeroTexto(buscarCampo(campos, ["mana base", "mana"])),
+      forcaFisica: numeroTexto(buscarCampo(campos, ["força física", "forca fisica"])),
+      forcaMagica: numeroTexto(buscarCampo(campos, ["força mágica", "forca magica"])),
+      defesaFisica: numeroTexto(buscarCampo(campos, ["defesa física", "defesa fisica"])),
+      defesaMagica: numeroTexto(buscarCampo(campos, ["defesa mágica", "defesa magica"])),
+      velocidade: numeroTexto(buscarCampo(campos, ["velocidade"])),
+      resistencia: numeroTexto(buscarCampo(campos, ["resistência", "resistencia"])),
+      carismaBonus: buscarCampo(campos, ["carisma"]) || "",
+      fatorMedoBonus: buscarCampo(campos, ["fator medo", "fator de medo"]) || "",
+      vantagens: buscarCampo(campos, ["vantagens/bônus", "vantagens/bonus", "vantagens", "bônus", "bonus"]) || "",
+      desvantagens: buscarCampo(campos, ["desvantagens/penalidades", "desvantagens", "penalidades"]) || "",
+      classesSugeridas: interpretarListaRelacionada(
+        buscarCampo(campos, ["classes sugeridas", "classe sugerida"]),
+        classesDisponiveis,
+        true,
+        false
+      ),
+      elementosAfins: interpretarListaRelacionada(
+        buscarCampo(campos, ["elementos afins", "elemento afim"]),
+        elementosDisponiveis,
+        true,
+        false
+      ),
+      habilidadeExclusiva: habilidade
+        ? {
+            id: habilidade.id,
+            nome: habilidade.nome
+          }
+        : null,
+      restricoesClasse: interpretarListaRelacionada(
+        buscarCampo(campos, ["restrição de classe", "restricao de classe", "restrições de classe", "restricoes de classe"]),
+        classesDisponiveis,
+        false,
+        true
+      )
+    };
+
+    racas.push(raca);
+  });
+
+  return {
+    racas,
+    erros
+  };
+}
+
+function extrairCamposDoBloco(bloco) {
+  const campos = {};
+  const linhas = bloco.split("\n").map((linha) => linha.trim()).filter(Boolean);
+
+  linhas.forEach((linha) => {
+    const separador = linha.indexOf(":");
+
+    if (separador === -1) return;
+
+    const chave = normalizarTexto(linha.slice(0, separador));
+    const valor = linha.slice(separador + 1).trim();
+
+    campos[chave] = valor;
+  });
+
+  return campos;
+}
+
+function buscarCampo(campos, nomesPossiveis) {
+  for (const nome of nomesPossiveis) {
+    const chave = normalizarTexto(nome);
+
+    if (campos[chave] !== undefined) {
+      return campos[chave];
+    }
+  }
+
+  return "";
+}
+
+function numeroTexto(valor) {
+  if (!valor) return 0;
+
+  const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
+
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function interpretarListaRelacionada(texto, listaDisponivel, permitirTodas, permitirNenhuma) {
+  if (!texto) return [];
+
+  const valorNormalizado = normalizarTexto(texto);
+
+  if (permitirTodas && valorNormalizado === "todas") {
+    return [{ id: "__ALL__", nome: "Todas" }];
+  }
+
+  if (permitirNenhuma && valorNormalizado === "nenhuma") {
+    return [{ id: "__NONE__", nome: "Nenhuma" }];
+  }
+
+  return texto
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((nome) => {
+      const encontrado = encontrarPorNome(listaDisponivel, nome);
+
+      if (encontrado) {
+        return {
+          id: encontrado.id,
+          nome: encontrado.nome
+        };
+      }
+
+      return {
+        id: "",
+        nome
+      };
+    })
+    .filter((item) => item.nome);
+}
+
+function encontrarPorNome(lista, nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return lista.find((item) => normalizarTexto(item.nome || "") === nomeNormalizado) || null;
+}
+
+function renderizarPreviewImportacaoRacas(erros = []) {
+  const preview = document.getElementById("previewImportacaoRacas");
+  const lista = document.getElementById("listaPreviewImportacaoRacas");
+
+  if (!preview || !lista) return;
+
+  preview.style.display = "block";
+  lista.innerHTML = "";
+
+  if (erros.length > 0) {
+    const aviso = document.createElement("div");
+    aviso.classList.add("detail-section");
+
+    aviso.innerHTML = `
+      <h4>Avisos encontrados</h4>
+      <p>${erros.map((erro) => escapeHtml(erro)).join("<br>")}</p>
+    `;
+
+    lista.appendChild(aviso);
+  }
+
+  if (importacaoRacasPendentes.length === 0) {
+    lista.innerHTML += "<p>Nenhuma raça válida encontrada.</p>";
+    return;
+  }
+
+  importacaoRacasPendentes.forEach((raca) => {
+    const card = document.createElement("div");
+    card.classList.add("resource-card");
+
+    card.innerHTML = `
+      <div class="resource-card-header">
+        <h4>${escapeHtml(raca.nome)}</h4>
+        <span>Raça</span>
+      </div>
+
+      <div class="resource-card-stats">
+        <span>HP: <b>${raca.hpBase}</b></span>
+        <span>Mana: <b>${raca.manaBase}</b></span>
+        <span>Força Física: <b>${raca.forcaFisica}</b></span>
+        <span>Força Mágica: <b>${raca.forcaMagica}</b></span>
+        <span>Defesa Física: <b>${raca.defesaFisica}</b></span>
+        <span>Defesa Mágica: <b>${raca.defesaMagica}</b></span>
+        <span>Velocidade: <b>${raca.velocidade}</b></span>
+        <span>Resistência: <b>${raca.resistencia}</b></span>
+      </div>
+
+      <p><b>Classes Sugeridas:</b> ${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p>
+      <p><b>Elementos Afins:</b> ${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p>
+      <p><b>Restrição de Classe:</b> ${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p>
+      <p><b>Habilidade Exclusiva:</b> ${escapeHtml(raca.habilidadeExclusiva?.nome || "Não informado")}</p>
+    `;
+
+    lista.appendChild(card);
+  });
+}
+
+function limparPreviewImportacaoRacas() {
+  const preview = document.getElementById("previewImportacaoRacas");
+
+  if (preview) {
+    preview.style.display = "none";
+  }
+
+  importacaoRacasPendentes = [];
+}
+
+async function confirmarImportacaoRacas() {
+  if (!state.usuarioAtual) {
+    await mostrarModal("Você precisa estar logado.", "Acesso necessário");
+    return;
+  }
+
+  if (state.dadosUsuarioAtual?.tipo !== "mestre") {
+    await mostrarModal("Apenas o Mestre pode importar raças.", "Permissão negada");
+    return;
+  }
+
+  if (importacaoRacasPendentes.length === 0) {
+    await mostrarModal("Nenhuma raça foi analisada para cadastro.", "Importação vazia");
+    return;
+  }
+
+  const racasSemDuplicidade = importacaoRacasPendentes.filter((raca) => {
+    return !state.racasDisponiveis.some((existente) => {
+      return normalizarTexto(existente.nome || "") === normalizarTexto(raca.nome || "");
+    });
+  });
+
+  const ignoradas = importacaoRacasPendentes.length - racasSemDuplicidade.length;
+
+  if (racasSemDuplicidade.length === 0) {
+    await mostrarModal(
+      "Todas as raças analisadas já existem no sistema. Nenhum cadastro foi realizado.",
+      "Importação cancelada",
+      "danger"
+    );
+    return;
+  }
+
+  const mensagemConfirmacao = ignoradas > 0
+    ? `Foram encontradas ${ignoradas} raça(s) que já existem no sistema e serão ignoradas. Deseja cadastrar as ${racasSemDuplicidade.length} raça(s) restante(s)?`
+    : `Deseja cadastrar ${racasSemDuplicidade.length} raça(s) agora?`;
+
+  const confirmar = await confirmarModal({
+    titulo: "Confirmar importação",
+    mensagem: mensagemConfirmacao,
+    confirmarTexto: "Cadastrar",
+    cancelarTexto: "Cancelar",
+    tipo: "success"
+  });
+
+  if (!confirmar) return;
+
+  try {
+    const cadastros = racasSemDuplicidade.map((raca) => {
+      return addDoc(collection(db, "racas"), {
+        ...raca,
+        criadoPor: state.usuarioAtual.uid,
+        criadoEm: serverTimestamp()
+      });
+    });
+
+    await Promise.all(cadastros);
+
+    await mostrarModal(
+      `${racasSemDuplicidade.length} raça(s) cadastrada(s) com sucesso.`,
+      "Importação concluída",
+      "success"
+    );
+
+    fecharModalImportacaoRacas();
+    renderizarRacas();
+  } catch (erro) {
+    console.error("Erro ao importar raças:", erro);
+    await mostrarModal("Erro ao importar raças.", "Erro", "danger");
+  }
+}
+
 function preencherSelectClassesRaca() {
   preencherSelectGenerico("selectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", true, false);
   preencherSelectGenerico("selectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada", false, true);
@@ -1037,6 +1469,7 @@ export function initRacas() {
       renderizarRacas();
 
       document.getElementById("abrirCadastroRacas")?.addEventListener("click", abrirModalCadastroRaca);
+      document.getElementById("abrirImportacaoRacas")?.addEventListener("click", abrirModalImportacaoRacas);
     }
 
     if (pagina === "cadastrosRacaDetalhe") {
