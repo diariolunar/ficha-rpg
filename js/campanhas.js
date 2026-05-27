@@ -6,7 +6,6 @@ import {
   serverTimestamp,
   query,
   where,
-  orderBy,
   doc,
   updateDoc,
   deleteDoc,
@@ -18,7 +17,14 @@ import { onPageLoaded } from "./navigation.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 
 let unsubscribeCampanhas = null;
+let unsubscribeCampanhasCriadasPor = null;
+let unsubscribeCampanhasEmail = null;
+
 let campanhaSelecionadaEdicao = null;
+
+let campanhasPorMestreId = [];
+let campanhasPorCriadoPor = [];
+let campanhasPorEmail = [];
 
 export function iniciarCampanhas() {
   pararCampanhas();
@@ -27,35 +33,142 @@ export function iniciarCampanhas() {
 
   const campanhasRef = collection(db, "campanhas");
 
-  const consulta = state.dadosUsuarioAtual.tipo === "mestre"
-    ? query(
-        campanhasRef,
-        where("mestreId", "==", state.usuarioAtual.uid),
-        orderBy("criadoEm", "desc")
-      )
-    : query(
-        campanhasRef,
-        where("jogadoresIds", "array-contains", state.usuarioAtual.uid),
-        orderBy("criadoEm", "desc")
-      );
+  if (state.dadosUsuarioAtual.tipo === "mestre") {
+    const consultaMestreId = query(
+      campanhasRef,
+      where("mestreId", "==", state.usuarioAtual.uid)
+    );
 
-  unsubscribeCampanhas = onSnapshot(consulta, (snapshot) => {
-    const campanhas = [];
+    const consultaCriadoPor = query(
+      campanhasRef,
+      where("criadoPor", "==", state.usuarioAtual.uid)
+    );
 
-    snapshot.forEach((documento) => {
-      campanhas.push({
+    const consultaEmail = query(
+      campanhasRef,
+      where("mestreEmail", "==", state.usuarioAtual.email)
+    );
+
+    unsubscribeCampanhas = onSnapshot(
+      consultaMestreId,
+      (snapshot) => {
+        campanhasPorMestreId = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarListaCampanhasCombinada();
+      },
+      (erro) => {
+        console.error("Erro ao carregar campanhas por mestreId:", erro);
+      }
+    );
+
+    unsubscribeCampanhasCriadasPor = onSnapshot(
+      consultaCriadoPor,
+      (snapshot) => {
+        campanhasPorCriadoPor = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarListaCampanhasCombinada();
+      },
+      (erro) => {
+        console.error("Erro ao carregar campanhas por criadoPor:", erro);
+      }
+    );
+
+    unsubscribeCampanhasEmail = onSnapshot(
+      consultaEmail,
+      (snapshot) => {
+        campanhasPorEmail = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarListaCampanhasCombinada();
+      },
+      (erro) => {
+        console.error("Erro ao carregar campanhas por e-mail:", erro);
+      }
+    );
+
+    return;
+  }
+
+  const consultaJogador = query(
+    campanhasRef,
+    where("jogadoresIds", "array-contains", state.usuarioAtual.uid)
+  );
+
+  unsubscribeCampanhas = onSnapshot(
+    consultaJogador,
+    (snapshot) => {
+      const campanhas = snapshot.docs.map((documento) => ({
         id: documento.id,
         ...documento.data()
-      });
-    });
+      }));
 
-    setCampanhas(campanhas);
-    renderizarCampanhas();
-    preencherSelectCampanhas();
-    atualizarContadorCampanhas();
-  }, (erro) => {
-    console.error("Erro ao carregar campanhas:", erro);
+      campanhas.sort(ordenarCampanhas);
+
+      setCampanhas(campanhas);
+      renderizarCampanhas();
+      preencherSelectCampanhas();
+      atualizarContadorCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar campanhas do jogador:", erro);
+    }
+  );
+}
+
+function atualizarListaCampanhasCombinada() {
+  const mapa = new Map();
+
+  [
+    ...campanhasPorMestreId,
+    ...campanhasPorCriadoPor,
+    ...campanhasPorEmail
+  ].forEach((campanha) => {
+    mapa.set(campanha.id, campanha);
   });
+
+  const campanhas = Array.from(mapa.values());
+
+  campanhas.sort(ordenarCampanhas);
+
+  setCampanhas(campanhas);
+  renderizarCampanhas();
+  preencherSelectCampanhas();
+  atualizarContadorCampanhas();
+}
+
+function ordenarCampanhas(a, b) {
+  const dataA = converterDataOrdenacao(a.criadoEm || a.atualizadoEm);
+  const dataB = converterDataOrdenacao(b.criadoEm || b.atualizadoEm);
+
+  if (dataA !== dataB) {
+    return dataB - dataA;
+  }
+
+  return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+}
+
+function converterDataOrdenacao(valor) {
+  if (!valor) return 0;
+
+  if (typeof valor.toMillis === "function") {
+    return valor.toMillis();
+  }
+
+  if (valor.seconds) {
+    return valor.seconds * 1000;
+  }
+
+  const data = new Date(valor).getTime();
+
+  return Number.isFinite(data) ? data : 0;
 }
 
 export function pararCampanhas() {
@@ -63,6 +176,20 @@ export function pararCampanhas() {
     unsubscribeCampanhas();
     unsubscribeCampanhas = null;
   }
+
+  if (unsubscribeCampanhasCriadasPor) {
+    unsubscribeCampanhasCriadasPor();
+    unsubscribeCampanhasCriadasPor = null;
+  }
+
+  if (unsubscribeCampanhasEmail) {
+    unsubscribeCampanhasEmail();
+    unsubscribeCampanhasEmail = null;
+  }
+
+  campanhasPorMestreId = [];
+  campanhasPorCriadoPor = [];
+  campanhasPorEmail = [];
 }
 
 function gerarCodigoCampanha() {
@@ -115,6 +242,7 @@ async function criarCampanha() {
       descricao,
       codigo,
       mestreId: state.usuarioAtual.uid,
+      criadoPor: state.usuarioAtual.uid,
       mestreNome: state.dadosUsuarioAtual.nome || state.usuarioAtual.email,
       mestreEmail: state.usuarioAtual.email,
       jogadoresIds: [],
@@ -161,7 +289,7 @@ async function entrarCampanha() {
     const campanhaDoc = resultado.docs[0];
     const campanha = campanhaDoc.data();
 
-    if (campanha.mestreId === state.usuarioAtual.uid) {
+    if (campanha.mestreId === state.usuarioAtual.uid || campanha.criadoPor === state.usuarioAtual.uid) {
       await mostrarModal("Você é o Mestre desta campanha.", "Entrada não necessária");
       return;
     }
@@ -188,7 +316,10 @@ async function entrarCampanha() {
     });
 
     const campoCodigo = document.getElementById("codigoEntrarCampanha");
-    if (campoCodigo) campoCodigo.value = "";
+
+    if (campoCodigo) {
+      campoCodigo.value = "";
+    }
 
     await mostrarModal("Você entrou na campanha com sucesso.", "Campanha vinculada", "success");
   } catch (erro) {
@@ -234,7 +365,12 @@ async function excluirCampanha(campanha) {
     return;
   }
 
-  if (campanha.mestreId !== state.usuarioAtual.uid) {
+  const pertenceAoMestre =
+    campanha.mestreId === state.usuarioAtual.uid ||
+    campanha.criadoPor === state.usuarioAtual.uid ||
+    campanha.mestreEmail === state.usuarioAtual.email;
+
+  if (!pertenceAoMestre) {
     await mostrarModal("Você só pode excluir campanhas criadas por você.", "Permissão negada");
     return;
   }
@@ -284,15 +420,23 @@ export function preencherSelectCampanhas() {
     if (!select) return;
 
     const valorAtual = select.value;
+    const idSelect = select.id;
 
     select.innerHTML = "";
 
-    if (!state.minhasCampanhas || state.minhasCampanhas.length === 0) {
-      select.innerHTML = `<option value="">Nenhuma campanha disponível</option>`;
-      return;
+    if (idSelect === "personagemCampanha") {
+      select.innerHTML = `<option value="">Nenhuma campanha</option>`;
+    } else {
+      select.innerHTML = `<option value="">Selecione uma campanha</option>`;
     }
 
-    select.innerHTML = `<option value="">Selecione uma campanha</option>`;
+    if (!state.minhasCampanhas || state.minhasCampanhas.length === 0) {
+      if (idSelect !== "personagemCampanha") {
+        select.innerHTML = `<option value="">Nenhuma campanha disponível</option>`;
+      }
+
+      return;
+    }
 
     state.minhasCampanhas.forEach((campanha) => {
       const option = document.createElement("option");
@@ -308,6 +452,8 @@ export function preencherSelectCampanhas() {
 }
 
 export function renderizarCampanhas() {
+  aplicarEstilosCampanhas();
+
   const lista = document.getElementById("listaCampanhas");
 
   if (!lista) return;
@@ -315,15 +461,27 @@ export function renderizarCampanhas() {
   lista.innerHTML = "";
 
   if (!state.minhasCampanhas || state.minhasCampanhas.length === 0) {
-    lista.innerHTML = "<p>Nenhuma campanha encontrada.</p>";
+    lista.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhuma campanha encontrada.</h3>
+        <p>Crie uma nova campanha ou entre em uma campanha existente usando um código.</p>
+      </div>
+    `;
     return;
   }
 
   state.minhasCampanhas.forEach((campanha) => {
     const card = document.createElement("div");
-    card.classList.add("campaign-card");
+    card.classList.add("campaign-card", "campaign-card-refinado");
 
-    const podeEditar = state.dadosUsuarioAtual?.tipo === "mestre" && campanha.mestreId === state.usuarioAtual.uid;
+    const podeEditar =
+      state.dadosUsuarioAtual?.tipo === "mestre" &&
+      (
+        campanha.mestreId === state.usuarioAtual.uid ||
+        campanha.criadoPor === state.usuarioAtual.uid ||
+        campanha.mestreEmail === state.usuarioAtual.email
+      );
+
     const estaEditando = campanhaSelecionadaEdicao?.id === campanha.id;
 
     if (estaEditando) {
@@ -354,23 +512,28 @@ export function renderizarCampanhas() {
     }
 
     card.innerHTML = `
-      <div class="resource-card-header">
+      <div class="campaign-card-top">
         <div>
+          <span class="campaign-kicker">
+            ${state.dadosUsuarioAtual?.tipo === "mestre" ? "Campanha do Mestre" : "Campanha do Jogador"}
+          </span>
+
           <h4>${escapeHtml(campanha.nome || "Campanha sem nome")}</h4>
           <p>${escapeHtml(campanha.descricao || "Sem descrição.")}</p>
         </div>
 
-        <span>${state.dadosUsuarioAtual?.tipo === "mestre" ? "Mestre" : "Jogador"}</span>
+        <span class="campaign-role">
+          ${state.dadosUsuarioAtual?.tipo === "mestre" ? "Mestre" : "Jogador"}
+        </span>
       </div>
 
-      <p><b>Mestre:</b> ${escapeHtml(campanha.mestreNome || "Não informado")}</p>
-      <p><b>Jogadores:</b> ${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</p>
-
-      <div class="campaign-code">
-        ${campanha.codigo || "Sem código"}
+      <div class="campaign-info-grid">
+        <span><b>Mestre</b>${escapeHtml(campanha.mestreNome || "Não informado")}</span>
+        <span><b>Jogadores</b>${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</span>
+        <span><b>Código</b>${escapeHtml(campanha.codigo || "Sem código")}</span>
       </div>
 
-      <div class="action-row">
+      <div class="action-row campaign-actions">
         ${
           podeEditar
             ? `
@@ -405,8 +568,121 @@ function atualizarContadorCampanhas() {
   }
 }
 
+function aplicarEstilosCampanhas() {
+  if (document.getElementById("campanhasStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "campanhasStyles";
+
+  style.textContent = `
+    .campaign-card-refinado {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 88% 0%, rgba(255,255,255,0.07), transparent 30%),
+        linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+      border: 1px solid rgba(255,255,255,0.11);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .campaign-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .campaign-kicker {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,0.45);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .campaign-card-top h4 {
+      margin: 0;
+      color: #fff;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .campaign-card-top p {
+      margin: 10px 0 0;
+      color: rgba(255,255,255,0.62);
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .campaign-role {
+      flex-shrink: 0;
+      border-radius: 999px;
+      padding: 9px 14px;
+      color: #fff;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .campaign-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .campaign-info-grid span {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .campaign-info-grid b {
+      color: rgba(255,255,255,0.44);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-actions {
+      justify-content: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 18px;
+    }
+
+    @media (max-width: 720px) {
+      .campaign-card-top {
+        display: grid;
+      }
+
+      .campaign-role {
+        justify-self: start;
+      }
+
+      .campaign-info-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
 function escapeHtml(texto) {
-  return String(texto)
+  return String(texto ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
