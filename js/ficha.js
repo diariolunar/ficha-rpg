@@ -10,36 +10,41 @@ import { onPageLoaded } from "./navigation.js";
 import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
-let personagemPaginaAtual = null;
-let abaFichaAtual = "resumo";
+let historicoD20 = [];
 
 export function initFicha() {
   aplicarEstilosFicha();
 
   onPageLoaded((pagina) => {
     if (pagina === "ficha") {
-      renderizarPaginaFicha();
+      renderizarTelaFicha();
     }
   });
 }
 
 export function abrirFichaPersonagem(personagem) {
   personagemFichaAtual = personagem;
-  abaFichaAtual = "resumo";
 
   aplicarEstilosFicha();
   fecharFichaPersonagem();
 
   const overlay = document.createElement("div");
-  overlay.className = "crud-form-overlay ficha-overlay";
+  overlay.className = "crud-form-overlay";
   overlay.id = "modalFichaPersonagem";
 
   overlay.innerHTML = `
-    <div class="ficha-shell">
-      ${montarTopoFicha(personagem, true)}
-      ${montarAbasFicha()}
-      <div class="ficha-content" id="fichaConteudo">
-        ${montarConteudoAba(personagem, abaFichaAtual)}
+    <div class="crud-form-modal ficha-modal-restaurada">
+      <div class="crud-form-header">
+        <div>
+          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
+          <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFichaModal(personagem)}
       </div>
     </div>
   `;
@@ -47,14 +52,8 @@ export function abrirFichaPersonagem(personagem) {
   document.body.appendChild(overlay);
 
   document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
-
-  document.querySelectorAll("#modalFichaPersonagem .ficha-tab").forEach((botao) => {
-    botao.addEventListener("click", () => {
-      trocarAbaFichaModal(botao.dataset.aba);
-    });
-  });
-
-  vincularEventosFichaModal();
+  document.getElementById("salvarStatusFichaModal")?.addEventListener("click", () => salvarStatusFicha("modal"));
+  document.getElementById("rolarD20FichaModal")?.addEventListener("click", () => rolarD20("modal"));
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
@@ -63,13 +62,12 @@ export function abrirFichaPersonagem(personagem) {
   });
 }
 
-function renderizarPaginaFicha() {
+function renderizarTelaFicha() {
   aplicarEstilosFicha();
 
-  const container = document.getElementById("fichaPageContainer");
   const select = document.getElementById("selecionarPersonagemFicha");
 
-  if (!container || !select) return;
+  if (!select) return;
 
   const personagens = obterPersonagensDisponiveis();
 
@@ -77,15 +75,8 @@ function renderizarPaginaFicha() {
 
   if (!personagens.length) {
     select.innerHTML = `<option value="">Nenhum personagem criado</option>`;
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Nenhum personagem criado ainda.</h3>
-        <p>Crie um personagem na tela de Personagens para visualizar a ficha aqui.</p>
-      </div>
-    `;
-
-    personagemPaginaAtual = null;
+    personagemFichaAtual = null;
+    limparFicha();
     return;
   }
 
@@ -98,60 +89,31 @@ function renderizarPaginaFicha() {
     select.appendChild(option);
   });
 
-  if (!personagemPaginaAtual) {
-    personagemPaginaAtual = personagens[0];
+  if (!personagemFichaAtual) {
+    personagemFichaAtual = personagens[0];
   } else {
-    const atualizado = personagens.find((personagem) => personagem.id === personagemPaginaAtual.id);
-    personagemPaginaAtual = atualizado || personagens[0];
+    const atualizado = personagens.find((personagem) => personagem.id === personagemFichaAtual.id);
+    personagemFichaAtual = atualizado || personagens[0];
   }
 
-  select.value = personagemPaginaAtual.id;
+  select.value = personagemFichaAtual.id;
 
   select.onchange = () => {
-    const personagem = personagens.find((item) => item.id === select.value);
+    const selecionado = personagens.find((personagem) => personagem.id === select.value);
 
-    personagemPaginaAtual = personagem || null;
-    abaFichaAtual = "resumo";
+    personagemFichaAtual = selecionado || null;
 
-    renderizarFichaNaPagina();
+    if (personagemFichaAtual) {
+      preencherFicha(personagemFichaAtual);
+    } else {
+      limparFicha();
+    }
   };
 
-  renderizarFichaNaPagina();
-}
+  preencherFicha(personagemFichaAtual);
 
-function renderizarFichaNaPagina() {
-  const container = document.getElementById("fichaPageContainer");
-
-  if (!container) return;
-
-  if (!personagemPaginaAtual) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Nenhum personagem aberto</h3>
-        <p>Selecione um personagem para visualizar a ficha completa.</p>
-      </div>
-    `;
-
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="ficha-page-shell">
-      ${montarTopoFicha(personagemPaginaAtual, false)}
-      ${montarAbasFicha()}
-      <div class="ficha-content ficha-page-content" id="fichaConteudoPagina">
-        ${montarConteudoAba(personagemPaginaAtual, abaFichaAtual)}
-      </div>
-    </div>
-  `;
-
-  document.querySelectorAll("#fichaPageContainer .ficha-tab").forEach((botao) => {
-    botao.addEventListener("click", () => {
-      trocarAbaFichaPagina(botao.dataset.aba);
-    });
-  });
-
-  vincularEventosFichaPagina();
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha("pagina"));
+  document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20("pagina"));
 }
 
 function obterPersonagensDisponiveis() {
@@ -170,352 +132,274 @@ function ordenarPersonagens(a, b) {
   return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
 }
 
-function montarTopoFicha(personagem, modal) {
-  return `
-    <div class="ficha-topbar">
-      <div class="ficha-title-block">
-        <span class="ficha-kicker">Ficha do personagem</span>
-        <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
-        <p>
-          ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")}
-          <span>•</span>
-          ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")}
-          <span>•</span>
-          Nível ${personagem.nivel || 1}
-        </p>
-      </div>
+function limparFicha() {
+  setText("fichaNomePersonagem", "Nenhum personagem aberto");
+  setText("fichaDescricaoPersonagem", "Abra um personagem para visualizar a ficha.");
+  setText("fichaCampanhaPersonagem", "Campanha: --");
 
-      ${
-        modal
-          ? `<button class="ficha-close" type="button" id="fecharFichaPersonagem">×</button>`
-          : ""
-      }
-    </div>
-  `;
+  atualizarBarra("barraHpFicha", 0);
+  atualizarBarra("barraManaFicha", 0);
+  atualizarBarra("barraFomeFicha", 0);
+  atualizarBarra("barraFadigaFicha", 0);
+
+  setText("fichaHpTexto", "0/0");
+  setText("fichaManaTexto", "0/0");
+  setText("fichaFomeTexto", "0%");
+  setText("fichaFadigaTexto", "0%");
+
+  setValue("fichaHpAtual", 0);
+  setValue("fichaHpMax", 0);
+  setValue("fichaManaAtual", 0);
+  setValue("fichaManaMax", 0);
+  setValue("fichaFome", 0);
+  setValue("fichaFadiga", 0);
+
+  setHtml("fichaIdentidadeLista", `<li>Abra um personagem criado para ver os dados aqui.</li>`);
+  setHtml("fichaAtributosLista", `<li>Abra um personagem criado para ver os atributos aqui.</li>`);
+  setHtml("fichaRacaLista", `<li>Abra um personagem criado para ver os dados da raça aqui.</li>`);
+  setHtml("fichaClasseLista", `<li>Abra um personagem criado para ver os dados da classe aqui.</li>`);
+  setHtml("fichaHabilidadesLista", `<p>Nenhuma habilidade carregada.</p>`);
+  setHtml("fichaItensLista", `<p>Nenhum item carregado.</p>`);
+  setHtml("fichaPetConteudo", `<p>Nenhum pet carregado.</p>`);
+  setText("fichaHistoriaTexto", "Nenhuma história carregada.");
 }
 
-function montarAbasFicha() {
-  return `
-    <div class="ficha-tabs">
-      <button class="ficha-tab ${abaFichaAtual === "resumo" ? "active" : ""}" data-aba="resumo">Resumo</button>
-      <button class="ficha-tab ${abaFichaAtual === "atributos" ? "active" : ""}" data-aba="atributos">Atributos</button>
-      <button class="ficha-tab ${abaFichaAtual === "habilidades" ? "active" : ""}" data-aba="habilidades">Habilidades</button>
-      <button class="ficha-tab ${abaFichaAtual === "itens" ? "active" : ""}" data-aba="itens">Itens</button>
-      <button class="ficha-tab ${abaFichaAtual === "pet" ? "active" : ""}" data-aba="pet">Pet</button>
-      <button class="ficha-tab ${abaFichaAtual === "historia" ? "active" : ""}" data-aba="historia">História</button>
-    </div>
-  `;
+function preencherFicha(personagem) {
+  if (!personagem) {
+    limparFicha();
+    return;
+  }
+
+  const hpAtual = Number(personagem.hpAtual || 0);
+  const hpMax = Number(personagem.hpMax || 0);
+  const manaAtual = Number(personagem.manaAtual || 0);
+  const manaMax = Number(personagem.manaMax || 0);
+  const fome = Number(personagem.fome || 0);
+  const fadiga = Number(personagem.fadiga || 0);
+
+  setText("fichaNomePersonagem", personagem.nome || "Personagem sem nome");
+  setText(
+    "fichaDescricaoPersonagem",
+    `${personagem.raca?.nome || personagem.racaNome || "Raça não informada"} • ${personagem.classe?.nome || personagem.classeNome || "Classe não informada"} • Nível ${personagem.nivel || 1}`
+  );
+  setText("fichaCampanhaPersonagem", `Campanha: ${personagem.campanhaNome || "Sem campanha"}`);
+
+  atualizarBarra("barraHpFicha", calcularPercentual(hpAtual, hpMax));
+  atualizarBarra("barraManaFicha", calcularPercentual(manaAtual, manaMax));
+  atualizarBarra("barraFomeFicha", limitarNumero(fome, 0, 100));
+  atualizarBarra("barraFadigaFicha", limitarNumero(fadiga, 0, 100));
+
+  setText("fichaHpTexto", `${hpAtual}/${hpMax}`);
+  setText("fichaManaTexto", `${manaAtual}/${manaMax}`);
+  setText("fichaFomeTexto", `${fome}%`);
+  setText("fichaFadigaTexto", `${fadiga}%`);
+
+  setValue("fichaHpAtual", hpAtual);
+  setValue("fichaHpMax", hpMax);
+  setValue("fichaManaAtual", manaAtual);
+  setValue("fichaManaMax", manaMax);
+  setValue("fichaFome", fome);
+  setValue("fichaFadiga", fadiga);
+
+  setHtml("fichaIdentidadeLista", montarIdentidade(personagem));
+  setHtml("fichaAtributosLista", montarAtributos(personagem));
+  setHtml("fichaRacaLista", montarRaca(personagem));
+  setHtml("fichaClasseLista", montarClasse(personagem));
+  setHtml("fichaHabilidadesLista", montarHabilidades(personagem));
+  setHtml("fichaItensLista", montarItens(personagem));
+  setHtml("fichaPetConteudo", montarPet(personagem));
+  setText("fichaHistoriaTexto", personagem.historia || "Nenhuma história cadastrada.");
 }
 
-function trocarAbaFichaModal(aba) {
-  if (!personagemFichaAtual) return;
-
-  abaFichaAtual = aba;
-
-  document.querySelectorAll("#modalFichaPersonagem .ficha-tab").forEach((botao) => {
-    botao.classList.toggle("active", botao.dataset.aba === aba);
-  });
-
-  const conteudo = document.getElementById("fichaConteudo");
-
-  if (conteudo) {
-    conteudo.innerHTML = montarConteudoAba(personagemFichaAtual, aba);
-  }
-
-  vincularEventosFichaModal();
-}
-
-function trocarAbaFichaPagina(aba) {
-  if (!personagemPaginaAtual) return;
-
-  abaFichaAtual = aba;
-
-  document.querySelectorAll("#fichaPageContainer .ficha-tab").forEach((botao) => {
-    botao.classList.toggle("active", botao.dataset.aba === aba);
-  });
-
-  const conteudo = document.getElementById("fichaConteudoPagina");
-
-  if (conteudo) {
-    conteudo.innerHTML = montarConteudoAba(personagemPaginaAtual, aba);
-  }
-
-  vincularEventosFichaPagina();
-}
-
-function vincularEventosFichaModal() {
-  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => {
-    salvarStatusFicha("modal");
-  });
-}
-
-function vincularEventosFichaPagina() {
-  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => {
-    salvarStatusFicha("pagina");
-  });
-}
-
-function fecharFichaPersonagem() {
-  const overlay = document.getElementById("modalFichaPersonagem");
-
-  if (overlay) {
-    overlay.remove();
-  }
-}
-
-function montarConteudoAba(personagem, aba) {
-  if (aba === "atributos") {
-    return montarAbaAtributos(personagem);
-  }
-
-  if (aba === "habilidades") {
-    return montarAbaHabilidades(personagem);
-  }
-
-  if (aba === "itens") {
-    return montarAbaItens(personagem);
-  }
-
-  if (aba === "pet") {
-    return montarAbaPet(personagem);
-  }
-
-  if (aba === "historia") {
-    return montarAbaHistoria(personagem);
-  }
-
-  return montarAbaResumo(personagem);
-}
-
-function montarAbaResumo(personagem) {
-  const hpPercentual = calcularPercentual(personagem.hpAtual, personagem.hpMax);
-  const manaPercentual = calcularPercentual(personagem.manaAtual, personagem.manaMax);
-  const fomePercentual = limitarNumero(Number(personagem.fome || 0), 0, 100);
-  const fadigaPercentual = limitarNumero(Number(personagem.fadiga || 0), 0, 100);
+function montarFichaModal(personagem) {
+  const hpAtual = Number(personagem.hpAtual || 0);
+  const hpMax = Number(personagem.hpMax || 0);
+  const manaAtual = Number(personagem.manaAtual || 0);
+  const manaMax = Number(personagem.manaMax || 0);
+  const fome = Number(personagem.fome || 0);
+  const fadiga = Number(personagem.fadiga || 0);
 
   return `
-    <div class="ficha-grid ficha-grid-resumo">
-      <section class="ficha-card ficha-card-status">
-        <div class="ficha-card-header">
-          <div>
-            <span>Status</span>
-            <h4>Condição atual</h4>
-          </div>
-        </div>
+    <div class="sheet-layout sheet-layout-modal">
+      <section class="sheet-card sheet-profile-card">
+        <div class="sheet-avatar">🧙</div>
 
-        <div class="ficha-status-list">
-          ${montarBarraStatus("HP", personagem.hpAtual || 0, personagem.hpMax || 0, hpPercentual)}
-          ${montarBarraStatus("Mana", personagem.manaAtual || 0, personagem.manaMax || 0, manaPercentual)}
-          ${montarBarraStatus("Fome", personagem.fome || 0, 100, fomePercentual)}
-          ${montarBarraStatus("Fadiga", personagem.fadiga || 0, 100, fadigaPercentual)}
-        </div>
+        <h3>${escapeHtml(personagem.nome || "Personagem sem nome")}</h3>
+        <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
 
-        <div class="ficha-status-editor">
+        <span class="sheet-pill">Campanha: ${escapeHtml(personagem.campanhaNome || "Sem campanha")}</span>
+      </section>
+
+      <section class="sheet-card sheet-status-card">
+        <h3>Status principais</h3>
+
+        ${montarStatusLinha("HP", hpAtual, hpMax, calcularPercentual(hpAtual, hpMax))}
+        ${montarStatusLinha("Mana", manaAtual, manaMax, calcularPercentual(manaAtual, manaMax))}
+        ${montarStatusLinha("Fome", fome, 100, limitarNumero(fome, 0, 100), true)}
+        ${montarStatusLinha("Fadiga", fadiga, 100, limitarNumero(fadiga, 0, 100), true)}
+
+        <div class="sheet-status-editor">
           <label>
             HP Atual
-            <input type="number" id="fichaHpAtual" value="${personagem.hpAtual || 0}" />
+            <input type="number" id="fichaHpAtualModal" value="${hpAtual}" />
           </label>
 
           <label>
             HP Máximo
-            <input type="number" id="fichaHpMax" value="${personagem.hpMax || 0}" />
+            <input type="number" id="fichaHpMaxModal" value="${hpMax}" />
           </label>
 
           <label>
             Mana Atual
-            <input type="number" id="fichaManaAtual" value="${personagem.manaAtual || 0}" />
+            <input type="number" id="fichaManaAtualModal" value="${manaAtual}" />
           </label>
 
           <label>
             Mana Máxima
-            <input type="number" id="fichaManaMax" value="${personagem.manaMax || 0}" />
+            <input type="number" id="fichaManaMaxModal" value="${manaMax}" />
           </label>
 
           <label>
             Fome
-            <input type="number" id="fichaFome" value="${personagem.fome || 0}" />
+            <input type="number" id="fichaFomeModal" value="${fome}" />
           </label>
 
           <label>
             Fadiga
-            <input type="number" id="fichaFadiga" value="${personagem.fadiga || 0}" />
+            <input type="number" id="fichaFadigaModal" value="${fadiga}" />
           </label>
         </div>
 
-        <button class="primary-btn ficha-save-btn" type="button" id="salvarStatusFicha">Salvar status</button>
+        <button class="primary-btn" type="button" id="salvarStatusFichaModal">Salvar status</button>
       </section>
 
-      <section class="ficha-card">
-        <div class="ficha-card-header">
-          <div>
-            <span>Identidade</span>
-            <h4>Dados principais</h4>
+      <section class="sheet-card sheet-dice-card">
+        <h3>Rolagem de D20</h3>
+
+        <label>
+          Bônus
+          <input type="number" id="bonusD20FichaModal" value="0" />
+        </label>
+
+        <button class="primary-btn" type="button" id="rolarD20FichaModal">Rolar D20</button>
+
+        <div class="dice-result-box">
+          <span>Resultado:</span>
+          <strong id="resultadoD20FichaModal">--</strong>
+        </div>
+
+        <div class="dice-history">
+          <h4>Últimos 2 resultados:</h4>
+          <div id="historicoD20FichaModal">
+            ${montarHistoricoD20()}
           </div>
-        </div>
-
-        <div class="ficha-info-grid">
-          ${montarInfo("Jogador", personagem.donoNome || "Não informado")}
-          ${montarInfo("Campanha", personagem.campanhaNome || "Sem campanha")}
-          ${montarInfo("Raça", personagem.raca?.nome || personagem.racaNome || "Não informada")}
-          ${montarInfo("Classe", personagem.classe?.nome || personagem.classeNome || "Não informada")}
-          ${montarInfo("Subclasse", personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}
-          ${montarInfo("Elemento", personagem.elemento?.nome || personagem.elementoNome || "Não informado")}
-        </div>
-      </section>
-
-      <section class="ficha-card">
-        <div class="ficha-card-header">
-          <div>
-            <span>Resumo</span>
-            <h4>Características</h4>
-          </div>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Carisma</h5>
-          <p>${escapeHtml(personagem.carismaBonus || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Fator Medo</h5>
-          <p>${escapeHtml(personagem.fatorMedoBonus || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Habilidade da Raça</h5>
-          <p>${escapeHtml(personagem.habilidadeExclusivaRaca?.nome || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Habilidade da Classe</h5>
-          <p>${escapeHtml(personagem.habilidadeExclusivaClasse?.nome || "Não informado")}</p>
         </div>
       </section>
     </div>
-  `;
-}
 
-function montarAbaAtributos(personagem) {
-  return `
-    <div class="ficha-grid ficha-grid-duas">
-      <section class="ficha-card">
-        <div class="ficha-card-header">
-          <div>
-            <span>Atributos</span>
-            <h4>Valores principais</h4>
-          </div>
-        </div>
-
-        <div class="ficha-info-grid ficha-atributos-grid">
-          ${montarInfo("Força Física", personagem.forcaFisica || 0)}
-          ${montarInfo("Força Mágica", personagem.forcaMagica || 0)}
-          ${montarInfo("Defesa Física", personagem.defesaFisica || 0)}
-          ${montarInfo("Defesa Mágica", personagem.defesaMagica || 0)}
-          ${montarInfo("Velocidade", personagem.velocidade || 0)}
-          ${montarInfo("Resistência", personagem.resistencia || 0)}
-        </div>
+    <div class="sheet-grid-lower sheet-grid-modal">
+      <section class="sheet-card">
+        <h3>Identidade</h3>
+        <ul>${montarIdentidade(personagem)}</ul>
       </section>
 
-      <section class="ficha-card">
-        <div class="ficha-card-header">
-          <div>
-            <span>Vantagens</span>
-            <h4>Bônus e penalidades</h4>
-          </div>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Vantagens da Raça</h5>
-          <p>${escapeHtml(personagem.vantagensRaca || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Desvantagens da Raça</h5>
-          <p>${escapeHtml(personagem.desvantagensRaca || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Vantagens da Classe</h5>
-          <p>${escapeHtml(personagem.vantagensClasse || "Não informado")}</p>
-        </div>
-
-        <div class="ficha-section">
-          <h5>Desvantagens da Classe</h5>
-          <p>${escapeHtml(personagem.desvantagensClasse || "Não informado")}</p>
-        </div>
+      <section class="sheet-card">
+        <h3>Atributos</h3>
+        <ul>${montarAtributos(personagem)}</ul>
       </section>
-    </div>
-  `;
-}
 
-function montarAbaHabilidades(personagem) {
-  return `
-    <section class="ficha-card">
-      <div class="ficha-card-header">
-        <div>
-          <span>Habilidades</span>
-          <h4>Lista de habilidades</h4>
-        </div>
-      </div>
+      <section class="sheet-card">
+        <h3>Raça</h3>
+        <ul>${montarRaca(personagem)}</ul>
+      </section>
 
-      ${montarHabilidades(personagem)}
-    </section>
-  `;
-}
+      <section class="sheet-card">
+        <h3>Classe</h3>
+        <ul>${montarClasse(personagem)}</ul>
+      </section>
 
-function montarAbaItens(personagem) {
-  return `
-    <section class="ficha-card">
-      <div class="ficha-card-header">
-        <div>
-          <span>Inventário</span>
-          <h4>Itens iniciais</h4>
-        </div>
-      </div>
+      <section class="sheet-card">
+        <h3>Habilidades</h3>
+        ${montarHabilidades(personagem)}
+      </section>
 
-      ${montarItens(personagem)}
-    </section>
-  `;
-}
+      <section class="sheet-card">
+        <h3>Itens</h3>
+        ${montarItens(personagem)}
+      </section>
 
-function montarAbaPet(personagem) {
-  return `
-    <section class="ficha-card">
-      <div class="ficha-card-header">
-        <div>
-          <span>Pet</span>
-          <h4>Companheiro vinculado</h4>
-        </div>
-      </div>
+      <section class="sheet-card">
+        <h3>Pet</h3>
+        ${montarPet(personagem)}
+      </section>
 
-      ${montarPet(personagem)}
-    </section>
-  `;
-}
-
-function montarAbaHistoria(personagem) {
-  return `
-    <section class="ficha-card">
-      <div class="ficha-card-header">
-        <div>
-          <span>Narrativa</span>
-          <h4>História e descrição</h4>
-        </div>
-      </div>
-
-      <div class="ficha-section">
+      <section class="sheet-card">
+        <h3>História / Descrição</h3>
         <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
-      </div>
-    </section>
+      </section>
+    </div>
   `;
 }
 
-function montarInfo(label, valor) {
+function montarStatusLinha(label, atual, maximo, percentual, porcentagem = false) {
   return `
-    <div class="ficha-info">
+    <div class="sheet-status-row">
       <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(valor)}</strong>
+      <div class="sheet-status-bar">
+        <div style="width:${percentual}%"></div>
+      </div>
+      <strong>${escapeHtml(atual)}${porcentagem ? "%" : `/${escapeHtml(maximo)}`}</strong>
     </div>
+  `;
+}
+
+function montarIdentidade(personagem) {
+  return `
+    <li><strong>Nome:</strong> ${escapeHtml(personagem.nome || "Não informado")}</li>
+    <li><strong>Jogador:</strong> ${escapeHtml(personagem.donoNome || "Não informado")}</li>
+    <li><strong>Campanha:</strong> ${escapeHtml(personagem.campanhaNome || "Sem campanha")}</li>
+    <li><strong>Raça:</strong> ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</li>
+    <li><strong>Classe:</strong> ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</li>
+    <li><strong>Subclasse:</strong> ${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</li>
+    <li><strong>Elemento:</strong> ${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</li>
+  `;
+}
+
+function montarAtributos(personagem) {
+  return `
+    <li><strong>Força Física:</strong> ${escapeHtml(personagem.forcaFisica || 0)}</li>
+    <li><strong>Força Mágica:</strong> ${escapeHtml(personagem.forcaMagica || 0)}</li>
+    <li><strong>Defesa Física:</strong> ${escapeHtml(personagem.defesaFisica || 0)}</li>
+    <li><strong>Defesa Mágica:</strong> ${escapeHtml(personagem.defesaMagica || 0)}</li>
+    <li><strong>Velocidade:</strong> ${escapeHtml(personagem.velocidade || 0)}</li>
+    <li><strong>Resistência:</strong> ${escapeHtml(personagem.resistencia || 0)}</li>
+    <li><strong>Carisma:</strong> ${escapeHtml(personagem.carismaBonus || "Não informado")}</li>
+    <li><strong>Fator Medo:</strong> ${escapeHtml(personagem.fatorMedoBonus || "Não informado")}</li>
+  `;
+}
+
+function montarRaca(personagem) {
+  return `
+    <li><strong>Raça:</strong> ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Não informada")}</li>
+    <li><strong>Vantagens:</strong> ${escapeHtml(personagem.vantagensRaca || "Não informado")}</li>
+    <li><strong>Desvantagens:</strong> ${escapeHtml(personagem.desvantagensRaca || "Não informado")}</li>
+    <li><strong>Habilidade Exclusiva:</strong> ${escapeHtml(personagem.habilidadeExclusivaRaca?.nome || "Não informado")}</li>
+    <li><strong>Classes Sugeridas:</strong> ${escapeHtml(formatarValor(personagem.classesSugeridas))}</li>
+    <li><strong>Elementos Afins:</strong> ${escapeHtml(formatarValor(personagem.elementosAfins))}</li>
+    <li><strong>Restrições:</strong> ${escapeHtml(formatarValor(personagem.restricoesClasse))}</li>
+  `;
+}
+
+function montarClasse(personagem) {
+  return `
+    <li><strong>Classe:</strong> ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</li>
+    <li><strong>Tipo de Dano:</strong> ${escapeHtml(personagem.classe?.tipoDano || "Não informado")}</li>
+    <li><strong>Tipo de Defesa:</strong> ${escapeHtml(personagem.classe?.tipoDefesa || "Não informado")}</li>
+    <li><strong>Atributo Principal:</strong> ${escapeHtml(formatarAtributo(personagem.classe?.atributoPrincipal))}</li>
+    <li><strong>Atributo Secundário:</strong> ${escapeHtml(formatarAtributo(personagem.classe?.atributoSecundario))}</li>
+    <li><strong>Habilidade Exclusiva:</strong> ${escapeHtml(personagem.habilidadeExclusivaClasse?.nome || "Não informado")}</li>
+    <li><strong>Vantagens:</strong> ${escapeHtml(personagem.vantagensClasse || "Não informado")}</li>
+    <li><strong>Desvantagens:</strong> ${escapeHtml(personagem.desvantagensClasse || "Não informado")}</li>
   `;
 }
 
@@ -546,19 +430,17 @@ function montarHabilidades(personagem) {
   }
 
   if (!habilidades.length) {
-    return `<p class="ficha-empty">Nenhuma habilidade cadastrada para este personagem.</p>`;
+    return `<p>Nenhuma habilidade cadastrada para este personagem.</p>`;
   }
 
   return `
-    <div class="ficha-resource-grid">
+    <div class="sheet-mini-list">
       ${habilidades
         .map((habilidade) => {
           return `
-            <div class="ficha-mini-card">
-              <div>
-                <h5>${escapeHtml(habilidade.nome || "Habilidade sem nome")}</h5>
-                <span>${escapeHtml(habilidade.origem || "Habilidade")}</span>
-              </div>
+            <div class="sheet-mini-card">
+              <strong>${escapeHtml(habilidade.nome || "Habilidade sem nome")}</strong>
+              <span>${escapeHtml(habilidade.origem || "Habilidade")}</span>
             </div>
           `;
         })
@@ -573,19 +455,17 @@ function montarItens(personagem) {
     : [];
 
   if (!itens.length) {
-    return `<p class="ficha-empty">Nenhum item cadastrado para este personagem.</p>`;
+    return `<p>Nenhum item cadastrado para este personagem.</p>`;
   }
 
   return `
-    <div class="ficha-resource-grid">
+    <div class="sheet-mini-list">
       ${itens
         .map((item) => {
           return `
-            <div class="ficha-mini-card">
-              <div>
-                <h5>${escapeHtml(item.nome || "Item sem nome")}</h5>
-                <span>Item</span>
-              </div>
+            <div class="sheet-mini-card">
+              <strong>${escapeHtml(item.nome || "Item sem nome")}</strong>
+              <span>Item</span>
             </div>
           `;
         })
@@ -598,47 +478,39 @@ function montarPet(personagem) {
   const pet = personagem.pet;
 
   if (!pet) {
-    return `<p class="ficha-empty">Nenhum pet vinculado a este personagem.</p>`;
+    return `<p>Nenhum pet vinculado a este personagem.</p>`;
   }
 
   return `
-    <div class="ficha-info-grid">
-      ${montarInfo("Nome", pet.nome || "Sem nome")}
-      ${montarInfo("Espécie", pet.especie || "Não informado")}
-      ${montarInfo("Rank", pet.rank || "Não informado")}
-      ${montarInfo("Elemento Afim", pet.elementoAfim || "Não informado")}
-    </div>
-
-    <div class="ficha-section">
-      <h5>Habilidades</h5>
-      <p>${escapeHtml(formatarValor(pet.habilidades))}</p>
-    </div>
-
-    <div class="ficha-section">
-      <h5>Bônus ao Dono</h5>
-      <p>${escapeHtml(pet.bonusDono || "Não informado")}</p>
-    </div>
+    <ul>
+      <li><strong>Nome:</strong> ${escapeHtml(pet.nome || "Não informado")}</li>
+      <li><strong>Espécie:</strong> ${escapeHtml(pet.especie || "Não informado")}</li>
+      <li><strong>Rank:</strong> ${escapeHtml(pet.rank || "Não informado")}</li>
+      <li><strong>Elemento Afim:</strong> ${escapeHtml(pet.elementoAfim || "Não informado")}</li>
+      <li><strong>Habilidades:</strong> ${escapeHtml(formatarValor(pet.habilidades))}</li>
+      <li><strong>Bônus ao Dono:</strong> ${escapeHtml(pet.bonusDono || "Não informado")}</li>
+    </ul>
   `;
 }
 
 async function salvarStatusFicha(origem) {
-  const personagemAtual = origem === "pagina" ? personagemPaginaAtual : personagemFichaAtual;
-
-  if (!personagemAtual) {
+  if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
   }
 
-  const hpMax = numeroCampo("fichaHpMax");
-  const manaMax = numeroCampo("fichaManaMax");
+  const sufixo = origem === "modal" ? "Modal" : "";
 
-  const hpAtual = limitarNumero(numeroCampo("fichaHpAtual"), 0, hpMax);
-  const manaAtual = limitarNumero(numeroCampo("fichaManaAtual"), 0, manaMax);
-  const fome = limitarNumero(numeroCampo("fichaFome"), 0, 100);
-  const fadiga = limitarNumero(numeroCampo("fichaFadiga"), 0, 100);
+  const hpMax = numeroCampo(`fichaHpMax${sufixo}`);
+  const manaMax = numeroCampo(`fichaManaMax${sufixo}`);
+
+  const hpAtual = limitarNumero(numeroCampo(`fichaHpAtual${sufixo}`), 0, hpMax);
+  const manaAtual = limitarNumero(numeroCampo(`fichaManaAtual${sufixo}`), 0, manaMax);
+  const fome = limitarNumero(numeroCampo(`fichaFome${sufixo}`), 0, 100);
+  const fadiga = limitarNumero(numeroCampo(`fichaFadiga${sufixo}`), 0, 100);
 
   try {
-    await updateDoc(doc(db, "personagens", personagemAtual.id), {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
       hpAtual,
       hpMax,
       manaAtual,
@@ -648,8 +520,8 @@ async function salvarStatusFicha(origem) {
       atualizadoEm: serverTimestamp()
     });
 
-    const atualizado = {
-      ...personagemAtual,
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
       hpAtual,
       hpMax,
       manaAtual,
@@ -658,59 +530,71 @@ async function salvarStatusFicha(origem) {
       fadiga
     };
 
-    if (origem === "pagina") {
-      personagemPaginaAtual = atualizado;
-      await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
-      renderizarFichaNaPagina();
+    await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
       return;
     }
 
-    personagemFichaAtual = atualizado;
-
-    await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
-
-    const conteudo = document.getElementById("fichaConteudo");
-
-    if (conteudo) {
-      conteudo.innerHTML = montarConteudoAba(personagemFichaAtual, abaFichaAtual);
-      vincularEventosFichaModal();
-    }
+    preencherFicha(personagemFichaAtual);
   } catch (erro) {
     console.error("Erro ao salvar status da ficha:", erro);
     await mostrarModal("Erro ao salvar status da ficha.", "Erro", "danger");
   }
 }
 
-function montarBarraStatus(label, atual, maximo, percentual) {
-  return `
-    <div class="ficha-status-line">
-      <div class="ficha-status-head">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(atual)}/${escapeHtml(maximo)}</strong>
-      </div>
+function rolarD20(origem) {
+  const sufixo = origem === "modal" ? "Modal" : "";
 
-      <div class="ficha-status-bar">
-        <div style="width:${percentual}%"></div>
-      </div>
-    </div>
-  `;
+  const bonus = Number(document.getElementById(`bonusD20Ficha${sufixo}`)?.value) || 0;
+  const dado = Math.floor(Math.random() * 20) + 1;
+  const total = dado + bonus;
+
+  const resultado = {
+    dado,
+    bonus,
+    total
+  };
+
+  historicoD20.unshift(resultado);
+  historicoD20 = historicoD20.slice(0, 2);
+
+  setText(`resultadoD20Ficha${sufixo}`, total);
+  setHtml(`historicoD20Ficha${sufixo}`, montarHistoricoD20());
 }
 
-function calcularPercentual(atual, maximo) {
-  const atualNumero = Number(atual) || 0;
-  const maximoNumero = Number(maximo) || 0;
+function montarHistoricoD20() {
+  if (!historicoD20.length) {
+    return `<p>Nenhum dado rolado ainda.</p>`;
+  }
 
-  if (maximoNumero <= 0) return 0;
-
-  return Math.max(0, Math.min(100, Math.round((atualNumero / maximoNumero) * 100)));
+  return historicoD20
+    .map((item) => {
+      return `
+        <p>
+          D20: <strong>${item.dado}</strong>
+          ${item.bonus >= 0 ? "+" : ""}${item.bonus}
+          =
+          <strong>${item.total}</strong>
+        </p>
+      `;
+    })
+    .join("");
 }
 
-function numeroCampo(id) {
-  return Number(document.getElementById(id)?.value) || 0;
-}
+function formatarAtributo(valor) {
+  const mapa = {
+    forcaFisica: "Força Física",
+    forcaMagica: "Força Mágica",
+    defesaFisica: "Defesa Física",
+    defesaMagica: "Defesa Mágica",
+    velocidade: "Velocidade",
+    resistencia: "Resistência"
+  };
 
-function limitarNumero(valor, minimo, maximo) {
-  return Math.max(minimo, Math.min(maximo, valor));
+  return mapa[valor] || "Não informado";
 }
 
 function formatarValor(valor) {
@@ -730,6 +614,63 @@ function formatarValor(valor) {
   return String(valor);
 }
 
+function calcularPercentual(atual, maximo) {
+  const atualNumero = Number(atual) || 0;
+  const maximoNumero = Number(maximo) || 0;
+
+  if (maximoNumero <= 0) return 0;
+
+  return Math.max(0, Math.min(100, Math.round((atualNumero / maximoNumero) * 100)));
+}
+
+function numeroCampo(id) {
+  return Number(document.getElementById(id)?.value) || 0;
+}
+
+function limitarNumero(valor, minimo, maximo) {
+  return Math.max(minimo, Math.min(maximo, valor));
+}
+
+function atualizarBarra(id, percentual) {
+  const barra = document.getElementById(id);
+
+  if (barra) {
+    barra.style.width = `${limitarNumero(percentual, 0, 100)}%`;
+  }
+}
+
+function setText(id, texto) {
+  const elemento = document.getElementById(id);
+
+  if (elemento) {
+    elemento.textContent = texto;
+  }
+}
+
+function setHtml(id, html) {
+  const elemento = document.getElementById(id);
+
+  if (elemento) {
+    elemento.innerHTML = html;
+  }
+}
+
+function setValue(id, valor) {
+  const elemento = document.getElementById(id);
+
+  if (elemento) {
+    elemento.value = valor;
+  }
+}
+
+function fecharFichaPersonagem() {
+  const overlay = document.getElementById("modalFichaPersonagem");
+
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
 function escapeHtml(texto) {
   return String(texto ?? "")
     .replaceAll("&", "&amp;")
@@ -739,14 +680,14 @@ function escapeHtml(texto) {
 }
 
 function aplicarEstilosFicha() {
-  if (document.getElementById("fichaPersonagemStyles")) return;
+  if (document.getElementById("fichaRestauradaStyles")) return;
 
   const style = document.createElement("style");
-  style.id = "fichaPersonagemStyles";
+  style.id = "fichaRestauradaStyles";
 
   style.textContent = `
     .header-select {
-      min-width: 260px;
+      min-width: 280px;
       border-radius: 14px;
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(0,0,0,0.55);
@@ -757,366 +698,265 @@ function aplicarEstilosFicha() {
       outline: none;
     }
 
-    .ficha-overlay {
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      overflow: hidden;
-    }
-
-    .ficha-shell,
-    .ficha-page-shell {
-      width: min(1180px, 96vw);
-      max-height: 92vh;
-      background:
-        radial-gradient(circle at 70% 0%, rgba(255,255,255,0.07), transparent 34%),
-        linear-gradient(145deg, rgba(24,24,24,0.98), rgba(9,9,9,0.98));
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 28px;
-      box-shadow: 0 28px 90px rgba(0,0,0,0.72);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      color: #f4f4f5;
-    }
-
-    .ficha-page-shell {
-      width: 100%;
-      max-height: none;
-      box-shadow: none;
-    }
-
-    .ficha-topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 24px;
-      padding: 26px 32px 22px;
-      border-bottom: 1px solid rgba(255,255,255,0.10);
-      flex-shrink: 0;
-    }
-
-    .ficha-title-block {
-      min-width: 0;
-    }
-
-    .ficha-title-block .ficha-kicker {
-      display: block;
-      margin-bottom: 6px;
-      color: rgba(255,255,255,0.46);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .ficha-title-block h3 {
-      margin: 0;
-      font-size: clamp(26px, 4vw, 38px);
-      line-height: 1;
-      letter-spacing: -0.04em;
-      color: #fff;
-    }
-
-    .ficha-title-block p {
-      margin: 10px 0 0;
-      color: rgba(255,255,255,0.62);
-      font-size: 16px;
-      font-weight: 600;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .ficha-close {
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(255,255,255,0.08);
-      color: #fff;
-      font-size: 34px;
-      line-height: 1;
-      cursor: pointer;
-      transition: 0.2s ease;
-      flex-shrink: 0;
-    }
-
-    .ficha-close:hover {
-      background: rgba(255,255,255,0.14);
-      transform: translateY(-1px);
-    }
-
-    .ficha-tabs {
-      display: flex;
-      gap: 10px;
-      padding: 16px 32px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      overflow-x: auto;
-      flex-shrink: 0;
-    }
-
-    .ficha-tab {
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.045);
-      color: rgba(255,255,255,0.68);
-      border-radius: 999px;
-      padding: 10px 16px;
-      font-weight: 800;
-      font-size: 13px;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: 0.2s ease;
-    }
-
-    .ficha-tab:hover {
-      color: #fff;
-      background: rgba(255,255,255,0.08);
-    }
-
-    .ficha-tab.active {
-      color: #fff;
-      background: linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
-      border-color: rgba(255,255,255,0.24);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.26);
-    }
-
-    .ficha-content {
-      padding: 26px 32px 34px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      min-height: 0;
-    }
-
-    .ficha-page-content {
-      overflow: visible;
-    }
-
-    .ficha-grid {
+    .sheet-layout {
       display: grid;
-      gap: 22px;
-      width: 100%;
-      min-width: 0;
+      grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.35fr) minmax(300px, 0.9fr);
+      gap: 26px;
+      align-items: stretch;
     }
 
-    .ficha-grid-resumo {
-      grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr) minmax(280px, 1fr);
-      align-items: start;
+    .sheet-layout-modal {
+      grid-template-columns: minmax(240px, 0.8fr) minmax(360px, 1.25fr) minmax(280px, 0.9fr);
     }
 
-    .ficha-grid-duas {
+    .sheet-grid-lower {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 26px;
+      margin-top: 26px;
+    }
+
+    .sheet-grid-modal {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: start;
     }
 
-    .ficha-card {
+    .sheet-card {
       min-width: 0;
-      background:
-        linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-      border: 1px solid rgba(255,255,255,0.11);
       border-radius: 24px;
-      padding: 24px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background:
+        radial-gradient(circle at 90% 0%, rgba(255,255,255,0.055), transparent 32%),
+        linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+      padding: 28px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
     }
 
-    .ficha-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      gap: 14px;
-    }
-
-    .ficha-card-header span {
-      display: block;
-      margin-bottom: 5px;
-      color: rgba(255,255,255,0.42);
-      font-size: 11px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .ficha-card-header h4 {
-      margin: 0;
+    .sheet-card h3 {
+      margin: 0 0 24px;
       color: #fff;
-      font-size: 24px;
-      line-height: 1.05;
-      letter-spacing: -0.035em;
+      font-size: 25px;
+      line-height: 1.1;
+      letter-spacing: -0.04em;
     }
 
-    .ficha-status-list {
-      display: grid;
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-
-    .ficha-status-line {
-      display: grid;
-      gap: 8px;
-    }
-
-    .ficha-status-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      color: rgba(255,255,255,0.78);
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .ficha-status-head strong {
-      color: #fff;
-    }
-
-    .ficha-status-bar {
-      height: 10px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .ficha-status-bar div {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.92), rgba(255,255,255,0.42));
-      box-shadow: 0 0 18px rgba(255,255,255,0.16);
-      transition: width 0.3s ease;
-    }
-
-    .ficha-status-editor {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 18px;
-    }
-
-    .ficha-status-editor label {
-      display: grid;
-      gap: 7px;
+    .sheet-card p,
+    .sheet-card li {
       color: rgba(255,255,255,0.72);
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 16px;
+      line-height: 1.55;
     }
 
-    .ficha-status-editor input {
-      min-width: 0;
-      width: 100%;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(0,0,0,0.42);
-      color: #fff;
-      padding: 12px 13px;
-      font-size: 14px;
-      outline: none;
-    }
-
-    .ficha-save-btn {
-      width: 100%;
-      margin-top: 18px;
-    }
-
-    .ficha-info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .ficha-atributos-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .ficha-info {
-      min-width: 0;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.055);
-      border: 1px solid rgba(255,255,255,0.10);
-      padding: 16px;
-    }
-
-    .ficha-info span {
-      display: block;
-      margin-bottom: 8px;
-      color: rgba(255,255,255,0.46);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .ficha-info strong {
-      display: block;
-      color: #fff;
-      font-size: 20px;
-      line-height: 1.15;
-      word-break: break-word;
-    }
-
-    .ficha-section {
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding-top: 16px;
-      margin-top: 16px;
-    }
-
-    .ficha-section:first-of-type {
-      border-top: 0;
-      padding-top: 0;
-      margin-top: 0;
-    }
-
-    .ficha-section h5 {
-      margin: 0 0 8px;
-      color: #fff;
-      font-size: 15px;
-    }
-
-    .ficha-section p {
+    .sheet-card ul {
       margin: 0;
-      color: rgba(255,255,255,0.68);
-      line-height: 1.6;
-      font-size: 14px;
-      word-break: break-word;
+      padding-left: 22px;
     }
 
-    .ficha-resource-grid {
+    .sheet-card li + li {
+      margin-top: 10px;
+    }
+
+    .sheet-profile-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 18px;
+    }
+
+    .sheet-avatar {
+      width: 116px;
+      height: 116px;
+      border-radius: 50%;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
+      place-items: center;
+      font-size: 54px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.035));
+      border: 1px solid rgba(255,255,255,0.14);
     }
 
-    .ficha-mini-card {
-      border-radius: 18px;
-      padding: 16px;
-      background: rgba(255,255,255,0.055);
-      border: 1px solid rgba(255,255,255,0.10);
+    .sheet-profile-card h3 {
+      margin: 10px 0 0;
+      max-width: 260px;
     }
 
-    .ficha-mini-card h5 {
-      margin: 0 0 8px;
-      color: #fff;
-      font-size: 17px;
-    }
-
-    .ficha-mini-card span {
-      color: rgba(255,255,255,0.48);
-      font-size: 12px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .ficha-empty {
+    .sheet-profile-card p {
       margin: 0;
-      color: rgba(255,255,255,0.58);
+      max-width: 270px;
       font-weight: 700;
     }
 
-    @media (max-width: 1080px) {
-      .ficha-grid-resumo {
-        grid-template-columns: 1fr 1fr;
+    .sheet-pill {
+      display: inline-flex;
+      max-width: 100%;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.82);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .sheet-status-card {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+    }
+
+    .sheet-status-row {
+      display: grid;
+      grid-template-columns: 82px minmax(120px, 1fr) 70px;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .sheet-status-row span {
+      color: rgba(255,255,255,0.82);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .sheet-status-row strong {
+      color: #fff;
+      font-size: 18px;
+      text-align: right;
+    }
+
+    .sheet-status-bar {
+      height: 13px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.10);
+    }
+
+    .sheet-status-bar div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.42));
+      box-shadow: 0 0 18px rgba(255,255,255,0.18);
+      transition: width 0.25s ease;
+    }
+
+    .sheet-status-editor {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .sheet-status-editor label,
+    .sheet-dice-card label {
+      display: grid;
+      gap: 9px;
+      color: rgba(255,255,255,0.78);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .sheet-status-editor input,
+    .sheet-dice-card input {
+      width: 100%;
+      min-width: 0;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      padding: 13px 15px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .sheet-dice-card {
+      display: grid;
+      align-content: start;
+      gap: 22px;
+    }
+
+    .dice-result-box {
+      border-radius: 18px;
+      padding: 22px;
+      text-align: center;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .dice-result-box span {
+      display: block;
+      color: rgba(255,255,255,0.58);
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    .dice-result-box strong {
+      color: #fff;
+      font-size: 34px;
+      letter-spacing: 0.08em;
+    }
+
+    .dice-history h4 {
+      margin: 0 0 12px;
+      color: rgba(255,255,255,0.66);
+      font-size: 17px;
+    }
+
+    .dice-history p {
+      margin: 0;
+      border-radius: 14px;
+      padding: 13px 15px;
+      background: rgba(255,255,255,0.045);
+    }
+
+    .dice-history p + p {
+      margin-top: 8px;
+    }
+
+    .sheet-mini-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .sheet-mini-card {
+      display: grid;
+      gap: 6px;
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sheet-mini-card strong {
+      color: #fff;
+      font-size: 16px;
+    }
+
+    .sheet-mini-card span {
+      color: rgba(255,255,255,0.52);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ficha-modal-restaurada {
+      width: min(1180px, 96vw);
+      max-height: 92vh;
+      overflow: hidden;
+    }
+
+    .ficha-modal-restaurada .crud-form-body {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 1180px) {
+      .sheet-layout,
+      .sheet-layout-modal {
+        grid-template-columns: 1fr;
       }
 
-      .ficha-card-status {
-        grid-column: 1 / -1;
+      .sheet-grid-lower,
+      .sheet-grid-modal {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
@@ -1125,42 +965,22 @@ function aplicarEstilosFicha() {
         width: 100%;
       }
 
-      .ficha-overlay {
-        padding: 10px;
-      }
-
-      .ficha-shell {
-        width: 100%;
-        max-height: 94vh;
-        border-radius: 20px;
-      }
-
-      .ficha-topbar {
-        padding: 22px;
-      }
-
-      .ficha-tabs {
-        padding: 14px 22px;
-      }
-
-      .ficha-content {
-        padding: 20px;
-      }
-
-      .ficha-grid-resumo,
-      .ficha-grid-duas,
-      .ficha-info-grid,
-      .ficha-atributos-grid,
-      .ficha-status-editor {
+      .sheet-grid-lower,
+      .sheet-grid-modal {
         grid-template-columns: 1fr;
       }
 
-      .ficha-title-block h3 {
-        font-size: 28px;
+      .sheet-status-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
       }
 
-      .ficha-card-header h4 {
-        font-size: 22px;
+      .sheet-status-row strong {
+        text-align: left;
+      }
+
+      .sheet-status-editor {
+        grid-template-columns: 1fr;
       }
     }
   `;

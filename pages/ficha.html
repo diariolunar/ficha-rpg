@@ -2,7 +2,7 @@
   <div class="page-header page-header-actions">
     <div>
       <h2>Ficha do Personagem</h2>
-      <p>Visualize e controle a ficha completa dos personagens criados.</p>
+      <p>Ficha completa com dados da raça, classe, subclasse, elemento, habilidades, itens e pet.</p>
     </div>
 
     <div class="action-row">
@@ -12,10 +12,165 @@
     </div>
   </div>
 
-  <div id="fichaPageContainer">
-    <div class="empty-state">
-      <h3>Nenhum personagem aberto</h3>
-      <p>Selecione um personagem para visualizar a ficha completa.</p>
+  <div id="fichaPersonagemPage">
+    <div class="sheet-layout">
+      <section class="sheet-card sheet-profile-card">
+        <div class="sheet-avatar">🧙</div>
+
+        <h3 id="fichaNomePersonagem">Nenhum personagem aberto</h3>
+        <p id="fichaDescricaoPersonagem">Abra um personagem para visualizar a ficha.</p>
+
+        <span class="sheet-pill" id="fichaCampanhaPersonagem">Campanha: --</span>
+      </section>
+
+      <section class="sheet-card sheet-status-card">
+        <h3>Status principais</h3>
+
+        <div class="sheet-status-row">
+          <span>HP</span>
+          <div class="sheet-status-bar">
+            <div id="barraHpFicha" style="width:0%"></div>
+          </div>
+          <strong id="fichaHpTexto">0/0</strong>
+        </div>
+
+        <div class="sheet-status-row">
+          <span>Mana</span>
+          <div class="sheet-status-bar">
+            <div id="barraManaFicha" style="width:0%"></div>
+          </div>
+          <strong id="fichaManaTexto">0/0</strong>
+        </div>
+
+        <div class="sheet-status-row">
+          <span>Fome</span>
+          <div class="sheet-status-bar">
+            <div id="barraFomeFicha" style="width:0%"></div>
+          </div>
+          <strong id="fichaFomeTexto">0%</strong>
+        </div>
+
+        <div class="sheet-status-row">
+          <span>Fadiga</span>
+          <div class="sheet-status-bar">
+            <div id="barraFadigaFicha" style="width:0%"></div>
+          </div>
+          <strong id="fichaFadigaTexto">0%</strong>
+        </div>
+
+        <div class="sheet-status-editor">
+          <label>
+            HP Atual
+            <input type="number" id="fichaHpAtual" value="0" />
+          </label>
+
+          <label>
+            HP Máximo
+            <input type="number" id="fichaHpMax" value="0" />
+          </label>
+
+          <label>
+            Mana Atual
+            <input type="number" id="fichaManaAtual" value="0" />
+          </label>
+
+          <label>
+            Mana Máxima
+            <input type="number" id="fichaManaMax" value="0" />
+          </label>
+
+          <label>
+            Fome
+            <input type="number" id="fichaFome" value="0" />
+          </label>
+
+          <label>
+            Fadiga
+            <input type="number" id="fichaFadiga" value="0" />
+          </label>
+        </div>
+
+        <button class="primary-btn" type="button" id="salvarStatusFicha">Salvar status</button>
+      </section>
+
+      <section class="sheet-card sheet-dice-card">
+        <h3>Rolagem de D20</h3>
+
+        <label>
+          Bônus
+          <input type="number" id="bonusD20Ficha" value="0" />
+        </label>
+
+        <button class="primary-btn" type="button" id="rolarD20Ficha">Rolar D20</button>
+
+        <div class="dice-result-box">
+          <span>Resultado:</span>
+          <strong id="resultadoD20Ficha">--</strong>
+        </div>
+
+        <div class="dice-history">
+          <h4>Últimos 2 resultados:</h4>
+          <div id="historicoD20Ficha">
+            <p>Nenhum dado rolado ainda.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sheet-grid-lower">
+      <section class="sheet-card">
+        <h3>Identidade</h3>
+        <ul id="fichaIdentidadeLista">
+          <li>Abra um personagem criado para ver os dados aqui.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Atributos</h3>
+        <ul id="fichaAtributosLista">
+          <li>Abra um personagem criado para ver os atributos aqui.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Raça</h3>
+        <ul id="fichaRacaLista">
+          <li>Abra um personagem criado para ver os dados da raça aqui.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Classe</h3>
+        <ul id="fichaClasseLista">
+          <li>Abra um personagem criado para ver os dados da classe aqui.</li>
+        </ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Habilidades</h3>
+        <div id="fichaHabilidadesLista">
+          <p>Nenhuma habilidade carregada.</p>
+        </div>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Itens</h3>
+        <div id="fichaItensLista">
+          <p>Nenhum item carregado.</p>
+        </div>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Pet</h3>
+        <div id="fichaPetConteudo">
+          <p>Nenhum pet carregado.</p>
+        </div>
+      </section>
+
+      <section class="sheet-card">
+        <h3>História / Descrição</h3>
+        <p id="fichaHistoriaTexto">Nenhuma história carregada.</p>
+      </section>
     </div>
   </div>
 </section>
