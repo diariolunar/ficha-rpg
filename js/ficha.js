@@ -5,13 +5,22 @@ import {
   serverTimestamp
 } from "./firebase.js";
 
+import { state } from "./state.js";
+import { onPageLoaded } from "./navigation.js";
 import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
+let personagemPaginaAtual = null;
 let abaFichaAtual = "resumo";
 
 export function initFicha() {
   aplicarEstilosFicha();
+
+  onPageLoaded((pagina) => {
+    if (pagina === "ficha") {
+      renderizarPaginaFicha();
+    }
+  });
 }
 
 export function abrirFichaPersonagem(personagem) {
@@ -27,31 +36,8 @@ export function abrirFichaPersonagem(personagem) {
 
   overlay.innerHTML = `
     <div class="ficha-shell">
-      <div class="ficha-topbar">
-        <div class="ficha-title-block">
-          <span class="ficha-kicker">Ficha do personagem</span>
-          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
-          <p>
-            ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")}
-            <span>•</span>
-            ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")}
-            <span>•</span>
-            Nível ${personagem.nivel || 1}
-          </p>
-        </div>
-
-        <button class="ficha-close" type="button" id="fecharFichaPersonagem">×</button>
-      </div>
-
-      <div class="ficha-tabs">
-        <button class="ficha-tab active" data-aba="resumo">Resumo</button>
-        <button class="ficha-tab" data-aba="atributos">Atributos</button>
-        <button class="ficha-tab" data-aba="habilidades">Habilidades</button>
-        <button class="ficha-tab" data-aba="itens">Itens</button>
-        <button class="ficha-tab" data-aba="pet">Pet</button>
-        <button class="ficha-tab" data-aba="historia">História</button>
-      </div>
-
+      ${montarTopoFicha(personagem, true)}
+      ${montarAbasFicha()}
       <div class="ficha-content" id="fichaConteudo">
         ${montarConteudoAba(personagem, abaFichaAtual)}
       </div>
@@ -62,13 +48,13 @@ export function abrirFichaPersonagem(personagem) {
 
   document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
 
-  document.querySelectorAll(".ficha-tab").forEach((botao) => {
+  document.querySelectorAll("#modalFichaPersonagem .ficha-tab").forEach((botao) => {
     botao.addEventListener("click", () => {
-      trocarAbaFicha(botao.dataset.aba);
+      trocarAbaFichaModal(botao.dataset.aba);
     });
   });
 
-  vincularEventosFicha();
+  vincularEventosFichaModal();
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
@@ -77,12 +63,156 @@ export function abrirFichaPersonagem(personagem) {
   });
 }
 
-function trocarAbaFicha(aba) {
+function renderizarPaginaFicha() {
+  aplicarEstilosFicha();
+
+  const container = document.getElementById("fichaPageContainer");
+  const select = document.getElementById("selecionarPersonagemFicha");
+
+  if (!container || !select) return;
+
+  const personagens = obterPersonagensDisponiveis();
+
+  select.innerHTML = "";
+
+  if (!personagens.length) {
+    select.innerHTML = `<option value="">Nenhum personagem criado</option>`;
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhum personagem criado ainda.</h3>
+        <p>Crie um personagem na tela de Personagens para visualizar a ficha aqui.</p>
+      </div>
+    `;
+
+    personagemPaginaAtual = null;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione um personagem</option>`;
+
+  personagens.forEach((personagem) => {
+    const option = document.createElement("option");
+    option.value = personagem.id;
+    option.textContent = personagem.nome || "Personagem sem nome";
+    select.appendChild(option);
+  });
+
+  if (!personagemPaginaAtual) {
+    personagemPaginaAtual = personagens[0];
+  } else {
+    const atualizado = personagens.find((personagem) => personagem.id === personagemPaginaAtual.id);
+    personagemPaginaAtual = atualizado || personagens[0];
+  }
+
+  select.value = personagemPaginaAtual.id;
+
+  select.onchange = () => {
+    const personagem = personagens.find((item) => item.id === select.value);
+
+    personagemPaginaAtual = personagem || null;
+    abaFichaAtual = "resumo";
+
+    renderizarFichaNaPagina();
+  };
+
+  renderizarFichaNaPagina();
+}
+
+function renderizarFichaNaPagina() {
+  const container = document.getElementById("fichaPageContainer");
+
+  if (!container) return;
+
+  if (!personagemPaginaAtual) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhum personagem aberto</h3>
+        <p>Selecione um personagem para visualizar a ficha completa.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="ficha-page-shell">
+      ${montarTopoFicha(personagemPaginaAtual, false)}
+      ${montarAbasFicha()}
+      <div class="ficha-content ficha-page-content" id="fichaConteudoPagina">
+        ${montarConteudoAba(personagemPaginaAtual, abaFichaAtual)}
+      </div>
+    </div>
+  `;
+
+  document.querySelectorAll("#fichaPageContainer .ficha-tab").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      trocarAbaFichaPagina(botao.dataset.aba);
+    });
+  });
+
+  vincularEventosFichaPagina();
+}
+
+function obterPersonagensDisponiveis() {
+  if (!Array.isArray(state.personagens)) return [];
+
+  if (state.dadosUsuarioAtual?.tipo === "mestre") {
+    return [...state.personagens].sort(ordenarPersonagens);
+  }
+
+  return state.personagens
+    .filter((personagem) => personagem.donoId === state.usuarioAtual?.uid)
+    .sort(ordenarPersonagens);
+}
+
+function ordenarPersonagens(a, b) {
+  return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+}
+
+function montarTopoFicha(personagem, modal) {
+  return `
+    <div class="ficha-topbar">
+      <div class="ficha-title-block">
+        <span class="ficha-kicker">Ficha do personagem</span>
+        <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
+        <p>
+          ${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")}
+          <span>•</span>
+          ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")}
+          <span>•</span>
+          Nível ${personagem.nivel || 1}
+        </p>
+      </div>
+
+      ${
+        modal
+          ? `<button class="ficha-close" type="button" id="fecharFichaPersonagem">×</button>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function montarAbasFicha() {
+  return `
+    <div class="ficha-tabs">
+      <button class="ficha-tab ${abaFichaAtual === "resumo" ? "active" : ""}" data-aba="resumo">Resumo</button>
+      <button class="ficha-tab ${abaFichaAtual === "atributos" ? "active" : ""}" data-aba="atributos">Atributos</button>
+      <button class="ficha-tab ${abaFichaAtual === "habilidades" ? "active" : ""}" data-aba="habilidades">Habilidades</button>
+      <button class="ficha-tab ${abaFichaAtual === "itens" ? "active" : ""}" data-aba="itens">Itens</button>
+      <button class="ficha-tab ${abaFichaAtual === "pet" ? "active" : ""}" data-aba="pet">Pet</button>
+      <button class="ficha-tab ${abaFichaAtual === "historia" ? "active" : ""}" data-aba="historia">História</button>
+    </div>
+  `;
+}
+
+function trocarAbaFichaModal(aba) {
   if (!personagemFichaAtual) return;
 
   abaFichaAtual = aba;
 
-  document.querySelectorAll(".ficha-tab").forEach((botao) => {
+  document.querySelectorAll("#modalFichaPersonagem .ficha-tab").forEach((botao) => {
     botao.classList.toggle("active", botao.dataset.aba === aba);
   });
 
@@ -92,11 +222,37 @@ function trocarAbaFicha(aba) {
     conteudo.innerHTML = montarConteudoAba(personagemFichaAtual, aba);
   }
 
-  vincularEventosFicha();
+  vincularEventosFichaModal();
 }
 
-function vincularEventosFicha() {
-  document.getElementById("salvarStatusFicha")?.addEventListener("click", salvarStatusFicha);
+function trocarAbaFichaPagina(aba) {
+  if (!personagemPaginaAtual) return;
+
+  abaFichaAtual = aba;
+
+  document.querySelectorAll("#fichaPageContainer .ficha-tab").forEach((botao) => {
+    botao.classList.toggle("active", botao.dataset.aba === aba);
+  });
+
+  const conteudo = document.getElementById("fichaConteudoPagina");
+
+  if (conteudo) {
+    conteudo.innerHTML = montarConteudoAba(personagemPaginaAtual, aba);
+  }
+
+  vincularEventosFichaPagina();
+}
+
+function vincularEventosFichaModal() {
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => {
+    salvarStatusFicha("modal");
+  });
+}
+
+function vincularEventosFichaPagina() {
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => {
+    salvarStatusFicha("pagina");
+  });
 }
 
 function fecharFichaPersonagem() {
@@ -465,8 +621,10 @@ function montarPet(personagem) {
   `;
 }
 
-async function salvarStatusFicha() {
-  if (!personagemFichaAtual) {
+async function salvarStatusFicha(origem) {
+  const personagemAtual = origem === "pagina" ? personagemPaginaAtual : personagemFichaAtual;
+
+  if (!personagemAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
   }
@@ -480,7 +638,7 @@ async function salvarStatusFicha() {
   const fadiga = limitarNumero(numeroCampo("fichaFadiga"), 0, 100);
 
   try {
-    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+    await updateDoc(doc(db, "personagens", personagemAtual.id), {
       hpAtual,
       hpMax,
       manaAtual,
@@ -490,8 +648,8 @@ async function salvarStatusFicha() {
       atualizadoEm: serverTimestamp()
     });
 
-    personagemFichaAtual = {
-      ...personagemFichaAtual,
+    const atualizado = {
+      ...personagemAtual,
       hpAtual,
       hpMax,
       manaAtual,
@@ -500,13 +658,22 @@ async function salvarStatusFicha() {
       fadiga
     };
 
+    if (origem === "pagina") {
+      personagemPaginaAtual = atualizado;
+      await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
+      renderizarFichaNaPagina();
+      return;
+    }
+
+    personagemFichaAtual = atualizado;
+
     await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
 
     const conteudo = document.getElementById("fichaConteudo");
 
     if (conteudo) {
       conteudo.innerHTML = montarConteudoAba(personagemFichaAtual, abaFichaAtual);
-      vincularEventosFicha();
+      vincularEventosFichaModal();
     }
   } catch (erro) {
     console.error("Erro ao salvar status da ficha:", erro);
@@ -578,6 +745,18 @@ function aplicarEstilosFicha() {
   style.id = "fichaPersonagemStyles";
 
   style.textContent = `
+    .header-select {
+      min-width: 260px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      padding: 13px 15px;
+      font-size: 14px;
+      font-weight: 800;
+      outline: none;
+    }
+
     .ficha-overlay {
       align-items: center;
       justify-content: center;
@@ -585,7 +764,8 @@ function aplicarEstilosFicha() {
       overflow: hidden;
     }
 
-    .ficha-shell {
+    .ficha-shell,
+    .ficha-page-shell {
       width: min(1180px, 96vw);
       max-height: 92vh;
       background:
@@ -598,6 +778,12 @@ function aplicarEstilosFicha() {
       display: flex;
       flex-direction: column;
       color: #f4f4f5;
+    }
+
+    .ficha-page-shell {
+      width: 100%;
+      max-height: none;
+      box-shadow: none;
     }
 
     .ficha-topbar {
@@ -670,15 +856,6 @@ function aplicarEstilosFicha() {
       flex-shrink: 0;
     }
 
-    .ficha-tabs::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    .ficha-tabs::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.16);
-      border-radius: 999px;
-    }
-
     .ficha-tab {
       border: 1px solid rgba(255,255,255,0.10);
       background: rgba(255,255,255,0.045);
@@ -711,13 +888,8 @@ function aplicarEstilosFicha() {
       min-height: 0;
     }
 
-    .ficha-content::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .ficha-content::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.16);
-      border-radius: 999px;
+    .ficha-page-content {
+      overflow: visible;
     }
 
     .ficha-grid {
@@ -745,11 +917,6 @@ function aplicarEstilosFicha() {
       border-radius: 24px;
       padding: 24px;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    }
-
-    .ficha-card-status {
-      position: sticky;
-      top: 0;
     }
 
     .ficha-card-header {
@@ -843,10 +1010,6 @@ function aplicarEstilosFicha() {
       padding: 12px 13px;
       font-size: 14px;
       outline: none;
-    }
-
-    .ficha-status-editor input:focus {
-      border-color: rgba(255,255,255,0.32);
     }
 
     .ficha-save-btn {
@@ -953,12 +1116,15 @@ function aplicarEstilosFicha() {
       }
 
       .ficha-card-status {
-        position: static;
         grid-column: 1 / -1;
       }
     }
 
     @media (max-width: 760px) {
+      .header-select {
+        width: 100%;
+      }
+
       .ficha-overlay {
         padding: 10px;
       }

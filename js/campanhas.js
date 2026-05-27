@@ -207,12 +207,124 @@ function textoCampo(id) {
   return document.getElementById(id)?.value.trim() || "";
 }
 
-function limparFormularioCriacao() {
-  const nome = document.getElementById("campanhaNome");
-  const descricao = document.getElementById("campanhaDescricao");
+function abrirModalCriacaoCampanha() {
+  fecharModalCriacaoCampanha();
 
-  if (nome) nome.value = "";
-  if (descricao) descricao.value = "";
+  if (state.dadosUsuarioAtual?.tipo !== "mestre") {
+    mostrarModal("Apenas contas de Mestre podem criar campanhas.", "Permissão negada");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalCriacaoCampanha";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Nova campanha</h3>
+          <p>Preencha os dados abaixo para criar uma nova campanha.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalCriacaoCampanha">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Nome da campanha
+            <input type="text" id="campanhaNome" placeholder="Ex: A Queda de Valdrin" />
+          </label>
+
+          <label>
+            Descrição da campanha
+            <textarea id="campanhaDescricao" placeholder="Descreva a proposta, cenário ou objetivo da campanha..."></textarea>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarCriacaoCampanha">Cancelar</button>
+            <button class="primary-btn" type="button" id="btnCriarCampanha">Criar campanha</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalCriacaoCampanha")?.addEventListener("click", fecharModalCriacaoCampanha);
+  document.getElementById("cancelarCriacaoCampanha")?.addEventListener("click", fecharModalCriacaoCampanha);
+  document.getElementById("btnCriarCampanha")?.addEventListener("click", criarCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalCriacaoCampanha();
+    }
+  });
+}
+
+function fecharModalCriacaoCampanha() {
+  const overlay = document.getElementById("modalCriacaoCampanha");
+
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+function abrirModalEntradaCampanha() {
+  fecharModalEntradaCampanha();
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalEntradaCampanha";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Entrar em campanha</h3>
+          <p>Digite o código fornecido pelo Mestre para entrar em uma campanha.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalEntradaCampanha">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Código da campanha
+            <input type="text" id="codigoEntrarCampanha" placeholder="Ex: RPG-ABC123" />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarEntradaCampanha">Cancelar</button>
+            <button class="primary-btn" type="button" id="btnEntrarCampanha">Entrar na campanha</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalEntradaCampanha")?.addEventListener("click", fecharModalEntradaCampanha);
+  document.getElementById("cancelarEntradaCampanha")?.addEventListener("click", fecharModalEntradaCampanha);
+  document.getElementById("btnEntrarCampanha")?.addEventListener("click", entrarCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalEntradaCampanha();
+    }
+  });
+}
+
+function fecharModalEntradaCampanha() {
+  const overlay = document.getElementById("modalEntradaCampanha");
+
+  if (overlay) {
+    overlay.remove();
+  }
 }
 
 async function criarCampanha() {
@@ -250,13 +362,14 @@ async function criarCampanha() {
       criadoEm: serverTimestamp()
     });
 
-    limparFormularioCriacao();
-
     await mostrarModal(
       `Campanha criada com sucesso. Código da campanha: ${codigo}`,
       "Campanha criada",
       "success"
     );
+
+    fecharModalCriacaoCampanha();
+    renderizarCampanhas();
   } catch (erro) {
     console.error("Erro ao criar campanha:", erro);
     await mostrarModal("Erro ao criar campanha.", "Erro", "danger");
@@ -315,13 +428,9 @@ async function entrarCampanha() {
       atualizadoEm: serverTimestamp()
     });
 
-    const campoCodigo = document.getElementById("codigoEntrarCampanha");
-
-    if (campoCodigo) {
-      campoCodigo.value = "";
-    }
-
     await mostrarModal("Você entrou na campanha com sucesso.", "Campanha vinculada", "success");
+
+    fecharModalEntradaCampanha();
   } catch (erro) {
     console.error("Erro ao entrar na campanha:", erro);
     await mostrarModal("Erro ao entrar na campanha.", "Erro", "danger");
@@ -352,6 +461,8 @@ async function salvarEdicaoCampanha() {
     campanhaSelecionadaEdicao = null;
 
     await mostrarModal("Campanha atualizada com sucesso.", "Alterações salvas", "success");
+
+    fecharModalEdicaoCampanha();
     renderizarCampanhas();
   } catch (erro) {
     console.error("Erro ao editar campanha:", erro);
@@ -396,13 +507,67 @@ async function excluirCampanha(campanha) {
 }
 
 function abrirEdicaoCampanha(campanha) {
+  fecharModalEdicaoCampanha();
+
   campanhaSelecionadaEdicao = campanha;
-  renderizarCampanhas();
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalEdicaoCampanha";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Editar campanha</h3>
+          <p>Atualize as informações principais da campanha.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalEdicaoCampanha">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Nome da campanha
+            <input type="text" id="editCampanhaNome" value="${escapeHtml(campanha.nome || "")}" />
+          </label>
+
+          <label>
+            Descrição da campanha
+            <textarea id="editCampanhaDescricao">${escapeHtml(campanha.descricao || "")}</textarea>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarEdicaoCampanha">Cancelar</button>
+            <button class="primary-btn" type="button" id="salvarEdicaoCampanha">Salvar alterações</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalEdicaoCampanha")?.addEventListener("click", fecharModalEdicaoCampanha);
+  document.getElementById("cancelarEdicaoCampanha")?.addEventListener("click", fecharModalEdicaoCampanha);
+  document.getElementById("salvarEdicaoCampanha")?.addEventListener("click", salvarEdicaoCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalEdicaoCampanha();
+    }
+  });
 }
 
-function cancelarEdicaoCampanha() {
+function fecharModalEdicaoCampanha() {
+  const overlay = document.getElementById("modalEdicaoCampanha");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
   campanhaSelecionadaEdicao = null;
-  renderizarCampanhas();
 }
 
 export function buscarCampanhaPorId(id) {
@@ -481,35 +646,6 @@ export function renderizarCampanhas() {
         campanha.criadoPor === state.usuarioAtual.uid ||
         campanha.mestreEmail === state.usuarioAtual.email
       );
-
-    const estaEditando = campanhaSelecionadaEdicao?.id === campanha.id;
-
-    if (estaEditando) {
-      card.innerHTML = `
-        <h3>Editar campanha</h3>
-
-        <label>
-          Nome da campanha
-          <input type="text" id="editCampanhaNome" value="${escapeHtml(campanha.nome || "")}" />
-        </label>
-
-        <label>
-          Descrição da campanha
-          <textarea id="editCampanhaDescricao">${escapeHtml(campanha.descricao || "")}</textarea>
-        </label>
-
-        <div class="action-row">
-          <button class="secondary-btn cancelar-edicao-campanha">Cancelar</button>
-          <button class="primary-btn salvar-edicao-campanha">Salvar alterações</button>
-        </div>
-      `;
-
-      card.querySelector(".cancelar-edicao-campanha").addEventListener("click", cancelarEdicaoCampanha);
-      card.querySelector(".salvar-edicao-campanha").addEventListener("click", salvarEdicaoCampanha);
-
-      lista.appendChild(card);
-      return;
-    }
 
     card.innerHTML = `
       <div class="campaign-card-top">
@@ -694,16 +830,8 @@ export function initCampanhas() {
     if (pagina === "campanhas") {
       renderizarCampanhas();
 
-      const botaoCriar = document.getElementById("btnCriarCampanha");
-      const botaoEntrar = document.getElementById("btnEntrarCampanha");
-
-      if (botaoCriar) {
-        botaoCriar.addEventListener("click", criarCampanha);
-      }
-
-      if (botaoEntrar) {
-        botaoEntrar.addEventListener("click", entrarCampanha);
-      }
+      document.getElementById("abrirCriacaoCampanha")?.addEventListener("click", abrirModalCriacaoCampanha);
+      document.getElementById("abrirEntradaCampanha")?.addEventListener("click", abrirModalEntradaCampanha);
     }
 
     if (pagina === "dashboard") {
