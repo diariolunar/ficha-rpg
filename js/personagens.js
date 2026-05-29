@@ -17,7 +17,7 @@ import { onPageLoaded } from "./navigation.js";
 import { buscarRacaPorId, preencherSelectRacas, atualizarPreviewRaca } from "./racas.js";
 import { buscarCampanhaPorId, preencherSelectCampanhas } from "./campanhas.js";
 import { abrirFichaPersonagem } from "./ficha.js";
-import { mostrarModal, confirmarModal } from "./ui.js";
+import { mostrarModal, confirmarModal, protegerModalContraCliqueFora } from "./ui.js";
 
 let unsubscribePersonagens = null;
 let unsubscribePersonagensCriadosPeloMestre = null;
@@ -325,11 +325,7 @@ function abrirModalCriacaoPersonagem() {
   renderizarItensIniciais();
   atualizarPreviewPersonagem();
 
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalPersonagem();
-    }
-  });
+  protegerModalContraCliqueFora(overlay, fecharModalPersonagem);
 }
 
 function abrirModalEdicaoPersonagem(personagem) {
@@ -384,11 +380,7 @@ function abrirModalEdicaoPersonagem(personagem) {
   renderizarItensIniciais();
   atualizarPreviewPersonagem();
 
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalPersonagem();
-    }
-  });
+  protegerModalContraCliqueFora(overlay, fecharModalPersonagem);
 }
 
 function preencherValoresEdicaoPersonagem(personagem) {
@@ -1289,11 +1281,7 @@ function abrirModalVincularCampanha(personagem) {
     await salvarVinculoCampanha(personagem);
   });
 
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalVincularCampanha();
-    }
-  });
+  protegerModalContraCliqueFora(overlay, fecharModalVincularCampanha);
 }
 
 function fecharModalVincularCampanha() {

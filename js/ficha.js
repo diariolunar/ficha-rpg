@@ -10,10 +10,11 @@ import {
 } from "./firebase.js";
 
 import { state } from "./state.js";
-import { onPageLoaded } from "./navigation.js";
+import { onPageLoaded, navegarPara } from "./navigation.js";
 import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
+let personagemFichaPendenteId = "";
 let historicoD20 = [];
 let habilidadesCatalogoFicha = [];
 let itensCatalogoFicha = [];
@@ -73,51 +74,12 @@ function iniciarCatalogosFicha() {
 }
 
 export function abrirFichaPersonagem(personagem) {
+  if (!personagem) return;
+
+  personagemFichaPendenteId = personagem.id;
   personagemFichaAtual = personagem;
 
-  aplicarEstilosFicha();
-  fecharFichaPersonagem();
-
-  const overlay = document.createElement("div");
-  overlay.className = "crud-form-overlay";
-  overlay.id = "modalFichaPersonagem";
-
-  overlay.innerHTML = `
-    <div class="crud-form-modal ficha-modal-restaurada">
-      <div class="crud-form-header">
-        <div>
-          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
-          <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
-        </div>
-
-        <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
-      </div>
-
-      <div class="crud-form-body">
-        ${montarFichaModal(personagem)}
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
-  document.getElementById("salvarStatusFichaModal")?.addEventListener("click", () => salvarStatusFicha("modal"));
-  document.getElementById("rolarD20FichaModal")?.addEventListener("click", () => rolarD20("modal"));
-
-  overlay.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "modal"));
-  });
-
-  overlay.querySelectorAll(".usar-item-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "modal"));
-  });
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharFichaPersonagem();
-    }
-  });
+  navegarPara("ficha");
 }
 
 function renderizarTelaFicha() {
@@ -134,6 +96,7 @@ function renderizarTelaFicha() {
   if (!personagens.length) {
     select.innerHTML = `<option value="">Nenhum personagem criado</option>`;
     personagemFichaAtual = null;
+    personagemFichaPendenteId = "";
     limparFicha();
     return;
   }
@@ -146,6 +109,12 @@ function renderizarTelaFicha() {
     option.textContent = personagem.nome || "Personagem sem nome";
     select.appendChild(option);
   });
+
+  if (personagemFichaPendenteId) {
+    const personagemPendente = personagens.find((personagem) => personagem.id === personagemFichaPendenteId);
+    personagemFichaAtual = personagemPendente || personagemFichaAtual;
+    personagemFichaPendenteId = "";
+  }
 
   if (!personagemFichaAtual) {
     personagemFichaAtual = personagens[0];
@@ -170,16 +139,8 @@ function renderizarTelaFicha() {
 
   preencherFicha(personagemFichaAtual);
 
-  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha("pagina"));
-  document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20("pagina"));
-
-  document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
-  });
-
-  document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
-  });
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha());
+  document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20());
 }
 
 function obterPersonagensDisponiveis() {
@@ -277,159 +238,12 @@ function preencherFicha(personagem) {
   setHtml("fichaHistoriaTexto", escapeHtml(personagem.historia || "Nenhuma história cadastrada."));
 
   document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId));
   });
 
   document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId));
   });
-}
-
-function montarFichaModal(personagem) {
-  const hpAtual = Number(personagem.hpAtual || 0);
-  const hpMax = Number(personagem.hpMax || 0);
-  const manaAtual = Number(personagem.manaAtual || 0);
-  const manaMax = Number(personagem.manaMax || 0);
-  const fome = Number(personagem.fome || 0);
-  const fadiga = Number(personagem.fadiga || 0);
-
-  return `
-    <div class="sheet-layout sheet-layout-modal">
-      <section class="sheet-card sheet-profile-card">
-        <div class="sheet-avatar">🧙</div>
-
-        <h3>${escapeHtml(personagem.nome || "Personagem sem nome")}</h3>
-        <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
-
-        <span class="sheet-pill">Campanha: ${escapeHtml(personagem.campanhaNome || "Sem campanha")}</span>
-      </section>
-
-      <section class="sheet-card sheet-status-card">
-        <h3>Status principais</h3>
-
-        ${montarStatusLinha("HP", hpAtual, hpMax, calcularPercentual(hpAtual, hpMax))}
-        ${montarStatusLinha("Mana", manaAtual, manaMax, calcularPercentual(manaAtual, manaMax))}
-        ${montarStatusLinha("Fome", fome, 100, limitarNumero(fome, 0, 100), true)}
-        ${montarStatusLinha("Fadiga", fadiga, 100, limitarNumero(fadiga, 0, 100), true)}
-
-        <div class="sheet-status-editor">
-          <label>
-            HP Atual
-            <input type="number" id="fichaHpAtualModal" value="${hpAtual}" />
-          </label>
-
-          <label>
-            HP Máximo
-            <input type="number" id="fichaHpMaxModal" value="${hpMax}" />
-          </label>
-
-          <label>
-            Mana Atual
-            <input type="number" id="fichaManaAtualModal" value="${manaAtual}" />
-          </label>
-
-          <label>
-            Mana Máxima
-            <input type="number" id="fichaManaMaxModal" value="${manaMax}" />
-          </label>
-
-          <label>
-            Fome
-            <input type="number" id="fichaFomeModal" value="${fome}" />
-          </label>
-
-          <label>
-            Fadiga
-            <input type="number" id="fichaFadigaModal" value="${fadiga}" />
-          </label>
-        </div>
-
-        <button class="primary-btn" type="button" id="salvarStatusFichaModal">Salvar status</button>
-      </section>
-
-      <section class="sheet-card sheet-dice-card">
-        <h3>Rolagem de D20</h3>
-
-        <label>
-          Bônus
-          <input type="number" id="bonusD20FichaModal" value="0" />
-        </label>
-
-        <button class="primary-btn" type="button" id="rolarD20FichaModal">Rolar D20</button>
-
-        <div class="dice-result-box">
-          <span>Resultado:</span>
-          <strong id="resultadoD20FichaModal">--</strong>
-        </div>
-
-        <div class="dice-history">
-          <h4>Últimos 2 resultados:</h4>
-          <div id="historicoD20FichaModal">
-            ${montarHistoricoD20()}
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="sheet-grid-lower sheet-grid-modal">
-      <section class="sheet-card">
-        <h3>Identidade</h3>
-        <ul>${montarIdentidade(personagem)}</ul>
-      </section>
-
-      <section class="sheet-card">
-        <h3>Atributos</h3>
-        <ul>${montarAtributos(personagem)}</ul>
-      </section>
-
-      <section class="sheet-card">
-        <h3>Raça</h3>
-        <ul>${montarRaca(personagem)}</ul>
-      </section>
-
-      <section class="sheet-card">
-        <h3>Classe</h3>
-        <ul>${montarClasse(personagem)}</ul>
-      </section>
-
-      <section class="sheet-card">
-        <h3>Habilidades</h3>
-        ${montarHabilidades(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>Itens</h3>
-        ${montarItens(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>Pet</h3>
-        ${montarPet(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>Condições / Status</h3>
-        ${montarCondicoes(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>História / Descrição</h3>
-        <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
-      </section>
-    </div>
-  `;
-}
-
-function montarStatusLinha(label, atual, maximo, percentual, porcentagem = false) {
-  return `
-    <div class="sheet-status-row">
-      <span>${escapeHtml(label)}</span>
-      <div class="sheet-status-bar">
-        <div style="width:${percentual}%"></div>
-      </div>
-      <strong>${escapeHtml(atual)}${porcentagem ? "%" : `/${escapeHtml(maximo)}`}</strong>
-    </div>
-  `;
 }
 
 function montarIdentidade(personagem) {
@@ -557,21 +371,7 @@ function montarPet(personagem) {
   `;
 }
 
-function montarCondicoes(personagem) {
-  const condicoes = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
-
-  if (!condicoes.length) {
-    return `<p>Nenhuma condição ativa.</p>`;
-  }
-
-  return `
-    <div class="sheet-condition-list">
-      ${condicoes.map((condicao) => `<span>${escapeHtml(condicao)}</span>`).join("")}
-    </div>
-  `;
-}
-
-async function usarHabilidadeFicha(habilidadeId, origem) {
+async function usarHabilidadeFicha(habilidadeId) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
@@ -626,20 +426,14 @@ async function usarHabilidadeFicha(habilidadeId, origem) {
     };
 
     await mostrarModal("Habilidade usada com sucesso.", "Ação registrada", "success");
-
-    if (origem === "modal") {
-      fecharFichaPersonagem();
-      abrirFichaPersonagem(personagemFichaAtual);
-    } else {
-      preencherFicha(personagemFichaAtual);
-    }
+    preencherFicha(personagemFichaAtual);
   } catch (erro) {
     console.error("Erro ao usar habilidade:", erro);
     await mostrarModal("Erro ao usar habilidade.", "Erro", "danger");
   }
 }
 
-async function usarItemFicha(itemId, origem) {
+async function usarItemFicha(itemId) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
@@ -671,34 +465,26 @@ async function usarItemFicha(itemId, origem) {
     };
 
     await mostrarModal(resultado.descricao, "Item usado", "success");
-
-    if (origem === "modal") {
-      fecharFichaPersonagem();
-      abrirFichaPersonagem(personagemFichaAtual);
-    } else {
-      preencherFicha(personagemFichaAtual);
-    }
+    preencherFicha(personagemFichaAtual);
   } catch (erro) {
     console.error("Erro ao usar item:", erro);
     await mostrarModal("Erro ao usar item.", "Erro", "danger");
   }
 }
 
-async function salvarStatusFicha(origem) {
+async function salvarStatusFicha() {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
   }
 
-  const sufixo = origem === "modal" ? "Modal" : "";
+  const hpMax = numeroCampo("fichaHpMax");
+  const manaMax = numeroCampo("fichaManaMax");
 
-  const hpMax = numeroCampo(`fichaHpMax${sufixo}`);
-  const manaMax = numeroCampo(`fichaManaMax${sufixo}`);
-
-  const hpAtual = limitarNumero(numeroCampo(`fichaHpAtual${sufixo}`), 0, hpMax);
-  const manaAtual = limitarNumero(numeroCampo(`fichaManaAtual${sufixo}`), 0, manaMax);
-  const fome = limitarNumero(numeroCampo(`fichaFome${sufixo}`), 0, 100);
-  const fadiga = limitarNumero(numeroCampo(`fichaFadiga${sufixo}`), 0, 100);
+  const hpAtual = limitarNumero(numeroCampo("fichaHpAtual"), 0, hpMax);
+  const manaAtual = limitarNumero(numeroCampo("fichaManaAtual"), 0, manaMax);
+  const fome = limitarNumero(numeroCampo("fichaFome"), 0, 100);
+  const fadiga = limitarNumero(numeroCampo("fichaFadiga"), 0, 100);
 
   try {
     await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
@@ -722,13 +508,6 @@ async function salvarStatusFicha(origem) {
     };
 
     await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
-
-    if (origem === "modal") {
-      fecharFichaPersonagem();
-      abrirFichaPersonagem(personagemFichaAtual);
-      return;
-    }
-
     preencherFicha(personagemFichaAtual);
   } catch (erro) {
     console.error("Erro ao salvar status da ficha:", erro);
@@ -736,10 +515,8 @@ async function salvarStatusFicha(origem) {
   }
 }
 
-function rolarD20(origem) {
-  const sufixo = origem === "modal" ? "Modal" : "";
-
-  const bonus = Number(document.getElementById(`bonusD20Ficha${sufixo}`)?.value) || 0;
+function rolarD20() {
+  const bonus = Number(document.getElementById("bonusD20Ficha")?.value) || 0;
   const dado = Math.floor(Math.random() * 20) + 1;
   const total = dado + bonus;
 
@@ -752,8 +529,8 @@ function rolarD20(origem) {
   historicoD20.unshift(resultado);
   historicoD20 = historicoD20.slice(0, 2);
 
-  setText(`resultadoD20Ficha${sufixo}`, total);
-  setHtml(`historicoD20Ficha${sufixo}`, montarHistoricoD20());
+  setText("resultadoD20Ficha", total);
+  setHtml("historicoD20Ficha", montarHistoricoD20());
 }
 
 function montarHistoricoD20() {
@@ -1030,14 +807,6 @@ function setValue(id, valor) {
   }
 }
 
-function fecharFichaPersonagem() {
-  const overlay = document.getElementById("modalFichaPersonagem");
-
-  if (overlay) {
-    overlay.remove();
-  }
-}
-
 function escapeHtml(texto) {
   return String(texto ?? "")
     .replaceAll("&", "&amp;")
@@ -1072,19 +841,11 @@ function aplicarEstilosFicha() {
       align-items: stretch;
     }
 
-    .sheet-layout-modal {
-      grid-template-columns: minmax(240px, 0.8fr) minmax(360px, 1.25fr) minmax(280px, 0.9fr);
-    }
-
     .sheet-grid-lower {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 26px;
       margin-top: 26px;
-    }
-
-    .sheet-grid-modal {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .sheet-card {
@@ -1310,41 +1071,12 @@ function aplicarEstilosFicha() {
       font-size: 12px;
     }
 
-    .sheet-condition-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .sheet-condition-list span {
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.86);
-      border: 1px solid rgba(255,255,255,0.10);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .ficha-modal-restaurada {
-      width: min(1180px, 96vw);
-      max-height: 92vh;
-      overflow: hidden;
-    }
-
-    .ficha-modal-restaurada .crud-form-body {
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
     @media (max-width: 1180px) {
-      .sheet-layout,
-      .sheet-layout-modal {
+      .sheet-layout {
         grid-template-columns: 1fr;
       }
 
-      .sheet-grid-lower,
-      .sheet-grid-modal {
+      .sheet-grid-lower {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -1354,8 +1086,7 @@ function aplicarEstilosFicha() {
         width: 100%;
       }
 
-      .sheet-grid-lower,
-      .sheet-grid-modal {
+      .sheet-grid-lower {
         grid-template-columns: 1fr;
       }
 

@@ -86,6 +86,36 @@ export function confirmarModal({
   });
 }
 
+export function protegerModalContraCliqueFora(overlay, fecharCallback) {
+  if (!overlay) return;
+
+  overlay.dataset.protegerCliqueFora = "true";
+
+  overlay.addEventListener("click", async (event) => {
+    if (event.target !== overlay) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const confirmarSaida = await confirmarModal({
+      titulo: "Sair sem salvar?",
+      mensagem: "Deseja realmente sair? As informações não salvas serão perdidas.",
+      confirmarTexto: "Sair",
+      cancelarTexto: "Continuar editando",
+      tipo: "danger"
+    });
+
+    if (!confirmarSaida) return;
+
+    if (typeof fecharCallback === "function") {
+      fecharCallback();
+      return;
+    }
+
+    overlay.remove();
+  });
+}
+
 function aplicarEstilosModal(overlay) {
   overlay.style.position = "fixed";
   overlay.style.inset = "0";
