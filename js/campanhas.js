@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   query,
   where,
+  orderBy,
   doc,
   updateDoc,
   deleteDoc,
@@ -19,24 +20,46 @@ import { mostrarModal, confirmarModal } from "./ui.js";
 let unsubscribeCampanhas = null;
 let unsubscribeCampanhasCriadasPor = null;
 let unsubscribeCampanhasEmail = null;
-
 let unsubscribePersonagensCampanhas = null;
 let unsubscribePersonagensCampanhasExtras = null;
+let unsubscribeHabilidadesCatalogo = null;
+let unsubscribeItensCatalogo = null;
 
 let campanhaSelecionadaEdicao = null;
 let campanhaSelecionadaRolagem = null;
+let campanhaSelecionadaAcao = null;
+let personagemSelecionadoAcao = null;
 
 let campanhasPorMestreId = [];
 let campanhasPorCriadoPor = [];
 let campanhasPorEmail = [];
-
 let personagensPorCampanhaMestre = [];
 let personagensCriadosPeloUsuario = [];
+
+let habilidadesCatalogo = [];
+let itensCatalogo = [];
+
+const CONDICOES_PADRAO = [
+  "Envenenado",
+  "Queimando",
+  "Atordoado",
+  "Inconsciente",
+  "Fortalecido",
+  "Enfraquecido",
+  "Paralisado",
+  "Sangrando",
+  "Cego",
+  "Silenciado",
+  "Protegido",
+  "Lento"
+];
 
 export function iniciarCampanhas() {
   pararCampanhas();
 
   if (!state.usuarioAtual || !state.dadosUsuarioAtual) return;
+
+  iniciarEscutaCatalogosCampanha();
 
   const campanhasRef = collection(db, "campanhas");
 
@@ -128,6 +151,38 @@ export function iniciarCampanhas() {
   }
 
   iniciarEscutaPersonagensCampanhas();
+}
+
+function iniciarEscutaCatalogosCampanha() {
+  unsubscribeHabilidadesCatalogo = onSnapshot(
+    query(collection(db, "habilidades"), orderBy("nome", "asc")),
+    (snapshot) => {
+      habilidadesCatalogo = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderizarCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar catálogo de habilidades:", erro);
+    }
+  );
+
+  unsubscribeItensCatalogo = onSnapshot(
+    query(collection(db, "itens"), orderBy("nome", "asc")),
+    (snapshot) => {
+      itensCatalogo = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderizarCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar catálogo de itens:", erro);
+    }
+  );
 }
 
 function iniciarEscutaPersonagensCampanhas() {
@@ -240,9 +295,7 @@ function ordenarCampanhas(a, b) {
   const dataA = converterDataOrdenacao(a.criadoEm || a.atualizadoEm);
   const dataB = converterDataOrdenacao(b.criadoEm || b.atualizadoEm);
 
-  if (dataA !== dataB) {
-    return dataB - dataA;
-  }
+  if (dataA !== dataB) return dataB - dataA;
 
   return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
 }
@@ -254,13 +307,9 @@ function ordenarPersonagens(a, b) {
 function converterDataOrdenacao(valor) {
   if (!valor) return 0;
 
-  if (typeof valor.toMillis === "function") {
-    return valor.toMillis();
-  }
+  if (typeof valor.toMillis === "function") return valor.toMillis();
 
-  if (valor.seconds) {
-    return valor.seconds * 1000;
-  }
+  if (valor.seconds) return valor.seconds * 1000;
 
   const data = new Date(valor).getTime();
 
@@ -293,11 +342,23 @@ export function pararCampanhas() {
     unsubscribePersonagensCampanhasExtras = null;
   }
 
+  if (unsubscribeHabilidadesCatalogo) {
+    unsubscribeHabilidadesCatalogo();
+    unsubscribeHabilidadesCatalogo = null;
+  }
+
+  if (unsubscribeItensCatalogo) {
+    unsubscribeItensCatalogo();
+    unsubscribeItensCatalogo = null;
+  }
+
   campanhasPorMestreId = [];
   campanhasPorCriadoPor = [];
   campanhasPorEmail = [];
   personagensPorCampanhaMestre = [];
   personagensCriadosPeloUsuario = [];
+  habilidadesCatalogo = [];
+  itensCatalogo = [];
 }
 
 function gerarCodigoCampanha() {
@@ -374,18 +435,14 @@ function abrirModalCriacaoCampanha() {
   document.getElementById("btnCriarCampanha")?.addEventListener("click", criarCampanha);
 
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalCriacaoCampanha();
-    }
+    if (event.target === overlay) fecharModalCriacaoCampanha();
   });
 }
 
 function fecharModalCriacaoCampanha() {
   const overlay = document.getElementById("modalCriacaoCampanha");
 
-  if (overlay) {
-    overlay.remove();
-  }
+  if (overlay) overlay.remove();
 }
 
 function abrirModalEntradaCampanha() {
@@ -429,18 +486,14 @@ function abrirModalEntradaCampanha() {
   document.getElementById("btnEntrarCampanha")?.addEventListener("click", entrarCampanha);
 
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalEntradaCampanha();
-    }
+    if (event.target === overlay) fecharModalEntradaCampanha();
   });
 }
 
 function fecharModalEntradaCampanha() {
   const overlay = document.getElementById("modalEntradaCampanha");
 
-  if (overlay) {
-    overlay.remove();
-  }
+  if (overlay) overlay.remove();
 }
 
 async function criarCampanha() {
@@ -475,7 +528,6 @@ async function criarCampanha() {
       mestreEmail: state.usuarioAtual.email,
       jogadoresIds: [],
       jogadores: [],
-
       status: "aguardando",
       sessaoAtiva: false,
       rodadaAtual: 0,
@@ -490,7 +542,6 @@ async function criarCampanha() {
         criarEventoSessaoTexto("Campanha criada. Aguardando o Mestre iniciar a sessão.")
       ],
       mensagemSessao: "Campanha criada. Aguardando o Mestre iniciar a sessão.",
-
       criadoEm: serverTimestamp()
     });
 
@@ -592,7 +643,7 @@ async function iniciarSessaoCampanha(campanha) {
 
   const confirmar = await confirmarModal({
     titulo: "Iniciar sessão",
-    mensagem: `Deseja iniciar a sessão da campanha “${campanha.nome}”? A ordem de turno será criada com os personagens vinculados.`,
+    mensagem: `Deseja iniciar a sessão da campanha “${campanha.nome}”?`,
     confirmarTexto: "Iniciar",
     cancelarTexto: "Cancelar",
     tipo: "success"
@@ -704,6 +755,12 @@ async function avancarTurnoCampanha(campanha) {
     return;
   }
 
+  const personagemAtualId = campanha.personagemTurnoId;
+
+  if (personagemAtualId) {
+    await reduzirCooldownsDoPersonagem(personagemAtualId);
+  }
+
   const indiceAtual = Number(campanha.turnoIndice ?? 0);
   let proximoIndice = indiceAtual + 1;
   let proximaRodada = Number(campanha.rodadaAtual || 1);
@@ -748,6 +805,10 @@ async function avancarRodadaCampanha(campanha) {
   const ordemTurnos = Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos : [];
   const primeiro = ordemTurnos[0] || null;
 
+  for (const personagem of obterPersonagensDaCampanha(campanha)) {
+    await reduzirCooldownsDoPersonagem(personagem.id);
+  }
+
   try {
     await updateDoc(doc(db, "campanhas", campanha.id), {
       rodadaAtual: proximaRodada,
@@ -789,9 +850,7 @@ function criarOrdemTurnos(personagens) {
       manaMax: Number(personagem.manaMax || 0)
     }))
     .sort((a, b) => {
-      if (b.velocidade !== a.velocidade) {
-        return b.velocidade - a.velocidade;
-      }
+      if (b.velocidade !== a.velocidade) return b.velocidade - a.velocidade;
 
       return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
     });
@@ -802,7 +861,7 @@ function abrirModalRolagemSessao(campanha) {
 
   campanhaSelecionadaRolagem = campanha;
 
-  const personagens = obterPersonagensDisponiveisParaRolagem(campanha);
+  const personagens = obterPersonagensDisponiveisParaAcao(campanha);
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -854,18 +913,14 @@ function abrirModalRolagemSessao(campanha) {
   document.getElementById("confirmarRolagemSessao")?.addEventListener("click", rolarD20Sessao);
 
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalRolagemSessao();
-    }
+    if (event.target === overlay) fecharModalRolagemSessao();
   });
 }
 
 function fecharModalRolagemSessao() {
   const overlay = document.getElementById("modalRolagemSessao");
 
-  if (overlay) {
-    overlay.remove();
-  }
+  if (overlay) overlay.remove();
 
   campanhaSelecionadaRolagem = null;
 }
@@ -888,7 +943,7 @@ async function rolarD20Sessao() {
     return;
   }
 
-  const personagens = obterPersonagensDisponiveisParaRolagem(campanhaSelecionadaRolagem);
+  const personagens = obterPersonagensDisponiveisParaAcao(campanhaSelecionadaRolagem);
   const personagemId = valorCampo("rolagemPersonagemSessao");
   const personagem = personagens.find((item) => item.id === personagemId);
 
@@ -931,12 +986,357 @@ async function rolarD20Sessao() {
   }
 }
 
-function obterPersonagensDisponiveisParaRolagem(campanha) {
+function abrirModalUsarHabilidade(campanha, personagem) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+  personagemSelecionadoAcao = personagem;
+
+  const habilidades = obterHabilidadesDoPersonagem(personagem);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Usar habilidade</h3>
+          <p>${escapeHtml(personagem.nome || "Personagem")}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Habilidade
+            <select id="habilidadeUsadaSessao">
+              ${
+                habilidades.length
+                  ? habilidades.map((habilidade) => {
+                      const custo = obterCustoManaHabilidade(habilidade);
+                      const cooldown = obterCooldownHabilidade(habilidade);
+                      const restante = obterCooldownRestante(personagem, habilidade.id);
+                      const extra = restante > 0 ? ` — em cooldown: ${restante}` : ` — Mana: ${custo} — CD: ${cooldown}`;
+                      return `<option value="${habilidade.id}">${escapeHtml(habilidade.nome || "Habilidade")}${extra}</option>`;
+                    }).join("")
+                  : `<option value="">Nenhuma habilidade disponível</option>`
+              }
+            </select>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarUsoHabilidade">Usar habilidade</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarUsoHabilidade")?.addEventListener("click", usarHabilidadeSelecionada);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function usarHabilidadeSelecionada() {
+  if (!campanhaSelecionadaAcao || !personagemSelecionadoAcao) {
+    await mostrarModal("Nenhuma ação selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const habilidadeId = valorCampo("habilidadeUsadaSessao");
+  const habilidade = obterHabilidadesDoPersonagem(personagemSelecionadoAcao).find((item) => item.id === habilidadeId);
+
+  if (!habilidade) {
+    await mostrarModal("Selecione uma habilidade válida.", "Campo obrigatório");
+    return;
+  }
+
+  const custoMana = obterCustoManaHabilidade(habilidade);
+  const cooldown = obterCooldownHabilidade(habilidade);
+  const cooldownRestante = obterCooldownRestante(personagemSelecionadoAcao, habilidade.id);
+  const manaAtual = Number(personagemSelecionadoAcao.manaAtual || 0);
+
+  if (cooldownRestante > 0) {
+    await mostrarModal(`Essa habilidade ainda está em cooldown por ${cooldownRestante} turno(s).`, "Cooldown ativo", "danger");
+    return;
+  }
+
+  if (manaAtual < custoMana) {
+    await mostrarModal(
+      `Mana insuficiente. Necessário: ${custoMana}. Mana atual: ${manaAtual}.`,
+      "Mana insuficiente",
+      "danger"
+    );
+    return;
+  }
+
+  const novaMana = manaAtual - custoMana;
+  const cooldowns = {
+    ...(personagemSelecionadoAcao.cooldownsHabilidades || {})
+  };
+
+  if (cooldown > 0) {
+    cooldowns[habilidade.id] = cooldown;
+  }
+
+  const texto = `${personagemSelecionadoAcao.nome || "Personagem"} usou ${habilidade.nome || "uma habilidade"} e gastou ${custoMana} de Mana.`;
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemSelecionadoAcao.id), {
+      manaAtual: novaMana,
+      cooldownsHabilidades: cooldowns,
+      atualizadoEm: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "habilidade"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Habilidade usada com sucesso.", "Ação registrada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao usar habilidade:", erro);
+    await mostrarModal("Erro ao usar habilidade.", "Erro", "danger");
+  }
+}
+
+function abrirModalUsarItem(campanha, personagem) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+  personagemSelecionadoAcao = personagem;
+
+  const inventario = obterInventarioPersonagem(personagem);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Usar item</h3>
+          <p>${escapeHtml(personagem.nome || "Personagem")}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Item
+            <select id="itemUsadoSessao">
+              ${
+                inventario.length
+                  ? inventario.map((item) => {
+                      return `<option value="${item.id}">${escapeHtml(item.nome || "Item")} — Qtde: ${Number(item.quantidade || 1)}</option>`;
+                    }).join("")
+                  : `<option value="">Nenhum item no inventário</option>`
+              }
+            </select>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarUsoItem">Usar item</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarUsoItem")?.addEventListener("click", usarItemSelecionado);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function usarItemSelecionado() {
+  if (!campanhaSelecionadaAcao || !personagemSelecionadoAcao) {
+    await mostrarModal("Nenhuma ação selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const itemId = valorCampo("itemUsadoSessao");
+  const inventario = obterInventarioPersonagem(personagemSelecionadoAcao);
+  const itemInventario = inventario.find((item) => item.id === itemId);
+
+  if (!itemInventario) {
+    await mostrarModal("Selecione um item válido.", "Campo obrigatório");
+    return;
+  }
+
+  const itemCompleto = completarItem(itemInventario);
+  const resultado = aplicarEfeitoItem(personagemSelecionadoAcao, itemCompleto);
+  const novoInventario = consumirItemInventario(inventario, itemInventario.id);
+
+  const texto = `${personagemSelecionadoAcao.nome || "Personagem"} usou ${itemCompleto.nome || "um item"}. ${resultado.descricao}`;
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemSelecionadoAcao.id), {
+      ...resultado.atualizacao,
+      inventario: novoInventario,
+      atualizadoEm: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "item"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Item usado com sucesso.", "Ação registrada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao usar item:", erro);
+    await mostrarModal("Erro ao usar item.", "Erro", "danger");
+  }
+}
+
+function abrirModalCondicao(campanha, personagem, modo) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+  personagemSelecionadoAcao = personagem;
+
+  const condicoesAtuais = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  const opcoes = modo === "remover"
+    ? condicoesAtuais
+    : CONDICOES_PADRAO;
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>${modo === "remover" ? "Remover condição" : "Aplicar condição"}</h3>
+          <p>${escapeHtml(personagem.nome || "Personagem")}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Condição
+            <select id="condicaoSelecionada">
+              ${
+                opcoes.length
+                  ? opcoes.map((condicao) => `<option value="${escapeHtml(condicao)}">${escapeHtml(condicao)}</option>`).join("")
+                  : `<option value="">Nenhuma condição disponível</option>`
+              }
+            </select>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarCondicao">
+              ${modo === "remover" ? "Remover" : "Aplicar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarCondicao")?.addEventListener("click", () => salvarCondicaoPersonagem(modo));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function salvarCondicaoPersonagem(modo) {
+  if (!campanhaSelecionadaAcao || !personagemSelecionadoAcao) {
+    await mostrarModal("Nenhuma ação selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const condicao = valorCampo("condicaoSelecionada");
+
+  if (!condicao) {
+    await mostrarModal("Selecione uma condição.", "Campo obrigatório");
+    return;
+  }
+
+  const condicoesAtuais = Array.isArray(personagemSelecionadoAcao.condicoes)
+    ? [...personagemSelecionadoAcao.condicoes]
+    : [];
+
+  let novasCondicoes = [...condicoesAtuais];
+
+  if (modo === "remover") {
+    novasCondicoes = novasCondicoes.filter((item) => item !== condicao);
+  } else if (!novasCondicoes.includes(condicao)) {
+    novasCondicoes.push(condicao);
+  }
+
+  const texto = modo === "remover"
+    ? `${condicao} foi removido de ${personagemSelecionadoAcao.nome || "Personagem"}.`
+    : `${personagemSelecionadoAcao.nome || "Personagem"} recebeu a condição ${condicao}.`;
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemSelecionadoAcao.id), {
+      condicoes: novasCondicoes,
+      atualizadoEm: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "condicao"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Condição atualizada com sucesso.", "Status atualizado", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao atualizar condição:", erro);
+    await mostrarModal("Erro ao atualizar condição.", "Erro", "danger");
+  }
+}
+
+function fecharModalAcaoPersonagem() {
+  const overlay = document.getElementById("modalAcaoPersonagem");
+
+  if (overlay) overlay.remove();
+
+  campanhaSelecionadaAcao = null;
+  personagemSelecionadoAcao = null;
+}
+
+function obterPersonagensDisponiveisParaAcao(campanha) {
   const personagens = obterPersonagensDaCampanha(campanha);
 
-  if (state.dadosUsuarioAtual?.tipo === "mestre") {
-    return personagens;
-  }
+  if (state.dadosUsuarioAtual?.tipo === "mestre") return personagens;
 
   return personagens.filter((personagem) => personagem.donoId === state.usuarioAtual.uid);
 }
@@ -1090,18 +1490,14 @@ function abrirEdicaoCampanha(campanha) {
   document.getElementById("salvarEdicaoCampanha")?.addEventListener("click", salvarEdicaoCampanha);
 
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      fecharModalEdicaoCampanha();
-    }
+    if (event.target === overlay) fecharModalEdicaoCampanha();
   });
 }
 
 function fecharModalEdicaoCampanha() {
   const overlay = document.getElementById("modalEdicaoCampanha");
 
-  if (overlay) {
-    overlay.remove();
-  }
+  if (overlay) overlay.remove();
 
   campanhaSelecionadaEdicao = null;
 }
@@ -1146,9 +1542,7 @@ export function preencherSelectCampanhas() {
       select.appendChild(option);
     });
 
-    if (valorAtual) {
-      select.value = valorAtual;
-    }
+    if (valorAtual) select.value = valorAtual;
   });
 }
 
@@ -1259,13 +1653,13 @@ export function renderizarCampanhas() {
       </div>
     `;
 
-    vincularEventosCardCampanha(card, campanha);
+    vincularEventosCardCampanha(card, campanha, personagens);
 
     lista.appendChild(card);
   });
 }
 
-function vincularEventosCardCampanha(card, campanha) {
+function vincularEventosCardCampanha(card, campanha, personagens) {
   const botaoIniciar = card.querySelector(".iniciar-sessao-campanha");
   const botaoPausar = card.querySelector(".pausar-sessao-campanha");
   const botaoEncerrar = card.querySelector(".encerrar-sessao-campanha");
@@ -1275,37 +1669,42 @@ function vincularEventosCardCampanha(card, campanha) {
   const botaoExcluir = card.querySelector(".excluir-campanha");
   const botaoRolar = card.querySelector(".rolar-d20-sessao");
 
-  if (botaoIniciar) {
-    botaoIniciar.addEventListener("click", () => iniciarSessaoCampanha(campanha));
-  }
+  if (botaoIniciar) botaoIniciar.addEventListener("click", () => iniciarSessaoCampanha(campanha));
+  if (botaoPausar) botaoPausar.addEventListener("click", () => pausarSessaoCampanha(campanha));
+  if (botaoEncerrar) botaoEncerrar.addEventListener("click", () => encerrarSessaoCampanha(campanha));
+  if (botaoAvancarTurno) botaoAvancarTurno.addEventListener("click", () => avancarTurnoCampanha(campanha));
+  if (botaoAvancarRodada) botaoAvancarRodada.addEventListener("click", () => avancarRodadaCampanha(campanha));
+  if (botaoEditar) botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
+  if (botaoExcluir) botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
+  if (botaoRolar) botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
 
-  if (botaoPausar) {
-    botaoPausar.addEventListener("click", () => pausarSessaoCampanha(campanha));
-  }
+  card.querySelectorAll(".usar-habilidade-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) abrirModalUsarHabilidade(campanha, personagem);
+    });
+  });
 
-  if (botaoEncerrar) {
-    botaoEncerrar.addEventListener("click", () => encerrarSessaoCampanha(campanha));
-  }
+  card.querySelectorAll(".usar-item-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) abrirModalUsarItem(campanha, personagem);
+    });
+  });
 
-  if (botaoAvancarTurno) {
-    botaoAvancarTurno.addEventListener("click", () => avancarTurnoCampanha(campanha));
-  }
+  card.querySelectorAll(".aplicar-condicao-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) abrirModalCondicao(campanha, personagem, "aplicar");
+    });
+  });
 
-  if (botaoAvancarRodada) {
-    botaoAvancarRodada.addEventListener("click", () => avancarRodadaCampanha(campanha));
-  }
-
-  if (botaoEditar) {
-    botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
-  }
-
-  if (botaoExcluir) {
-    botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
-  }
-
-  if (botaoRolar) {
-    botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
-  }
+  card.querySelectorAll(".remover-condicao-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) abrirModalCondicao(campanha, personagem, "remover");
+    });
+  });
 }
 
 function montarPersonagensCampanha(personagens, campanha) {
@@ -1317,11 +1716,17 @@ function montarPersonagensCampanha(personagens, campanha) {
     `;
   }
 
+  const podeMestre = podeControlarCampanha(campanha);
+
   return `
     <div class="campaign-character-grid">
       ${personagens
         .map((personagem) => {
           const turnoAtual = campanha.personagemTurnoId === personagem.id;
+          const podeAgir = podeMestre || personagem.donoId === state.usuarioAtual?.uid;
+          const condicoes = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
+          const inventario = obterInventarioPersonagem(personagem);
+          const habilidades = obterHabilidadesDoPersonagem(personagem);
 
           return `
             <div class="campaign-character-card ${turnoAtual ? "active-turn" : ""}">
@@ -1334,11 +1739,62 @@ function montarPersonagensCampanha(personagens, campanha) {
                 <span>HP ${Number(personagem.hpAtual || 0)}/${Number(personagem.hpMax || 0)}</span>
                 <span>Mana ${Number(personagem.manaAtual || 0)}/${Number(personagem.manaMax || 0)}</span>
                 <span>Vel. ${Number(personagem.velocidade || 0)}</span>
+                <span>Habs. ${habilidades.length}</span>
+                <span>Itens ${inventario.length}</span>
               </div>
+
+              <div class="campaign-condition-list">
+                ${
+                  condicoes.length
+                    ? condicoes.map((condicao) => `<span>${escapeHtml(condicao)}</span>`).join("")
+                    : `<small>Sem condições</small>`
+                }
+              </div>
+
+              ${
+                montarCooldownsPersonagem(personagem)
+              }
+
+              ${
+                podeAgir
+                  ? `
+                    <div class="campaign-character-actions">
+                      <button class="secondary-btn usar-habilidade-campanha" data-personagem-id="${personagem.id}">Usar habilidade</button>
+                      <button class="secondary-btn usar-item-campanha" data-personagem-id="${personagem.id}">Usar item</button>
+                      ${
+                        podeMestre
+                          ? `
+                            <button class="secondary-btn aplicar-condicao-campanha" data-personagem-id="${personagem.id}">Aplicar status</button>
+                            <button class="small-btn danger remover-condicao-campanha" data-personagem-id="${personagem.id}">Remover status</button>
+                          `
+                          : ""
+                      }
+                    </div>
+                  `
+                  : ""
+              }
             </div>
           `;
         })
         .join("")}
+    </div>
+  `;
+}
+
+function montarCooldownsPersonagem(personagem) {
+  const cooldowns = personagem.cooldownsHabilidades || {};
+  const ativos = Object.entries(cooldowns).filter(([, valor]) => Number(valor) > 0);
+
+  if (!ativos.length) {
+    return `<div class="campaign-cooldown-list"><small>Sem cooldown ativo</small></div>`;
+  }
+
+  return `
+    <div class="campaign-cooldown-list">
+      ${ativos.map(([id, valor]) => {
+        const habilidade = encontrarHabilidadePorId(id);
+        return `<span>${escapeHtml(habilidade?.nome || "Habilidade")} CD ${Number(valor)}</span>`;
+      }).join("")}
     </div>
   `;
 }
@@ -1449,33 +1905,17 @@ function montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens) {
 }
 
 function obterTextoStatusCampanha(campanha) {
-  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) {
-    return "Sessão ativa";
-  }
-
-  if (campanha.status === "pausada") {
-    return "Sessão pausada";
-  }
-
-  if (campanha.status === "encerrada") {
-    return "Sessão encerrada";
-  }
+  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) return "Sessão ativa";
+  if (campanha.status === "pausada") return "Sessão pausada";
+  if (campanha.status === "encerrada") return "Sessão encerrada";
 
   return "Aguardando início";
 }
 
 function obterClasseStatusCampanha(campanha) {
-  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) {
-    return "session-active";
-  }
-
-  if (campanha.status === "pausada") {
-    return "session-paused";
-  }
-
-  if (campanha.status === "encerrada") {
-    return "session-ended";
-  }
+  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) return "session-active";
+  if (campanha.status === "pausada") return "session-paused";
+  if (campanha.status === "encerrada") return "session-ended";
 
   return "session-waiting";
 }
@@ -1483,9 +1923,208 @@ function obterClasseStatusCampanha(campanha) {
 function atualizarContadorCampanhas() {
   const contador = document.getElementById("contadorCampanhas");
 
-  if (contador) {
-    contador.textContent = state.minhasCampanhas.length;
+  if (contador) contador.textContent = state.minhasCampanhas.length;
+}
+
+function obterHabilidadesDoPersonagem(personagem) {
+  const habilidades = [];
+
+  if (personagem.habilidadeExclusivaRaca) habilidades.push(personagem.habilidadeExclusivaRaca);
+  if (personagem.habilidadeExclusivaClasse) habilidades.push(personagem.habilidadeExclusivaClasse);
+
+  if (Array.isArray(personagem.habilidadesIniciais)) {
+    personagem.habilidadesIniciais.forEach((habilidade) => habilidades.push(habilidade));
   }
+
+  const mapa = new Map();
+
+  habilidades.forEach((habilidade) => {
+    const completa = completarHabilidade(habilidade);
+    if (completa?.id) mapa.set(completa.id, completa);
+  });
+
+  return Array.from(mapa.values());
+}
+
+function completarHabilidade(habilidade) {
+  if (!habilidade) return null;
+
+  const catalogo = encontrarHabilidadePorId(habilidade.id);
+
+  return {
+    ...catalogo,
+    ...habilidade,
+    id: habilidade.id || catalogo?.id || "",
+    nome: habilidade.nome || catalogo?.nome || "Habilidade sem nome"
+  };
+}
+
+function encontrarHabilidadePorId(id) {
+  return habilidadesCatalogo.find((habilidade) => habilidade.id === id) || null;
+}
+
+function obterCustoManaHabilidade(habilidade) {
+  return numeroDeCampos(habilidade, [
+    "custoManaEnergia",
+    "custoMana",
+    "custoDeMana",
+    "custo",
+    "mana",
+    "custoEnergia"
+  ]);
+}
+
+function obterCooldownHabilidade(habilidade) {
+  return numeroDeCampos(habilidade, [
+    "cooldown",
+    "recarga",
+    "tempoRecarga",
+    "turnosCooldown"
+  ]);
+}
+
+function obterCooldownRestante(personagem, habilidadeId) {
+  const cooldowns = personagem.cooldownsHabilidades || {};
+  return Number(cooldowns[habilidadeId] || 0);
+}
+
+async function reduzirCooldownsDoPersonagem(personagemId) {
+  const personagem = state.personagens.find((item) => item.id === personagemId);
+
+  if (!personagem || !personagem.cooldownsHabilidades) return;
+
+  const novosCooldowns = {};
+
+  Object.entries(personagem.cooldownsHabilidades).forEach(([id, valor]) => {
+    const novoValor = Math.max(0, Number(valor || 0) - 1);
+
+    if (novoValor > 0) {
+      novosCooldowns[id] = novoValor;
+    }
+  });
+
+  await updateDoc(doc(db, "personagens", personagemId), {
+    cooldownsHabilidades: novosCooldowns,
+    atualizadoEm: serverTimestamp()
+  });
+}
+
+function obterInventarioPersonagem(personagem) {
+  if (Array.isArray(personagem.inventario) && personagem.inventario.length > 0) {
+    return personagem.inventario.map((item) => completarItem(item));
+  }
+
+  if (Array.isArray(personagem.itensIniciais)) {
+    return personagem.itensIniciais.map((item) => completarItem({
+      ...item,
+      quantidade: item.quantidade || 1
+    }));
+  }
+
+  return [];
+}
+
+function completarItem(item) {
+  if (!item) return null;
+
+  const catalogo = itensCatalogo.find((itemCatalogo) => itemCatalogo.id === item.id);
+
+  return {
+    ...catalogo,
+    ...item,
+    id: item.id || catalogo?.id || "",
+    nome: item.nome || catalogo?.nome || "Item sem nome",
+    quantidade: Number(item.quantidade || 1)
+  };
+}
+
+function consumirItemInventario(inventario, itemId) {
+  return inventario
+    .map((item) => {
+      if (item.id !== itemId) return item;
+
+      return {
+        ...item,
+        quantidade: Number(item.quantidade || 1) - 1
+      };
+    })
+    .filter((item) => Number(item.quantidade || 0) > 0);
+}
+
+function aplicarEfeitoItem(personagem, item) {
+  const efeitoTexto = normalizarTexto(`${item.efeitoPrincipal || ""} ${item.categoria || ""} ${item.nome || ""}`);
+
+  const valor = numeroDeCampos(item, [
+    "valorEfeito",
+    "cura",
+    "recuperacao",
+    "bonus",
+    "quantidadeEfeito",
+    "efeitoValor"
+  ]) || 10;
+
+  const atualizacao = {};
+  const descricoes = [];
+
+  if (efeitoTexto.includes("hp") || efeitoTexto.includes("vida") || efeitoTexto.includes("cura")) {
+    const hpMax = Number(personagem.hpMax || 0);
+    const hpAtual = Number(personagem.hpAtual || 0);
+    const novoHp = Math.min(hpMax, hpAtual + valor);
+    atualizacao.hpAtual = novoHp;
+    descricoes.push(`Recuperou ${novoHp - hpAtual} de HP.`);
+  }
+
+  if (efeitoTexto.includes("mana")) {
+    const manaMax = Number(personagem.manaMax || 0);
+    const manaAtual = Number(personagem.manaAtual || 0);
+    const novaMana = Math.min(manaMax, manaAtual + valor);
+    atualizacao.manaAtual = novaMana;
+    descricoes.push(`Recuperou ${novaMana - manaAtual} de Mana.`);
+  }
+
+  if (efeitoTexto.includes("fome")) {
+    const fomeAtual = Number(personagem.fome || 0);
+    const novaFome = Math.max(0, fomeAtual - valor);
+    atualizacao.fome = novaFome;
+    descricoes.push(`Reduziu ${fomeAtual - novaFome} de Fome.`);
+  }
+
+  if (efeitoTexto.includes("fadiga") || efeitoTexto.includes("cansaço") || efeitoTexto.includes("cansaco")) {
+    const fadigaAtual = Number(personagem.fadiga || 0);
+    const novaFadiga = Math.max(0, fadigaAtual - valor);
+    atualizacao.fadiga = novaFadiga;
+    descricoes.push(`Reduziu ${fadigaAtual - novaFadiga} de Fadiga.`);
+  }
+
+  if (descricoes.length === 0) {
+    descricoes.push("O efeito foi registrado, mas nenhum efeito automático foi identificado.");
+  }
+
+  return {
+    atualizacao,
+    descricao: descricoes.join(" ")
+  };
+}
+
+function numeroDeCampos(objeto, campos) {
+  for (const campo of campos) {
+    const valor = objeto?.[campo];
+
+    if (valor === undefined || valor === null || valor === "") continue;
+
+    const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
+
+    if (Number.isFinite(numero)) return numero;
+  }
+
+  return 0;
+}
+
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function aplicarEstilosCampanhas() {
@@ -1699,7 +2338,7 @@ function aplicarEstilosCampanhas() {
 
     .campaign-character-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 12px;
     }
 
@@ -1729,19 +2368,42 @@ function aplicarEstilosCampanhas() {
       font-weight: 700;
     }
 
-    .campaign-character-stats {
+    .campaign-character-stats,
+    .campaign-condition-list,
+    .campaign-cooldown-list {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
 
-    .campaign-character-stats span {
+    .campaign-character-stats span,
+    .campaign-condition-list span,
+    .campaign-cooldown-list span {
       padding: 6px 9px;
       border-radius: 999px;
       background: rgba(255,255,255,0.07);
       color: rgba(255,255,255,0.78);
       font-size: 12px;
       font-weight: 800;
+    }
+
+    .campaign-condition-list small,
+    .campaign-cooldown-list small {
+      color: rgba(255,255,255,0.46);
+      font-weight: 800;
+    }
+
+    .campaign-character-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-character-actions button {
+      padding: 9px 11px;
+      font-size: 12px;
     }
 
     .turn-order-list {

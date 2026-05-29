@@ -2,7 +2,11 @@ import {
   db,
   doc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  onSnapshot,
+  query,
+  orderBy
 } from "./firebase.js";
 
 import { state } from "./state.js";
@@ -11,15 +15,61 @@ import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
 let historicoD20 = [];
+let habilidadesCatalogoFicha = [];
+let itensCatalogoFicha = [];
+
+let unsubscribeHabilidadesFicha = null;
+let unsubscribeItensFicha = null;
 
 export function initFicha() {
   aplicarEstilosFicha();
+  iniciarCatalogosFicha();
 
   onPageLoaded((pagina) => {
     if (pagina === "ficha") {
       renderizarTelaFicha();
     }
   });
+}
+
+function iniciarCatalogosFicha() {
+  if (!unsubscribeHabilidadesFicha) {
+    unsubscribeHabilidadesFicha = onSnapshot(
+      query(collection(db, "habilidades"), orderBy("nome", "asc")),
+      (snapshot) => {
+        habilidadesCatalogoFicha = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        if (document.getElementById("fichaPersonagemPage")) {
+          renderizarTelaFicha();
+        }
+      },
+      (erro) => {
+        console.error("Erro ao carregar habilidades da ficha:", erro);
+      }
+    );
+  }
+
+  if (!unsubscribeItensFicha) {
+    unsubscribeItensFicha = onSnapshot(
+      query(collection(db, "itens"), orderBy("nome", "asc")),
+      (snapshot) => {
+        itensCatalogoFicha = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        if (document.getElementById("fichaPersonagemPage")) {
+          renderizarTelaFicha();
+        }
+      },
+      (erro) => {
+        console.error("Erro ao carregar itens da ficha:", erro);
+      }
+    );
+  }
 }
 
 export function abrirFichaPersonagem(personagem) {
@@ -54,6 +104,14 @@ export function abrirFichaPersonagem(personagem) {
   document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
   document.getElementById("salvarStatusFichaModal")?.addEventListener("click", () => salvarStatusFicha("modal"));
   document.getElementById("rolarD20FichaModal")?.addEventListener("click", () => rolarD20("modal"));
+
+  overlay.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "modal"));
+  });
+
+  overlay.querySelectorAll(".usar-item-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "modal"));
+  });
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
@@ -114,6 +172,14 @@ function renderizarTelaFicha() {
 
   document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha("pagina"));
   document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20("pagina"));
+
+  document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
+  });
+
+  document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
+  });
 }
 
 function obterPersonagensDisponiveis() {
@@ -161,7 +227,7 @@ function limparFicha() {
   setHtml("fichaHabilidadesLista", `<p>Nenhuma habilidade carregada.</p>`);
   setHtml("fichaItensLista", `<p>Nenhum item carregado.</p>`);
   setHtml("fichaPetConteudo", `<p>Nenhum pet carregado.</p>`);
-  setText("fichaHistoriaTexto", "Nenhuma história carregada.");
+  setHtml("fichaHistoriaTexto", "Nenhuma história carregada.");
 }
 
 function preencherFicha(personagem) {
@@ -208,7 +274,15 @@ function preencherFicha(personagem) {
   setHtml("fichaHabilidadesLista", montarHabilidades(personagem));
   setHtml("fichaItensLista", montarItens(personagem));
   setHtml("fichaPetConteudo", montarPet(personagem));
-  setText("fichaHistoriaTexto", personagem.historia || "Nenhuma história cadastrada.");
+  setHtml("fichaHistoriaTexto", escapeHtml(personagem.historia || "Nenhuma história cadastrada."));
+
+  document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
+  });
+
+  document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
+  });
 }
 
 function montarFichaModal(personagem) {
@@ -334,6 +408,11 @@ function montarFichaModal(personagem) {
       </section>
 
       <section class="sheet-card">
+        <h3>Condições / Status</h3>
+        ${montarCondicoes(personagem)}
+      </section>
+
+      <section class="sheet-card">
         <h3>História / Descrição</h3>
         <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
       </section>
@@ -404,30 +483,7 @@ function montarClasse(personagem) {
 }
 
 function montarHabilidades(personagem) {
-  const habilidades = [];
-
-  if (personagem.habilidadeExclusivaRaca) {
-    habilidades.push({
-      ...personagem.habilidadeExclusivaRaca,
-      origem: "Raça"
-    });
-  }
-
-  if (personagem.habilidadeExclusivaClasse) {
-    habilidades.push({
-      ...personagem.habilidadeExclusivaClasse,
-      origem: "Classe"
-    });
-  }
-
-  if (Array.isArray(personagem.habilidadesIniciais)) {
-    personagem.habilidadesIniciais.forEach((habilidade) => {
-      habilidades.push({
-        ...habilidade,
-        origem: "Inicial"
-      });
-    });
-  }
+  const habilidades = obterHabilidadesDoPersonagem(personagem);
 
   if (!habilidades.length) {
     return `<p>Nenhuma habilidade cadastrada para este personagem.</p>`;
@@ -437,10 +493,17 @@ function montarHabilidades(personagem) {
     <div class="sheet-mini-list">
       ${habilidades
         .map((habilidade) => {
+          const custo = obterCustoManaHabilidade(habilidade);
+          const cooldown = obterCooldownHabilidade(habilidade);
+          const restante = obterCooldownRestante(personagem, habilidade.id);
+
           return `
             <div class="sheet-mini-card">
               <strong>${escapeHtml(habilidade.nome || "Habilidade sem nome")}</strong>
-              <span>${escapeHtml(habilidade.origem || "Habilidade")}</span>
+              <span>Mana: ${custo} • Cooldown: ${cooldown} ${restante > 0 ? `• Restante: ${restante}` : ""}</span>
+              <button class="secondary-btn usar-habilidade-ficha" type="button" data-habilidade-id="${habilidade.id}">
+                Usar habilidade
+              </button>
             </div>
           `;
         })
@@ -450,22 +513,23 @@ function montarHabilidades(personagem) {
 }
 
 function montarItens(personagem) {
-  const itens = Array.isArray(personagem.itensIniciais)
-    ? personagem.itensIniciais
-    : [];
+  const inventario = obterInventarioPersonagem(personagem);
 
-  if (!itens.length) {
+  if (!inventario.length) {
     return `<p>Nenhum item cadastrado para este personagem.</p>`;
   }
 
   return `
     <div class="sheet-mini-list">
-      ${itens
+      ${inventario
         .map((item) => {
           return `
             <div class="sheet-mini-card">
               <strong>${escapeHtml(item.nome || "Item sem nome")}</strong>
-              <span>Item</span>
+              <span>Quantidade: ${Number(item.quantidade || 1)} • ${escapeHtml(item.efeitoPrincipal || "Sem efeito automático descrito")}</span>
+              <button class="secondary-btn usar-item-ficha" type="button" data-item-id="${item.id}">
+                Usar item
+              </button>
             </div>
           `;
         })
@@ -491,6 +555,133 @@ function montarPet(personagem) {
       <li><strong>Bônus ao Dono:</strong> ${escapeHtml(pet.bonusDono || "Não informado")}</li>
     </ul>
   `;
+}
+
+function montarCondicoes(personagem) {
+  const condicoes = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
+
+  if (!condicoes.length) {
+    return `<p>Nenhuma condição ativa.</p>`;
+  }
+
+  return `
+    <div class="sheet-condition-list">
+      ${condicoes.map((condicao) => `<span>${escapeHtml(condicao)}</span>`).join("")}
+    </div>
+  `;
+}
+
+async function usarHabilidadeFicha(habilidadeId, origem) {
+  if (!personagemFichaAtual) {
+    await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
+    return;
+  }
+
+  const habilidade = obterHabilidadesDoPersonagem(personagemFichaAtual).find((item) => item.id === habilidadeId);
+
+  if (!habilidade) {
+    await mostrarModal("Habilidade não encontrada.", "Erro", "danger");
+    return;
+  }
+
+  const custoMana = obterCustoManaHabilidade(habilidade);
+  const cooldown = obterCooldownHabilidade(habilidade);
+  const cooldownRestante = obterCooldownRestante(personagemFichaAtual, habilidade.id);
+  const manaAtual = Number(personagemFichaAtual.manaAtual || 0);
+
+  if (cooldownRestante > 0) {
+    await mostrarModal(`Essa habilidade ainda está em cooldown por ${cooldownRestante} turno(s).`, "Cooldown ativo", "danger");
+    return;
+  }
+
+  if (manaAtual < custoMana) {
+    await mostrarModal(
+      `Mana insuficiente. Necessário: ${custoMana}. Mana atual: ${manaAtual}.`,
+      "Mana insuficiente",
+      "danger"
+    );
+    return;
+  }
+
+  const novaMana = manaAtual - custoMana;
+  const cooldowns = {
+    ...(personagemFichaAtual.cooldownsHabilidades || {})
+  };
+
+  if (cooldown > 0) {
+    cooldowns[habilidade.id] = cooldown;
+  }
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+      manaAtual: novaMana,
+      cooldownsHabilidades: cooldowns,
+      atualizadoEm: serverTimestamp()
+    });
+
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
+      manaAtual: novaMana,
+      cooldownsHabilidades: cooldowns
+    };
+
+    await mostrarModal("Habilidade usada com sucesso.", "Ação registrada", "success");
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
+    } else {
+      preencherFicha(personagemFichaAtual);
+    }
+  } catch (erro) {
+    console.error("Erro ao usar habilidade:", erro);
+    await mostrarModal("Erro ao usar habilidade.", "Erro", "danger");
+  }
+}
+
+async function usarItemFicha(itemId, origem) {
+  if (!personagemFichaAtual) {
+    await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
+    return;
+  }
+
+  const inventario = obterInventarioPersonagem(personagemFichaAtual);
+  const itemInventario = inventario.find((item) => item.id === itemId);
+
+  if (!itemInventario) {
+    await mostrarModal("Item não encontrado no inventário.", "Erro", "danger");
+    return;
+  }
+
+  const itemCompleto = completarItem(itemInventario);
+  const resultado = aplicarEfeitoItem(personagemFichaAtual, itemCompleto);
+  const novoInventario = consumirItemInventario(inventario, itemCompleto.id);
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+      ...resultado.atualizacao,
+      inventario: novoInventario,
+      atualizadoEm: serverTimestamp()
+    });
+
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
+      ...resultado.atualizacao,
+      inventario: novoInventario
+    };
+
+    await mostrarModal(resultado.descricao, "Item usado", "success");
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
+    } else {
+      preencherFicha(personagemFichaAtual);
+    }
+  } catch (erro) {
+    console.error("Erro ao usar item:", erro);
+    await mostrarModal("Erro ao usar item.", "Erro", "danger");
+  }
 }
 
 async function salvarStatusFicha(origem) {
@@ -582,6 +773,182 @@ function montarHistoricoD20() {
       `;
     })
     .join("");
+}
+
+function obterHabilidadesDoPersonagem(personagem) {
+  const habilidades = [];
+
+  if (personagem.habilidadeExclusivaRaca) habilidades.push(personagem.habilidadeExclusivaRaca);
+  if (personagem.habilidadeExclusivaClasse) habilidades.push(personagem.habilidadeExclusivaClasse);
+
+  if (Array.isArray(personagem.habilidadesIniciais)) {
+    personagem.habilidadesIniciais.forEach((habilidade) => habilidades.push(habilidade));
+  }
+
+  const mapa = new Map();
+
+  habilidades.forEach((habilidade) => {
+    const completa = completarHabilidade(habilidade);
+    if (completa?.id) mapa.set(completa.id, completa);
+  });
+
+  return Array.from(mapa.values());
+}
+
+function completarHabilidade(habilidade) {
+  if (!habilidade) return null;
+
+  const catalogo = habilidadesCatalogoFicha.find((item) => item.id === habilidade.id);
+
+  return {
+    ...catalogo,
+    ...habilidade,
+    id: habilidade.id || catalogo?.id || "",
+    nome: habilidade.nome || catalogo?.nome || "Habilidade sem nome"
+  };
+}
+
+function obterCustoManaHabilidade(habilidade) {
+  return numeroDeCampos(habilidade, [
+    "custoManaEnergia",
+    "custoMana",
+    "custoDeMana",
+    "custo",
+    "mana",
+    "custoEnergia"
+  ]);
+}
+
+function obterCooldownHabilidade(habilidade) {
+  return numeroDeCampos(habilidade, [
+    "cooldown",
+    "recarga",
+    "tempoRecarga",
+    "turnosCooldown"
+  ]);
+}
+
+function obterCooldownRestante(personagem, habilidadeId) {
+  const cooldowns = personagem.cooldownsHabilidades || {};
+  return Number(cooldowns[habilidadeId] || 0);
+}
+
+function obterInventarioPersonagem(personagem) {
+  if (Array.isArray(personagem.inventario) && personagem.inventario.length > 0) {
+    return personagem.inventario.map((item) => completarItem(item));
+  }
+
+  if (Array.isArray(personagem.itensIniciais)) {
+    return personagem.itensIniciais.map((item) => completarItem({
+      ...item,
+      quantidade: item.quantidade || 1
+    }));
+  }
+
+  return [];
+}
+
+function completarItem(item) {
+  if (!item) return null;
+
+  const catalogo = itensCatalogoFicha.find((itemCatalogo) => itemCatalogo.id === item.id);
+
+  return {
+    ...catalogo,
+    ...item,
+    id: item.id || catalogo?.id || "",
+    nome: item.nome || catalogo?.nome || "Item sem nome",
+    quantidade: Number(item.quantidade || 1)
+  };
+}
+
+function consumirItemInventario(inventario, itemId) {
+  return inventario
+    .map((item) => {
+      if (item.id !== itemId) return item;
+
+      return {
+        ...item,
+        quantidade: Number(item.quantidade || 1) - 1
+      };
+    })
+    .filter((item) => Number(item.quantidade || 0) > 0);
+}
+
+function aplicarEfeitoItem(personagem, item) {
+  const efeitoTexto = normalizarTexto(`${item.efeitoPrincipal || ""} ${item.categoria || ""} ${item.nome || ""}`);
+
+  const valor = numeroDeCampos(item, [
+    "valorEfeito",
+    "cura",
+    "recuperacao",
+    "bonus",
+    "quantidadeEfeito",
+    "efeitoValor"
+  ]) || 10;
+
+  const atualizacao = {};
+  const descricoes = [];
+
+  if (efeitoTexto.includes("hp") || efeitoTexto.includes("vida") || efeitoTexto.includes("cura")) {
+    const hpMax = Number(personagem.hpMax || 0);
+    const hpAtual = Number(personagem.hpAtual || 0);
+    const novoHp = Math.min(hpMax, hpAtual + valor);
+    atualizacao.hpAtual = novoHp;
+    descricoes.push(`Recuperou ${novoHp - hpAtual} de HP.`);
+  }
+
+  if (efeitoTexto.includes("mana")) {
+    const manaMax = Number(personagem.manaMax || 0);
+    const manaAtual = Number(personagem.manaAtual || 0);
+    const novaMana = Math.min(manaMax, manaAtual + valor);
+    atualizacao.manaAtual = novaMana;
+    descricoes.push(`Recuperou ${novaMana - manaAtual} de Mana.`);
+  }
+
+  if (efeitoTexto.includes("fome")) {
+    const fomeAtual = Number(personagem.fome || 0);
+    const novaFome = Math.max(0, fomeAtual - valor);
+    atualizacao.fome = novaFome;
+    descricoes.push(`Reduziu ${fomeAtual - novaFome} de Fome.`);
+  }
+
+  if (efeitoTexto.includes("fadiga") || efeitoTexto.includes("cansaço") || efeitoTexto.includes("cansaco")) {
+    const fadigaAtual = Number(personagem.fadiga || 0);
+    const novaFadiga = Math.max(0, fadigaAtual - valor);
+    atualizacao.fadiga = novaFadiga;
+    descricoes.push(`Reduziu ${fadigaAtual - novaFadiga} de Fadiga.`);
+  }
+
+  if (descricoes.length === 0) {
+    descricoes.push("O efeito foi registrado, mas nenhum efeito automático foi identificado.");
+  }
+
+  return {
+    atualizacao,
+    descricao: descricoes.join(" ")
+  };
+}
+
+function numeroDeCampos(objeto, campos) {
+  for (const campo of campos) {
+    const valor = objeto?.[campo];
+
+    if (valor === undefined || valor === null || valor === "") continue;
+
+    const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
+
+    if (Number.isFinite(numero)) return numero;
+  }
+
+  return 0;
+}
+
+function normalizarTexto(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function formatarAtributo(valor) {
@@ -917,7 +1284,7 @@ function aplicarEstilosFicha() {
 
     .sheet-mini-card {
       display: grid;
-      gap: 6px;
+      gap: 8px;
       border-radius: 16px;
       padding: 14px;
       background: rgba(255,255,255,0.045);
@@ -935,6 +1302,28 @@ function aplicarEstilosFicha() {
       font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+    }
+
+    .sheet-mini-card button {
+      justify-self: start;
+      padding: 9px 12px;
+      font-size: 12px;
+    }
+
+    .sheet-condition-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sheet-condition-list span {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.86);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 13px;
+      font-weight: 800;
     }
 
     .ficha-modal-restaurada {
