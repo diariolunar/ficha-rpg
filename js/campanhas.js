@@ -12,7 +12,7 @@ import {
   getDocs
 } from "./firebase.js";
 
-import { state, setCampanhas } from "./state.js";
+import { state, setCampanhas, setPersonagens } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 
@@ -20,11 +20,18 @@ let unsubscribeCampanhas = null;
 let unsubscribeCampanhasCriadasPor = null;
 let unsubscribeCampanhasEmail = null;
 
+let unsubscribePersonagensCampanhas = null;
+let unsubscribePersonagensCampanhasExtras = null;
+
 let campanhaSelecionadaEdicao = null;
+let campanhaSelecionadaRolagem = null;
 
 let campanhasPorMestreId = [];
 let campanhasPorCriadoPor = [];
 let campanhasPorEmail = [];
+
+let personagensPorCampanhaMestre = [];
+let personagensCriadosPeloUsuario = [];
 
 export function iniciarCampanhas() {
   pararCampanhas();
@@ -93,34 +100,121 @@ export function iniciarCampanhas() {
         console.error("Erro ao carregar campanhas por e-mail:", erro);
       }
     );
+  } else {
+    const consultaJogador = query(
+      campanhasRef,
+      where("jogadoresIds", "array-contains", state.usuarioAtual.uid)
+    );
+
+    unsubscribeCampanhas = onSnapshot(
+      consultaJogador,
+      (snapshot) => {
+        const campanhas = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        campanhas.sort(ordenarCampanhas);
+
+        setCampanhas(campanhas);
+        renderizarCampanhas();
+        preencherSelectCampanhas();
+        atualizarContadorCampanhas();
+      },
+      (erro) => {
+        console.error("Erro ao carregar campanhas do jogador:", erro);
+      }
+    );
+  }
+
+  iniciarEscutaPersonagensCampanhas();
+}
+
+function iniciarEscutaPersonagensCampanhas() {
+  const personagensRef = collection(db, "personagens");
+
+  if (state.dadosUsuarioAtual?.tipo === "mestre") {
+    const consultaPorMestre = query(
+      personagensRef,
+      where("mestreId", "==", state.usuarioAtual.uid)
+    );
+
+    const consultaCriadosPeloMestre = query(
+      personagensRef,
+      where("donoId", "==", state.usuarioAtual.uid)
+    );
+
+    unsubscribePersonagensCampanhas = onSnapshot(
+      consultaPorMestre,
+      (snapshot) => {
+        personagensPorCampanhaMestre = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarPersonagensCampanhas();
+      },
+      (erro) => {
+        console.error("Erro ao carregar personagens do mestre para campanhas:", erro);
+      }
+    );
+
+    unsubscribePersonagensCampanhasExtras = onSnapshot(
+      consultaCriadosPeloMestre,
+      (snapshot) => {
+        personagensCriadosPeloUsuario = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
+
+        atualizarPersonagensCampanhas();
+      },
+      (erro) => {
+        console.error("Erro ao carregar personagens criados pelo mestre:", erro);
+      }
+    );
 
     return;
   }
 
-  const consultaJogador = query(
-    campanhasRef,
-    where("jogadoresIds", "array-contains", state.usuarioAtual.uid)
+  const consultaDoJogador = query(
+    personagensRef,
+    where("donoId", "==", state.usuarioAtual.uid)
   );
 
-  unsubscribeCampanhas = onSnapshot(
-    consultaJogador,
+  unsubscribePersonagensCampanhas = onSnapshot(
+    consultaDoJogador,
     (snapshot) => {
-      const campanhas = snapshot.docs.map((documento) => ({
+      const personagens = snapshot.docs.map((documento) => ({
         id: documento.id,
         ...documento.data()
       }));
 
-      campanhas.sort(ordenarCampanhas);
+      personagens.sort(ordenarPersonagens);
 
-      setCampanhas(campanhas);
+      setPersonagens(personagens);
       renderizarCampanhas();
-      preencherSelectCampanhas();
-      atualizarContadorCampanhas();
     },
     (erro) => {
-      console.error("Erro ao carregar campanhas do jogador:", erro);
+      console.error("Erro ao carregar personagens do jogador para campanhas:", erro);
     }
   );
+}
+
+function atualizarPersonagensCampanhas() {
+  const mapa = new Map();
+
+  [
+    ...personagensPorCampanhaMestre,
+    ...personagensCriadosPeloUsuario
+  ].forEach((personagem) => {
+    mapa.set(personagem.id, personagem);
+  });
+
+  const personagens = Array.from(mapa.values()).sort(ordenarPersonagens);
+
+  setPersonagens(personagens);
+  renderizarCampanhas();
 }
 
 function atualizarListaCampanhasCombinada() {
@@ -134,9 +228,7 @@ function atualizarListaCampanhasCombinada() {
     mapa.set(campanha.id, campanha);
   });
 
-  const campanhas = Array.from(mapa.values());
-
-  campanhas.sort(ordenarCampanhas);
+  const campanhas = Array.from(mapa.values()).sort(ordenarCampanhas);
 
   setCampanhas(campanhas);
   renderizarCampanhas();
@@ -152,6 +244,10 @@ function ordenarCampanhas(a, b) {
     return dataB - dataA;
   }
 
+  return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+}
+
+function ordenarPersonagens(a, b) {
   return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
 }
 
@@ -187,9 +283,21 @@ export function pararCampanhas() {
     unsubscribeCampanhasEmail = null;
   }
 
+  if (unsubscribePersonagensCampanhas) {
+    unsubscribePersonagensCampanhas();
+    unsubscribePersonagensCampanhas = null;
+  }
+
+  if (unsubscribePersonagensCampanhasExtras) {
+    unsubscribePersonagensCampanhasExtras();
+    unsubscribePersonagensCampanhasExtras = null;
+  }
+
   campanhasPorMestreId = [];
   campanhasPorCriadoPor = [];
   campanhasPorEmail = [];
+  personagensPorCampanhaMestre = [];
+  personagensCriadosPeloUsuario = [];
 }
 
 function gerarCodigoCampanha() {
@@ -205,6 +313,14 @@ function gerarCodigoCampanha() {
 
 function textoCampo(id) {
   return document.getElementById(id)?.value.trim() || "";
+}
+
+function valorCampo(id) {
+  return document.getElementById(id)?.value || "";
+}
+
+function numeroCampo(id) {
+  return Number(document.getElementById(id)?.value) || 0;
 }
 
 function abrirModalCriacaoCampanha() {
@@ -359,6 +475,22 @@ async function criarCampanha() {
       mestreEmail: state.usuarioAtual.email,
       jogadoresIds: [],
       jogadores: [],
+
+      status: "aguardando",
+      sessaoAtiva: false,
+      rodadaAtual: 0,
+      turnoAtual: 0,
+      turnoIndice: -1,
+      ordemTurnos: [],
+      personagemTurnoId: "",
+      personagemTurnoNome: "",
+      personagemTurnoDonoId: "",
+      ultimoResultadoD20: null,
+      historicoSessao: [
+        criarEventoSessaoTexto("Campanha criada. Aguardando o Mestre iniciar a sessão.")
+      ],
+      mensagemSessao: "Campanha criada. Aguardando o Mestre iniciar a sessão.",
+
       criadoEm: serverTimestamp()
     });
 
@@ -425,6 +557,10 @@ async function entrarCampanha() {
     await updateDoc(doc(db, "campanhas", campanhaDoc.id), {
       jogadoresIds,
       jogadores,
+      historicoSessao: adicionarEventoHistorico(
+        campanha,
+        `${state.dadosUsuarioAtual.nome || state.usuarioAtual.email} entrou na campanha.`
+      ),
       atualizadoEm: serverTimestamp()
     });
 
@@ -435,6 +571,400 @@ async function entrarCampanha() {
     console.error("Erro ao entrar na campanha:", erro);
     await mostrarModal("Erro ao entrar na campanha.", "Erro", "danger");
   }
+}
+
+async function iniciarSessaoCampanha(campanha) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Você não tem permissão para iniciar esta campanha.", "Permissão negada", "danger");
+    return;
+  }
+
+  const personagens = obterPersonagensDaCampanha(campanha);
+
+  if (!personagens.length) {
+    await mostrarModal(
+      "Nenhum personagem está vinculado a esta campanha. Vincule pelo menos um personagem antes de iniciar a sessão.",
+      "Sem personagens",
+      "danger"
+    );
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Iniciar sessão",
+    mensagem: `Deseja iniciar a sessão da campanha “${campanha.nome}”? A ordem de turno será criada com os personagens vinculados.`,
+    confirmarTexto: "Iniciar",
+    cancelarTexto: "Cancelar",
+    tipo: "success"
+  });
+
+  if (!confirmar) return;
+
+  const ordemTurnos = criarOrdemTurnos(personagens);
+  const primeiro = ordemTurnos[0] || null;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      status: "ativa",
+      sessaoAtiva: true,
+      rodadaAtual: 1,
+      turnoAtual: 1,
+      turnoIndice: 0,
+      ordemTurnos,
+      personagemTurnoId: primeiro?.personagemId || "",
+      personagemTurnoNome: primeiro?.nome || "",
+      personagemTurnoDonoId: primeiro?.donoId || "",
+      mensagemSessao: primeiro
+        ? `Sessão iniciada. Turno de ${primeiro.nome}.`
+        : "Sessão iniciada pelo Mestre.",
+      historicoSessao: adicionarEventoHistorico(
+        campanha,
+        primeiro
+          ? `Sessão iniciada. Primeiro turno: ${primeiro.nome}.`
+          : "Sessão iniciada pelo Mestre."
+      ),
+      iniciadaEm: campanha.iniciadaEm || serverTimestamp(),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Sessão iniciada. Os jogadores já podem acompanhar a campanha.", "Sessão ativa", "success");
+  } catch (erro) {
+    console.error("Erro ao iniciar sessão:", erro);
+    await mostrarModal("Erro ao iniciar sessão.", "Erro", "danger");
+  }
+}
+
+async function pausarSessaoCampanha(campanha) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Você não tem permissão para pausar esta campanha.", "Permissão negada", "danger");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      status: "pausada",
+      sessaoAtiva: false,
+      mensagemSessao: "Sessão pausada pelo Mestre.",
+      historicoSessao: adicionarEventoHistorico(campanha, "Sessão pausada pelo Mestre."),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Sessão pausada.", "Campanha pausada", "success");
+  } catch (erro) {
+    console.error("Erro ao pausar sessão:", erro);
+    await mostrarModal("Erro ao pausar sessão.", "Erro", "danger");
+  }
+}
+
+async function encerrarSessaoCampanha(campanha) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Você não tem permissão para encerrar esta campanha.", "Permissão negada", "danger");
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Encerrar sessão",
+    mensagem: `Deseja encerrar a sessão da campanha “${campanha.nome}”?`,
+    confirmarTexto: "Encerrar",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      status: "encerrada",
+      sessaoAtiva: false,
+      personagemTurnoId: "",
+      personagemTurnoNome: "",
+      personagemTurnoDonoId: "",
+      mensagemSessao: "Sessão encerrada pelo Mestre.",
+      historicoSessao: adicionarEventoHistorico(campanha, "Sessão encerrada pelo Mestre."),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Sessão encerrada.", "Campanha encerrada", "success");
+  } catch (erro) {
+    console.error("Erro ao encerrar sessão:", erro);
+    await mostrarModal("Erro ao encerrar sessão.", "Erro", "danger");
+  }
+}
+
+async function avancarTurnoCampanha(campanha) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Você não tem permissão para avançar o turno.", "Permissão negada", "danger");
+    return;
+  }
+
+  const ordemAtual = Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos : [];
+
+  if (!ordemAtual.length) {
+    await mostrarModal("A campanha não possui ordem de turnos. Reinicie a sessão para criar uma ordem.", "Sem ordem de turnos", "danger");
+    return;
+  }
+
+  const indiceAtual = Number(campanha.turnoIndice ?? 0);
+  let proximoIndice = indiceAtual + 1;
+  let proximaRodada = Number(campanha.rodadaAtual || 1);
+
+  if (proximoIndice >= ordemAtual.length) {
+    proximoIndice = 0;
+    proximaRodada += 1;
+  }
+
+  const proximoTurno = ordemAtual[proximoIndice];
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      rodadaAtual: proximaRodada,
+      turnoAtual: proximoIndice + 1,
+      turnoIndice: proximoIndice,
+      personagemTurnoId: proximoTurno?.personagemId || "",
+      personagemTurnoNome: proximoTurno?.nome || "",
+      personagemTurnoDonoId: proximoTurno?.donoId || "",
+      mensagemSessao: `Turno de ${proximoTurno?.nome || "personagem não definido"}.`,
+      historicoSessao: adicionarEventoHistorico(
+        campanha,
+        `Turno avançado. Agora é a vez de ${proximoTurno?.nome || "personagem não definido"}.`
+      ),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Turno avançado.", "Turno atualizado", "success");
+  } catch (erro) {
+    console.error("Erro ao avançar turno:", erro);
+    await mostrarModal("Erro ao avançar turno.", "Erro", "danger");
+  }
+}
+
+async function avancarRodadaCampanha(campanha) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Você não tem permissão para avançar a rodada.", "Permissão negada", "danger");
+    return;
+  }
+
+  const proximaRodada = Number(campanha.rodadaAtual || 0) + 1;
+  const ordemTurnos = Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos : [];
+  const primeiro = ordemTurnos[0] || null;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      rodadaAtual: proximaRodada,
+      turnoAtual: primeiro ? 1 : 0,
+      turnoIndice: primeiro ? 0 : -1,
+      personagemTurnoId: primeiro?.personagemId || "",
+      personagemTurnoNome: primeiro?.nome || "",
+      personagemTurnoDonoId: primeiro?.donoId || "",
+      mensagemSessao: primeiro
+        ? `Rodada ${proximaRodada} iniciada. Turno de ${primeiro.nome}.`
+        : `Rodada ${proximaRodada} iniciada.`,
+      historicoSessao: adicionarEventoHistorico(
+        campanha,
+        primeiro
+          ? `Rodada ${proximaRodada} iniciada. Turno de ${primeiro.nome}.`
+          : `Rodada ${proximaRodada} iniciada.`
+      ),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal(`Rodada ${proximaRodada} iniciada.`, "Rodada avançada", "success");
+  } catch (erro) {
+    console.error("Erro ao avançar rodada:", erro);
+    await mostrarModal("Erro ao avançar rodada.", "Erro", "danger");
+  }
+}
+
+function criarOrdemTurnos(personagens) {
+  return personagens
+    .map((personagem) => ({
+      personagemId: personagem.id,
+      nome: personagem.nome || "Personagem sem nome",
+      donoId: personagem.donoId || "",
+      donoNome: personagem.donoNome || "",
+      velocidade: Number(personagem.velocidade || 0),
+      hpAtual: Number(personagem.hpAtual || 0),
+      hpMax: Number(personagem.hpMax || 0),
+      manaAtual: Number(personagem.manaAtual || 0),
+      manaMax: Number(personagem.manaMax || 0)
+    }))
+    .sort((a, b) => {
+      if (b.velocidade !== a.velocidade) {
+        return b.velocidade - a.velocidade;
+      }
+
+      return String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR");
+    });
+}
+
+function abrirModalRolagemSessao(campanha) {
+  fecharModalRolagemSessao();
+
+  campanhaSelecionadaRolagem = campanha;
+
+  const personagens = obterPersonagensDisponiveisParaRolagem(campanha);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalRolagemSessao";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Rolar D20 na sessão</h3>
+          <p>O resultado será registrado no histórico da campanha.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalRolagemSessao">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Personagem
+            <select id="rolagemPersonagemSessao">
+              ${montarOptionsPersonagensRolagem(personagens)}
+            </select>
+          </label>
+
+          <label>
+            Motivo da rolagem
+            <input type="text" id="rolagemMotivoSessao" placeholder="Ex: ataque, defesa, percepção..." />
+          </label>
+
+          <label>
+            Bônus
+            <input type="number" id="rolagemBonusSessao" value="0" />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarRolagemSessao">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarRolagemSessao">Rolar D20</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalRolagemSessao")?.addEventListener("click", fecharModalRolagemSessao);
+  document.getElementById("cancelarRolagemSessao")?.addEventListener("click", fecharModalRolagemSessao);
+  document.getElementById("confirmarRolagemSessao")?.addEventListener("click", rolarD20Sessao);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharModalRolagemSessao();
+    }
+  });
+}
+
+function fecharModalRolagemSessao() {
+  const overlay = document.getElementById("modalRolagemSessao");
+
+  if (overlay) {
+    overlay.remove();
+  }
+
+  campanhaSelecionadaRolagem = null;
+}
+
+function montarOptionsPersonagensRolagem(personagens) {
+  if (!personagens.length) {
+    return `<option value="">Nenhum personagem disponível</option>`;
+  }
+
+  return personagens
+    .map((personagem) => {
+      return `<option value="${personagem.id}">${escapeHtml(personagem.nome || "Personagem sem nome")}</option>`;
+    })
+    .join("");
+}
+
+async function rolarD20Sessao() {
+  if (!campanhaSelecionadaRolagem) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const personagens = obterPersonagensDisponiveisParaRolagem(campanhaSelecionadaRolagem);
+  const personagemId = valorCampo("rolagemPersonagemSessao");
+  const personagem = personagens.find((item) => item.id === personagemId);
+
+  if (!personagem) {
+    await mostrarModal("Selecione um personagem para a rolagem.", "Campo obrigatório");
+    return;
+  }
+
+  const motivo = textoCampo("rolagemMotivoSessao") || "Rolagem de D20";
+  const bonus = numeroCampo("rolagemBonusSessao");
+  const dado = Math.floor(Math.random() * 20) + 1;
+  const total = dado + bonus;
+
+  const texto = `${personagem.nome || "Personagem"} rolou D20 para ${motivo}: ${dado}${bonus >= 0 ? " +" : " "}${bonus} = ${total}.`;
+
+  const resultado = {
+    personagemId: personagem.id,
+    personagemNome: personagem.nome || "Personagem sem nome",
+    donoId: personagem.donoId || "",
+    motivo,
+    dado,
+    bonus,
+    total,
+    criadoEmTexto: new Date().toLocaleString("pt-BR")
+  };
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaRolagem.id), {
+      ultimoResultadoD20: resultado,
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaRolagem, texto, "dado"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal(`Resultado: ${total}`, "D20 rolado", "success");
+    fecharModalRolagemSessao();
+  } catch (erro) {
+    console.error("Erro ao registrar rolagem:", erro);
+    await mostrarModal("Erro ao registrar rolagem.", "Erro", "danger");
+  }
+}
+
+function obterPersonagensDisponiveisParaRolagem(campanha) {
+  const personagens = obterPersonagensDaCampanha(campanha);
+
+  if (state.dadosUsuarioAtual?.tipo === "mestre") {
+    return personagens;
+  }
+
+  return personagens.filter((personagem) => personagem.donoId === state.usuarioAtual.uid);
+}
+
+function obterPersonagensDaCampanha(campanha) {
+  if (!Array.isArray(state.personagens)) return [];
+
+  return state.personagens
+    .filter((personagem) => personagem.campanhaId === campanha.id)
+    .sort(ordenarPersonagens);
+}
+
+function criarEventoSessaoTexto(texto, tipo = "sistema") {
+  return {
+    tipo,
+    texto,
+    criadoEmTexto: new Date().toLocaleString("pt-BR")
+  };
+}
+
+function adicionarEventoHistorico(campanha, texto, tipo = "sistema") {
+  const historico = Array.isArray(campanha.historicoSessao)
+    ? [...campanha.historicoSessao]
+    : [];
+
+  historico.unshift(criarEventoSessaoTexto(texto, tipo));
+
+  return historico.slice(0, 30);
 }
 
 async function salvarEdicaoCampanha() {
@@ -476,12 +1006,7 @@ async function excluirCampanha(campanha) {
     return;
   }
 
-  const pertenceAoMestre =
-    campanha.mestreId === state.usuarioAtual.uid ||
-    campanha.criadoPor === state.usuarioAtual.uid ||
-    campanha.mestreEmail === state.usuarioAtual.email;
-
-  if (!pertenceAoMestre) {
+  if (!podeControlarCampanha(campanha)) {
     await mostrarModal("Você só pode excluir campanhas criadas por você.", "Permissão negada");
     return;
   }
@@ -504,6 +1029,17 @@ async function excluirCampanha(campanha) {
     console.error("Erro ao excluir campanha:", erro);
     await mostrarModal("Erro ao excluir campanha.", "Erro", "danger");
   }
+}
+
+function podeControlarCampanha(campanha) {
+  return (
+    state.dadosUsuarioAtual?.tipo === "mestre" &&
+    (
+      campanha.mestreId === state.usuarioAtual.uid ||
+      campanha.criadoPor === state.usuarioAtual.uid ||
+      campanha.mestreEmail === state.usuarioAtual.email
+    )
+  );
 }
 
 function abrirEdicaoCampanha(campanha) {
@@ -639,13 +1175,12 @@ export function renderizarCampanhas() {
     const card = document.createElement("div");
     card.classList.add("campaign-card", "campaign-card-refinado");
 
-    const podeEditar =
-      state.dadosUsuarioAtual?.tipo === "mestre" &&
-      (
-        campanha.mestreId === state.usuarioAtual.uid ||
-        campanha.criadoPor === state.usuarioAtual.uid ||
-        campanha.mestreEmail === state.usuarioAtual.email
-      );
+    const podeEditar = podeControlarCampanha(campanha);
+    const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
+    const statusTexto = obterTextoStatusCampanha(campanha);
+    const statusClasse = obterClasseStatusCampanha(campanha);
+    const personagens = obterPersonagensDaCampanha(campanha);
+    const ehMeuTurno = campanha.personagemTurnoDonoId === state.usuarioAtual?.uid;
 
     card.innerHTML = `
       <div class="campaign-card-top">
@@ -663,37 +1198,286 @@ export function renderizarCampanhas() {
         </span>
       </div>
 
+      <div class="campaign-session-panel ${statusClasse}">
+        <div>
+          <span>Status da sessão</span>
+          <strong>${escapeHtml(statusTexto)}</strong>
+          <p>${escapeHtml(campanha.mensagemSessao || "Aguardando movimentação da campanha.")}</p>
+          ${
+            ehMeuTurno && sessaoAtiva
+              ? `<div class="turno-alerta-jogador">É a sua vez de agir.</div>`
+              : ""
+          }
+        </div>
+
+        <div class="campaign-session-stats">
+          <span><b>Rodada</b>${Number(campanha.rodadaAtual || 0)}</span>
+          <span><b>Turno</b>${Number(campanha.turnoAtual || 0)}</span>
+          <span><b>Vez de</b>${escapeHtml(campanha.personagemTurnoNome || "Não definido")}</span>
+        </div>
+      </div>
+
       <div class="campaign-info-grid">
         <span><b>Mestre</b>${escapeHtml(campanha.mestreNome || "Não informado")}</span>
         <span><b>Jogadores</b>${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</span>
         <span><b>Código</b>${escapeHtml(campanha.codigo || "Sem código")}</span>
       </div>
 
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title">
+          <span>Personagens da campanha</span>
+          <strong>${personagens.length}</strong>
+        </div>
+
+        ${montarPersonagensCampanha(personagens, campanha)}
+      </div>
+
+      <div class="campaign-turn-panel">
+        <div class="campaign-section-title">
+          <span>Ordem de turno</span>
+          <strong>${Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos.length : 0}</strong>
+        </div>
+
+        ${montarOrdemTurnos(campanha)}
+      </div>
+
+      <div class="campaign-history-panel">
+        <div class="campaign-section-title">
+          <span>Histórico da sessão</span>
+          <strong>${Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao.length : 0}</strong>
+        </div>
+
+        ${montarHistoricoSessao(campanha)}
+      </div>
+
       <div class="action-row campaign-actions">
         ${
           podeEditar
-            ? `
-              <button class="secondary-btn editar-campanha">Editar</button>
-              <button class="small-btn danger excluir-campanha">Excluir</button>
-            `
-            : ""
+            ? montarBotoesControleSessao(campanha, sessaoAtiva)
+            : montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens)
         }
       </div>
     `;
 
-    const botaoEditar = card.querySelector(".editar-campanha");
-    const botaoExcluir = card.querySelector(".excluir-campanha");
-
-    if (botaoEditar) {
-      botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
-    }
-
-    if (botaoExcluir) {
-      botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
-    }
+    vincularEventosCardCampanha(card, campanha);
 
     lista.appendChild(card);
   });
+}
+
+function vincularEventosCardCampanha(card, campanha) {
+  const botaoIniciar = card.querySelector(".iniciar-sessao-campanha");
+  const botaoPausar = card.querySelector(".pausar-sessao-campanha");
+  const botaoEncerrar = card.querySelector(".encerrar-sessao-campanha");
+  const botaoAvancarTurno = card.querySelector(".avancar-turno-campanha");
+  const botaoAvancarRodada = card.querySelector(".avancar-rodada-campanha");
+  const botaoEditar = card.querySelector(".editar-campanha");
+  const botaoExcluir = card.querySelector(".excluir-campanha");
+  const botaoRolar = card.querySelector(".rolar-d20-sessao");
+
+  if (botaoIniciar) {
+    botaoIniciar.addEventListener("click", () => iniciarSessaoCampanha(campanha));
+  }
+
+  if (botaoPausar) {
+    botaoPausar.addEventListener("click", () => pausarSessaoCampanha(campanha));
+  }
+
+  if (botaoEncerrar) {
+    botaoEncerrar.addEventListener("click", () => encerrarSessaoCampanha(campanha));
+  }
+
+  if (botaoAvancarTurno) {
+    botaoAvancarTurno.addEventListener("click", () => avancarTurnoCampanha(campanha));
+  }
+
+  if (botaoAvancarRodada) {
+    botaoAvancarRodada.addEventListener("click", () => avancarRodadaCampanha(campanha));
+  }
+
+  if (botaoEditar) {
+    botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
+  }
+
+  if (botaoExcluir) {
+    botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
+  }
+
+  if (botaoRolar) {
+    botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
+  }
+}
+
+function montarPersonagensCampanha(personagens, campanha) {
+  if (!personagens.length) {
+    return `
+      <div class="campaign-empty-box">
+        Nenhum personagem vinculado a esta campanha.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="campaign-character-grid">
+      ${personagens
+        .map((personagem) => {
+          const turnoAtual = campanha.personagemTurnoId === personagem.id;
+
+          return `
+            <div class="campaign-character-card ${turnoAtual ? "active-turn" : ""}">
+              <div>
+                <strong>${escapeHtml(personagem.nome || "Personagem sem nome")}</strong>
+                <span>${escapeHtml(personagem.donoNome || "Jogador não informado")}</span>
+              </div>
+
+              <div class="campaign-character-stats">
+                <span>HP ${Number(personagem.hpAtual || 0)}/${Number(personagem.hpMax || 0)}</span>
+                <span>Mana ${Number(personagem.manaAtual || 0)}/${Number(personagem.manaMax || 0)}</span>
+                <span>Vel. ${Number(personagem.velocidade || 0)}</span>
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function montarOrdemTurnos(campanha) {
+  const ordem = Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos : [];
+
+  if (!ordem.length) {
+    return `
+      <div class="campaign-empty-box">
+        A ordem de turno será criada quando o Mestre iniciar a sessão.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="turn-order-list">
+      ${ordem
+        .map((turno, index) => {
+          const ativo = index === Number(campanha.turnoIndice ?? -1);
+
+          return `
+            <div class="turn-order-item ${ativo ? "active" : ""}">
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(turno.nome || "Personagem")}</strong>
+              <small>Vel. ${Number(turno.velocidade || 0)}</small>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function montarHistoricoSessao(campanha) {
+  const historico = Array.isArray(campanha.historicoSessao)
+    ? campanha.historicoSessao
+    : [];
+
+  if (!historico.length) {
+    return `
+      <div class="campaign-empty-box">
+        Nenhum acontecimento registrado ainda.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="session-history-list">
+      ${historico
+        .slice(0, 8)
+        .map((evento) => {
+          return `
+            <div class="session-history-item">
+              <p>${escapeHtml(evento.texto || "Evento sem descrição.")}</p>
+              <span>${escapeHtml(evento.criadoEmTexto || "")}</span>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function montarBotoesControleSessao(campanha, sessaoAtiva) {
+  if (sessaoAtiva) {
+    return `
+      <button class="secondary-btn rolar-d20-sessao">Rolar D20</button>
+      <button class="secondary-btn avancar-turno-campanha">Avançar turno</button>
+      <button class="secondary-btn avancar-rodada-campanha">Avançar rodada</button>
+      <button class="secondary-btn pausar-sessao-campanha">Pausar sessão</button>
+      <button class="small-btn danger encerrar-sessao-campanha">Encerrar sessão</button>
+      <button class="secondary-btn editar-campanha">Editar</button>
+      <button class="small-btn danger excluir-campanha">Excluir</button>
+    `;
+  }
+
+  return `
+    <button class="primary-btn iniciar-sessao-campanha">Iniciar sessão</button>
+    <button class="secondary-btn editar-campanha">Editar</button>
+    <button class="small-btn danger excluir-campanha">Excluir</button>
+  `;
+}
+
+function montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens) {
+  if (sessaoAtiva && personagens.some((personagem) => personagem.donoId === state.usuarioAtual.uid)) {
+    return `
+      <button class="primary-btn rolar-d20-sessao">Rolar D20</button>
+      <span class="campaign-player-message active">
+        Sessão ativa. Acompanhe as orientações do Mestre.
+      </span>
+    `;
+  }
+
+  if (sessaoAtiva) {
+    return `
+      <span class="campaign-player-message active">
+        Sessão ativa. Você ainda não possui personagem vinculado a esta campanha.
+      </span>
+    `;
+  }
+
+  return `
+    <span class="campaign-player-message">
+      Aguardando o Mestre iniciar a sessão.
+    </span>
+  `;
+}
+
+function obterTextoStatusCampanha(campanha) {
+  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) {
+    return "Sessão ativa";
+  }
+
+  if (campanha.status === "pausada") {
+    return "Sessão pausada";
+  }
+
+  if (campanha.status === "encerrada") {
+    return "Sessão encerrada";
+  }
+
+  return "Aguardando início";
+}
+
+function obterClasseStatusCampanha(campanha) {
+  if (campanha.status === "ativa" || campanha.sessaoAtiva === true) {
+    return "session-active";
+  }
+
+  if (campanha.status === "pausada") {
+    return "session-paused";
+  }
+
+  if (campanha.status === "encerrada") {
+    return "session-ended";
+  }
+
+  return "session-waiting";
 }
 
 function atualizarContadorCampanhas() {
@@ -767,6 +1551,95 @@ function aplicarEstilosCampanhas() {
       white-space: nowrap;
     }
 
+    .campaign-session-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
+      gap: 16px;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.045);
+    }
+
+    .campaign-session-panel span {
+      display: block;
+      margin-bottom: 6px;
+      color: rgba(255,255,255,0.46);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-session-panel strong {
+      display: block;
+      color: #fff;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .campaign-session-panel p {
+      margin: 10px 0 0;
+      color: rgba(255,255,255,0.64);
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    .turno-alerta-jogador {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .campaign-session-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .campaign-session-stats span {
+      margin: 0;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .campaign-session-stats b {
+      display: block;
+      margin-bottom: 5px;
+      color: rgba(255,255,255,0.46);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-session-panel.session-active {
+      border-color: rgba(255,255,255,0.24);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(255,255,255,0.12), transparent 28%),
+        rgba(255,255,255,0.06);
+    }
+
+    .campaign-session-panel.session-paused {
+      border-color: rgba(255,255,255,0.16);
+      opacity: 0.9;
+    }
+
+    .campaign-session-panel.session-ended {
+      opacity: 0.75;
+    }
+
     .campaign-info-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -793,10 +1666,194 @@ function aplicarEstilosCampanhas() {
       letter-spacing: 0.08em;
     }
 
+    .campaign-characters-panel,
+    .campaign-turn-panel,
+    .campaign-history-panel {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .campaign-section-title span {
+      color: rgba(255,255,255,0.48);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-section-title strong {
+      color: #fff;
+      font-size: 18px;
+    }
+
+    .campaign-character-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }
+
+    .campaign-character-card {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-character-card.active-turn {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .campaign-character-card strong {
+      display: block;
+      color: #fff;
+      font-size: 17px;
+    }
+
+    .campaign-character-card span {
+      color: rgba(255,255,255,0.58);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .campaign-character-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .campaign-character-stats span {
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.78);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .turn-order-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .turn-order-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .turn-order-item.active {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .turn-order-item span {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+      font-weight: 900;
+    }
+
+    .turn-order-item strong {
+      color: #fff;
+      font-size: 15px;
+    }
+
+    .turn-order-item small {
+      color: rgba(255,255,255,0.56);
+      font-weight: 800;
+    }
+
+    .session-history-list {
+      display: grid;
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .session-history-item {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .session-history-item p {
+      margin: 0;
+      color: rgba(255,255,255,0.78);
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .session-history-item span {
+      display: block;
+      margin-top: 6px;
+      color: rgba(255,255,255,0.42);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .campaign-empty-box {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.20);
+      border: 1px solid rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.58);
+      font-weight: 800;
+      text-align: center;
+    }
+
     .campaign-actions {
       justify-content: flex-end;
       border-top: 1px solid rgba(255,255,255,0.08);
       padding-top: 18px;
+    }
+
+    .campaign-player-message {
+      flex: 1;
+      display: block;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .campaign-player-message.active {
+      color: #fff;
+      border-color: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+    }
+
+    @media (max-width: 920px) {
+      .campaign-session-panel {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 720px) {
@@ -808,8 +1865,18 @@ function aplicarEstilosCampanhas() {
         justify-self: start;
       }
 
-      .campaign-info-grid {
+      .campaign-info-grid,
+      .campaign-session-stats {
         grid-template-columns: 1fr;
+      }
+
+      .campaign-actions {
+        justify-content: stretch;
+      }
+
+      .campaign-actions button,
+      .campaign-player-message {
+        width: 100%;
       }
     }
   `;
