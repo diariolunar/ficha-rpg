@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Pets cadastrados</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Pets cadastrados</h3>
+        <p>Busque por nome, espécie, rank, suporte, evolução, elemento ou obtenção.</p>
+      </div>
 
-    <div id="listaPets" class="resource-list">
+      <input
+        type="search"
+        id="buscaPets"
+        class="search-input"
+        placeholder="Buscar pet..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaPets" class="resource-list" data-search-input="buscaPets">
       <p>Carregando pets...</p>
     </div>
   </div>

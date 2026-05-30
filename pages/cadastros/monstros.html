@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Monstros cadastrados</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Monstros cadastrados</h3>
+        <p>Busque por nome, tipo, rank, habitat, ataques, drops ou recompensa.</p>
+      </div>
 
-    <div id="listaMonstros" class="resource-list">
+      <input
+        type="search"
+        id="buscaMonstros"
+        class="search-input"
+        placeholder="Buscar monstro..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaMonstros" class="resource-list" data-search-input="buscaMonstros">
       <p>Carregando monstros...</p>
     </div>
   </div>

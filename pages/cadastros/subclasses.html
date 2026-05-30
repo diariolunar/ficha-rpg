@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Subclasses cadastradas</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Subclasses cadastradas</h3>
+        <p>Busque por nome, estilo, vantagens, desvantagens, habilidades ou requisitos.</p>
+      </div>
 
-    <div id="listaSubclasses" class="resource-list">
+      <input
+        type="search"
+        id="buscaSubclasses"
+        class="search-input"
+        placeholder="Buscar subclasse..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaSubclasses" class="resource-list" data-search-input="buscaSubclasses">
       <p>Carregando subclasses...</p>
     </div>
   </div>

@@ -33,6 +33,7 @@ let editElementosAfinsSelecionados = [];
 let editRestricoesClasseSelecionadas = [];
 
 let importacaoRacasPendentes = [];
+let buscaRacasAtual = "";
 
 export function iniciarRacas() {
   pararRacas();
@@ -55,7 +56,6 @@ export function iniciarRacas() {
       setRacas(racas);
       sincronizarRacaSelecionada();
       renderizarRacas();
-      atualizarContadorRacas();
     },
     (erro) => {
       console.error("Erro ao carregar raças:", erro);
@@ -87,56 +87,6 @@ export function pararRacas() {
   }
 }
 
-function carregarOpcoesRelacionadasRaca() {
-  unsubscribeClasses = onSnapshot(
-    query(collection(db, "classes"), orderBy("nome", "asc")),
-    (snapshot) => {
-      classesDisponiveis = snapshot.docs.map((documento) => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      preencherSelectClassesRaca();
-      preencherSelectClassesRacaEdicao();
-    },
-    (erro) => {
-      console.error("Erro ao carregar classes para raças:", erro);
-    }
-  );
-
-  unsubscribeElementos = onSnapshot(
-    query(collection(db, "elementos"), orderBy("nome", "asc")),
-    (snapshot) => {
-      elementosDisponiveis = snapshot.docs.map((documento) => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      preencherSelectElementosRaca();
-      preencherSelectElementosRacaEdicao();
-    },
-    (erro) => {
-      console.error("Erro ao carregar elementos para raças:", erro);
-    }
-  );
-
-  unsubscribeHabilidades = onSnapshot(
-    query(collection(db, "habilidades"), orderBy("nome", "asc")),
-    (snapshot) => {
-      habilidadesDisponiveis = snapshot.docs.map((documento) => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      preencherSelectHabilidadesRaca();
-      preencherSelectHabilidadesRacaEdicao();
-    },
-    (erro) => {
-      console.error("Erro ao carregar habilidades para raças:", erro);
-    }
-  );
-}
-
 function sincronizarRacaSelecionada() {
   if (!state.racaSelecionada) return;
 
@@ -147,44 +97,80 @@ function sincronizarRacaSelecionada() {
   }
 }
 
-export function buscarRacaPorId(id) {
-  return state.racasDisponiveis.find((raca) => raca.id === id) || null;
-}
+function carregarOpcoesRelacionadasRaca() {
+  const classesQuery = query(collection(db, "classes"), orderBy("nome", "asc"));
+  const elementosQuery = query(collection(db, "elementos"), orderBy("nome", "asc"));
+  const habilidadesQuery = query(collection(db, "habilidades"), orderBy("nome", "asc"));
 
-export function preencherSelectRacas() {
-  const select = document.getElementById("personagemRaca");
+  unsubscribeClasses = onSnapshot(
+    classesQuery,
+    (snapshot) => {
+      classesDisponiveis = [];
 
-  if (!select) return;
+      snapshot.forEach((documento) => {
+        classesDisponiveis.push({
+          id: documento.id,
+          ...documento.data()
+        });
+      });
 
-  const valorAtual = select.value;
+      preencherSelectClassesSugeridas();
+      preencherSelectRestricoesClasse();
+      preencherSelectEditClassesSugeridas();
+      preencherSelectEditRestricoesClasse();
+    },
+    (erro) => {
+      console.error("Erro ao carregar classes para raças:", erro);
+    }
+  );
 
-  select.innerHTML = "";
+  unsubscribeElementos = onSnapshot(
+    elementosQuery,
+    (snapshot) => {
+      elementosDisponiveis = [];
 
-  if (!state.racasDisponiveis || state.racasDisponiveis.length === 0) {
-    select.innerHTML = `<option value="">Nenhuma raça cadastrada</option>`;
-    return;
-  }
+      snapshot.forEach((documento) => {
+        elementosDisponiveis.push({
+          id: documento.id,
+          ...documento.data()
+        });
+      });
 
-  select.innerHTML = `<option value="">Selecione uma raça</option>`;
+      preencherSelectElementosAfins();
+      preencherSelectEditElementosAfins();
+    },
+    (erro) => {
+      console.error("Erro ao carregar elementos para raças:", erro);
+    }
+  );
 
-  state.racasDisponiveis.forEach((raca) => {
-    const option = document.createElement("option");
-    option.value = raca.id;
-    option.textContent = raca.nome || "Sem nome";
-    select.appendChild(option);
-  });
+  unsubscribeHabilidades = onSnapshot(
+    habilidadesQuery,
+    (snapshot) => {
+      habilidadesDisponiveis = [];
 
-  if (valorAtual) {
-    select.value = valorAtual;
-  }
-}
+      snapshot.forEach((documento) => {
+        habilidadesDisponiveis.push({
+          id: documento.id,
+          ...documento.data()
+        });
+      });
 
-function textoCampo(id) {
-  return document.getElementById(id)?.value.trim() || "";
+      preencherSelectHabilidadeExclusivaRaca();
+      preencherSelectEditHabilidadeExclusivaRaca();
+    },
+    (erro) => {
+      console.error("Erro ao carregar habilidades para raças:", erro);
+    }
+  );
 }
 
 function numeroCampo(id) {
   return Number(document.getElementById(id)?.value) || 0;
+}
+
+function textoCampo(id) {
+  return document.getElementById(id)?.value.trim() || "";
 }
 
 function valorCampo(id) {
@@ -197,17 +183,6 @@ function textoSelectSelecionado(id) {
   if (!select || !select.selectedOptions[0]) return "";
 
   return select.selectedOptions[0].textContent;
-}
-
-function habilidadeSelecionada(idSelect) {
-  const id = valorCampo(idSelect);
-
-  if (!id) return null;
-
-  return {
-    id,
-    nome: textoSelectSelecionado(idSelect)
-  };
 }
 
 function normalizarTexto(texto) {
@@ -253,15 +228,27 @@ function abrirModalCadastroRaca() {
   document.getElementById("salvarRaca")?.addEventListener("click", salvarRaca);
 
   document.getElementById("adicionarClasseSugerida")?.addEventListener("click", () => {
-    adicionarSelecionado("selectClassesSugeridas", classesSugeridasSelecionadas, renderizarClassesSugeridas);
+    adicionarSelecionado(
+      "selectClassesSugeridas",
+      classesSugeridasSelecionadas,
+      renderizarClassesSugeridasSelecionadas
+    );
   });
 
   document.getElementById("adicionarElementoAfim")?.addEventListener("click", () => {
-    adicionarSelecionado("selectElementosAfins", elementosAfinsSelecionados, renderizarElementosAfins);
+    adicionarSelecionado(
+      "selectElementosAfins",
+      elementosAfinsSelecionados,
+      renderizarElementosAfinsSelecionados
+    );
   });
 
   document.getElementById("adicionarRestricaoClasse")?.addEventListener("click", () => {
-    adicionarSelecionado("selectRestricaoClasse", restricoesClasseSelecionadas, renderizarRestricoesClasse);
+    adicionarSelecionadoEspecial(
+      "selectRestricoesClasse",
+      restricoesClasseSelecionadas,
+      renderizarRestricoesClasseSelecionadas
+    );
   });
 
   overlay.addEventListener("click", (event) => {
@@ -270,13 +257,14 @@ function abrirModalCadastroRaca() {
     }
   });
 
-  preencherSelectClassesRaca();
-  preencherSelectElementosRaca();
-  preencherSelectHabilidadesRaca();
+  preencherSelectClassesSugeridas();
+  preencherSelectElementosAfins();
+  preencherSelectRestricoesClasse();
+  preencherSelectHabilidadeExclusivaRaca();
 
-  renderizarClassesSugeridas();
-  renderizarElementosAfins();
-  renderizarRestricoesClasse();
+  renderizarClassesSugeridasSelecionadas();
+  renderizarElementosAfinsSelecionados();
+  renderizarRestricoesClasseSelecionadas();
 }
 
 function fecharModalCadastroRaca() {
@@ -293,68 +281,75 @@ function montarFormularioCadastroRaca() {
       <div class="form-grid">
         <label>
           Nome da Raça
-          <input type="text" id="racaNome" placeholder="Ex: Humano, Elfo, Orc..." />
+          <input type="text" id="racaNome" placeholder="Ex: Humano, Elfo, Anão, Orc..." />
         </label>
 
         <label>
           HP Base
-          <input type="number" id="racaHpBase" placeholder="Ex: 30" />
+          <input type="number" id="racaHpBase" placeholder="Ex: 100" />
         </label>
 
         <label>
           Mana Base
-          <input type="number" id="racaManaBase" placeholder="Ex: 50" />
+          <input type="number" id="racaManaBase" placeholder="Ex: 80" />
         </label>
 
         <label>
           Força Física
-          <input type="number" id="racaForcaFisica" placeholder="Ex: 2" />
+          <input type="number" id="racaForcaFisica" placeholder="Ex: 10" />
         </label>
 
         <label>
           Força Mágica
-          <input type="number" id="racaForcaMagica" placeholder="Ex: 2" />
+          <input type="number" id="racaForcaMagica" placeholder="Ex: 10" />
         </label>
 
         <label>
           Defesa Física
-          <input type="number" id="racaDefesaFisica" placeholder="Ex: 2" />
+          <input type="number" id="racaDefesaFisica" placeholder="Ex: 10" />
         </label>
 
         <label>
           Defesa Mágica
-          <input type="number" id="racaDefesaMagica" placeholder="Ex: 2" />
+          <input type="number" id="racaDefesaMagica" placeholder="Ex: 10" />
         </label>
 
         <label>
           Velocidade
-          <input type="number" id="racaVelocidade" placeholder="Ex: 2" />
+          <input type="number" id="racaVelocidade" placeholder="Ex: 10" />
         </label>
 
         <label>
           Resistência
-          <input type="number" id="racaResistencia" placeholder="Ex: 2" />
+          <input type="number" id="racaResistencia" placeholder="Ex: 10" />
+        </label>
+
+        <label>
+          Bônus de Carisma
+          <input type="text" id="racaCarismaBonus" placeholder="Ex: +2 em diplomacia" />
+        </label>
+
+        <label>
+          Fator Medo
+          <input type="text" id="racaFatorMedoBonus" placeholder="Ex: +1 contra intimidação" />
         </label>
       </div>
 
       <label>
-        Carisma
-        <input type="text" id="racaCarisma" placeholder="Ex: +2 em teste de persuasão" />
+        Habilidade Exclusiva
+        <select id="racaHabilidadeExclusiva">
+          <option value="">Carregando habilidades...</option>
+        </select>
       </label>
 
       <label>
-        Fator Medo
-        <input type="text" id="racaFatorMedo" placeholder="Ex: +1 em intimidação" />
+        Vantagens
+        <textarea id="racaVantagens" placeholder="Ex: Visão noturna, afinidade mágica, resistência natural..."></textarea>
       </label>
 
       <label>
-        Vantagens/Bônus
-        <textarea id="racaVantagens" placeholder="Descreva as vantagens da raça..."></textarea>
-      </label>
-
-      <label>
-        Desvantagens/Penalidades
-        <textarea id="racaDesvantagens" placeholder="Descreva as penalidades da raça..."></textarea>
+        Desvantagens
+        <textarea id="racaDesvantagens" placeholder="Ex: Fraqueza contra luz, baixa resistência física..."></textarea>
       </label>
 
       <div class="multi-select-box">
@@ -365,7 +360,7 @@ function montarFormularioCadastroRaca() {
           </select>
         </label>
 
-        <button class="secondary-btn" type="button" id="adicionarClasseSugerida">Adicionar</button>
+        <button class="secondary-btn" type="button" id="adicionarClasseSugerida">Adicionar classe</button>
 
         <div id="listaClassesSugeridasSelecionadas" class="selected-list">
           <span class="empty-selection">Nenhuma classe sugerida selecionada.</span>
@@ -380,31 +375,24 @@ function montarFormularioCadastroRaca() {
           </select>
         </label>
 
-        <button class="secondary-btn" type="button" id="adicionarElementoAfim">Adicionar</button>
+        <button class="secondary-btn" type="button" id="adicionarElementoAfim">Adicionar elemento</button>
 
         <div id="listaElementosAfinsSelecionados" class="selected-list">
           <span class="empty-selection">Nenhum elemento afim selecionado.</span>
         </div>
       </div>
 
-      <label>
-        Habilidade Exclusiva
-        <select id="racaHabilidadeExclusiva">
-          <option value="">Carregando habilidades...</option>
-        </select>
-      </label>
-
       <div class="multi-select-box">
         <label>
-          Restrição de Classe
-          <select id="selectRestricaoClasse">
+          Restrições de Classes
+          <select id="selectRestricoesClasse">
             <option value="">Carregando classes...</option>
           </select>
         </label>
 
-        <button class="secondary-btn" type="button" id="adicionarRestricaoClasse">Adicionar</button>
+        <button class="secondary-btn" type="button" id="adicionarRestricaoClasse">Adicionar restrição</button>
 
-        <div id="listaRestricaoClasseSelecionadas" class="selected-list">
+        <div id="listaRestricoesClasseSelecionadas" class="selected-list">
           <span class="empty-selection">Nenhuma restrição de classe selecionada.</span>
         </div>
       </div>
@@ -416,7 +404,6 @@ function montarFormularioCadastroRaca() {
     </div>
   `;
 }
-
 async function salvarRaca() {
   if (!state.usuarioAtual) {
     await mostrarModal("Você precisa estar logado.", "Acesso necessário");
@@ -444,127 +431,45 @@ async function salvarRaca() {
     return;
   }
 
-  try {
-    await addDoc(collection(db, "racas"), {
-      nome,
-      hpBase: numeroCampo("racaHpBase"),
-      manaBase: numeroCampo("racaManaBase"),
-      forcaFisica: numeroCampo("racaForcaFisica"),
-      forcaMagica: numeroCampo("racaForcaMagica"),
-      defesaFisica: numeroCampo("racaDefesaFisica"),
-      defesaMagica: numeroCampo("racaDefesaMagica"),
-      velocidade: numeroCampo("racaVelocidade"),
-      resistencia: numeroCampo("racaResistencia"),
-      carismaBonus: textoCampo("racaCarisma"),
-      fatorMedoBonus: textoCampo("racaFatorMedo"),
-      vantagens: textoCampo("racaVantagens"),
-      desvantagens: textoCampo("racaDesvantagens"),
-      classesSugeridas: classesSugeridasSelecionadas,
-      elementosAfins: elementosAfinsSelecionados,
-      habilidadeExclusiva: habilidadeSelecionada("racaHabilidadeExclusiva"),
-      restricoesClasse: restricoesClasseSelecionadas,
-      criadoPor: state.usuarioAtual.uid,
-      criadoEm: serverTimestamp()
-    });
+  const habilidadeExclusivaId = valorCampo("racaHabilidadeExclusiva");
+  const habilidadeExclusivaNome = textoSelectSelecionado("racaHabilidadeExclusiva");
 
-    await mostrarModal("Raça salva com sucesso.", "Cadastro realizado", "success");
-
-    fecharModalCadastroRaca();
-    renderizarRacas();
-  } catch (erro) {
-    console.error("Erro ao salvar raça:", erro);
-    await mostrarModal("Erro ao salvar raça.", "Erro", "danger");
-  }
-}
-
-async function salvarEdicaoRaca() {
-  if (!state.racaSelecionada) {
-    await mostrarModal("Nenhuma raça selecionada.", "Erro", "danger");
-    return;
-  }
-
-  const nome = textoCampo("editRacaNome");
-
-  if (!nome) {
-    await mostrarModal("Digite o nome da raça.", "Campo obrigatório");
-    return;
-  }
-
-  const jaExiste = state.racasDisponiveis.some((raca) => {
-    const mesmoNome = normalizarTexto(raca.nome || "") === normalizarTexto(nome);
-    const outroRegistro = raca.id !== state.racaSelecionada.id;
-
-    return mesmoNome && outroRegistro;
-  });
-
-  if (jaExiste) {
-    await mostrarModal(`Já existe outra raça chamada "${nome}".`, "Raça duplicada", "danger");
-    return;
-  }
-
-  const dadosAtualizados = {
+  const raca = {
     nome,
-    hpBase: numeroCampo("editRacaHpBase"),
-    manaBase: numeroCampo("editRacaManaBase"),
-    forcaFisica: numeroCampo("editRacaForcaFisica"),
-    forcaMagica: numeroCampo("editRacaForcaMagica"),
-    defesaFisica: numeroCampo("editRacaDefesaFisica"),
-    defesaMagica: numeroCampo("editRacaDefesaMagica"),
-    velocidade: numeroCampo("editRacaVelocidade"),
-    resistencia: numeroCampo("editRacaResistencia"),
-    carismaBonus: textoCampo("editRacaCarisma"),
-    fatorMedoBonus: textoCampo("editRacaFatorMedo"),
-    vantagens: textoCampo("editRacaVantagens"),
-    desvantagens: textoCampo("editRacaDesvantagens"),
-    classesSugeridas: editClassesSugeridasSelecionadas,
-    elementosAfins: editElementosAfinsSelecionados,
-    habilidadeExclusiva: habilidadeSelecionada("editRacaHabilidadeExclusiva"),
-    restricoesClasse: editRestricoesClasseSelecionadas,
-    atualizadoEm: serverTimestamp()
+    hpBase: numeroCampo("racaHpBase"),
+    manaBase: numeroCampo("racaManaBase"),
+    forcaFisica: numeroCampo("racaForcaFisica"),
+    forcaMagica: numeroCampo("racaForcaMagica"),
+    defesaFisica: numeroCampo("racaDefesaFisica"),
+    defesaMagica: numeroCampo("racaDefesaMagica"),
+    velocidade: numeroCampo("racaVelocidade"),
+    resistencia: numeroCampo("racaResistencia"),
+    carismaBonus: textoCampo("racaCarismaBonus"),
+    fatorMedoBonus: textoCampo("racaFatorMedoBonus"),
+    habilidadeExclusiva: habilidadeExclusivaId
+      ? {
+          id: habilidadeExclusivaId,
+          nome: habilidadeExclusivaNome
+        }
+      : null,
+    vantagens: textoCampo("racaVantagens"),
+    desvantagens: textoCampo("racaDesvantagens"),
+    classesSugeridas: classesSugeridasSelecionadas,
+    elementosAfins: elementosAfinsSelecionados,
+    restricoesClasse: restricoesClasseSelecionadas,
+    criadoPor: state.usuarioAtual.uid,
+    criadoEm: serverTimestamp()
   };
 
   try {
-    await updateDoc(doc(db, "racas", state.racaSelecionada.id), dadosAtualizados);
+    await addDoc(collection(db, "racas"), raca);
 
-    setRacaSelecionada({
-      ...state.racaSelecionada,
-      ...dadosAtualizados
-    });
+    await mostrarModal("Raça cadastrada com sucesso.", "Cadastro realizado", "success");
 
-    await mostrarModal("Raça atualizada com sucesso.", "Alterações salvas", "success");
-    renderizarDetalheRaca(false);
+    fecharModalCadastroRaca();
   } catch (erro) {
-    console.error("Erro ao editar raça:", erro);
-    await mostrarModal("Erro ao editar raça.", "Erro", "danger");
-  }
-}
-
-async function excluirRaca() {
-  if (!state.racaSelecionada) {
-    await mostrarModal("Nenhuma raça selecionada.", "Erro", "danger");
-    return;
-  }
-
-  const confirmar = await confirmarModal({
-    titulo: "Excluir raça",
-    mensagem: `Tem certeza que deseja excluir a raça "${state.racaSelecionada.nome}"? Essa ação não pode ser desfeita.`,
-    confirmarTexto: "Excluir",
-    cancelarTexto: "Cancelar",
-    tipo: "danger"
-  });
-
-  if (!confirmar) return;
-
-  try {
-    await deleteDoc(doc(db, "racas", state.racaSelecionada.id));
-
-    setRacaSelecionada(null);
-
-    await mostrarModal("Raça excluída com sucesso.", "Exclusão concluída", "success");
-    navegarPara("cadastrosRacas");
-  } catch (erro) {
-    console.error("Erro ao excluir raça:", erro);
-    await mostrarModal("Erro ao excluir raça.", "Erro", "danger");
+    console.error("Erro ao cadastrar raça:", erro);
+    await mostrarModal("Erro ao cadastrar raça.", "Erro", "danger");
   }
 }
 
@@ -581,8 +486,8 @@ function abrirModalImportacaoRacas() {
     <div class="crud-form-modal">
       <div class="crud-form-header">
         <div>
-          <h3>Importar Raças em Massa</h3>
-          <p>Cole várias raças seguindo o modelo. Separe uma raça da outra usando uma linha com três traços: ---</p>
+          <h3>Importar Raças</h3>
+          <p>Cole um texto com várias raças. O sistema tentará identificar os campos automaticamente.</p>
         </div>
 
         <button class="crud-form-close" type="button" id="fecharModalImportacaoRacas">×</button>
@@ -592,49 +497,33 @@ function abrirModalImportacaoRacas() {
         <div class="crud-form-content">
           <label>
             Texto para importação
-            <textarea id="textoImportacaoRacas" rows="18" placeholder="Cole aqui as raças no modelo indicado..."></textarea>
+            <textarea id="textoImportacaoRacas" placeholder="Nome da Raça: Elfo
+HP Base: 80
+Mana Base: 120
+Força Física: 6
+Força Mágica: 14
+Defesa Física: 7
+Defesa Mágica: 12
+Velocidade: 13
+Resistência: 8
+Bônus de Carisma: +2 em diplomacia
+Fator Medo: Baixo
+Habilidade Exclusiva: Visão Etérea
+Vantagens: Afinidade mágica e sentidos aguçados
+Desvantagens: Baixa resistência física
+Classes Sugeridas: Mago, Arqueiro
+Elementos Afins: Luz, Vento
+Restrições de Classes: Ladino"></textarea>
           </label>
-
-          <div class="detail-section">
-            <h4>Modelo esperado</h4>
-            <p>
-              Raça: Elfo<br>
-              HP Base: 40<br>
-              Mana Base: 100<br>
-              Força Física: 2<br>
-              Força Mágica: 5<br>
-              Defesa Física: 2<br>
-              Defesa Mágica: 4<br>
-              Velocidade: 5<br>
-              Resistência: 3<br>
-              Carisma: +2 em testes sociais<br>
-              Fator Medo: Nenhum<br>
-              Vantagens/Bônus: Alta afinidade mágica.<br>
-              Desvantagens/Penalidades: Baixa resistência física.<br>
-              Classes Sugeridas: Todas<br>
-              Elementos Afins: Luz, Água<br>
-              Habilidade Exclusiva: Visão Élfica<br>
-              Restrição de Classe: Nenhuma<br>
-              ---<br>
-              Raça: Orc<br>
-              HP Base: 80
-            </p>
-          </div>
 
           <div class="action-row">
             <button class="secondary-btn" type="button" id="cancelarImportacaoRacas">Cancelar</button>
-            <button class="primary-btn" type="button" id="analisarImportacaoRacas">Analisar texto</button>
+            <button class="secondary-btn" type="button" id="analisarImportacaoRacas">Analisar texto</button>
+            <button class="primary-btn" type="button" id="salvarImportacaoRacas">Salvar importação</button>
           </div>
 
-          <div id="previewImportacaoRacas" class="list-card" style="display:none;">
-            <h3>Prévia da importação</h3>
-
-            <div id="listaPreviewImportacaoRacas" class="resource-list"></div>
-
-            <div class="action-row">
-              <button class="secondary-btn" type="button" id="limparPreviewImportacaoRacas">Revisar texto</button>
-              <button class="primary-btn" type="button" id="confirmarImportacaoRacas">Cadastrar todos</button>
-            </div>
+          <div id="previewImportacaoRacas" class="import-preview">
+            <p>Nenhuma raça analisada ainda.</p>
           </div>
         </div>
       </div>
@@ -646,8 +535,7 @@ function abrirModalImportacaoRacas() {
   document.getElementById("fecharModalImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
   document.getElementById("cancelarImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
   document.getElementById("analisarImportacaoRacas")?.addEventListener("click", analisarImportacaoRacas);
-  document.getElementById("limparPreviewImportacaoRacas")?.addEventListener("click", limparPreviewImportacaoRacas);
-  document.getElementById("confirmarImportacaoRacas")?.addEventListener("click", confirmarImportacaoRacas);
+  document.getElementById("salvarImportacaoRacas")?.addEventListener("click", salvarImportacaoRacas);
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
@@ -666,393 +554,313 @@ function fecharModalImportacaoRacas() {
   importacaoRacasPendentes = [];
 }
 
-async function analisarImportacaoRacas() {
-  const texto = document.getElementById("textoImportacaoRacas")?.value.trim() || "";
+function analisarImportacaoRacas() {
+  const texto = document.getElementById("textoImportacaoRacas")?.value || "";
+  const preview = document.getElementById("previewImportacaoRacas");
 
-  if (!texto) {
-    await mostrarModal("Cole o texto com as raças antes de analisar.", "Campo obrigatório");
+  if (!preview) return;
+
+  importacaoRacasPendentes = extrairRacasDoTexto(texto);
+
+  if (!importacaoRacasPendentes.length) {
+    preview.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhuma raça identificada.</h3>
+        <p>Confira se o texto tem nomes e campos separados por dois-pontos.</p>
+      </div>
+    `;
     return;
   }
 
-  const resultado = interpretarTextoRacas(texto);
-
-  if (resultado.erros.length > 0 && resultado.racas.length === 0) {
-    await mostrarModal(resultado.erros.join("\n"), "Não foi possível importar", "danger");
-    return;
-  }
-
-  importacaoRacasPendentes = resultado.racas;
-  renderizarPreviewImportacaoRacas(resultado.erros);
+  preview.innerHTML = `
+    <div class="import-preview-list">
+      ${importacaoRacasPendentes
+        .map((raca, index) => {
+          return `
+            <div class="import-preview-card">
+              <strong>${index + 1}. ${escapeHtml(raca.nome || "Raça sem nome")}</strong>
+              <p>
+                HP: ${raca.hpBase || 0} •
+                Mana: ${raca.manaBase || 0} •
+                Velocidade: ${raca.velocidade || 0}
+              </p>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
-function interpretarTextoRacas(texto) {
+function extrairRacasDoTexto(texto) {
   const blocos = texto
-    .split(/\n\s*---\s*\n/g)
+    .split(/\n\s*\n/g)
     .map((bloco) => bloco.trim())
     .filter(Boolean);
 
-  const racas = [];
-  const erros = [];
-  const nomesNoTexto = new Set();
+  return blocos
+    .map((bloco) => extrairRacaDoBloco(bloco))
+    .filter((raca) => raca.nome);
+}
 
-  blocos.forEach((bloco, index) => {
-    const campos = extrairCamposDoBloco(bloco);
-    const numero = index + 1;
+function extrairRacaDoBloco(bloco) {
+  const linhas = bloco
+    .split("\n")
+    .map((linha) => linha.trim())
+    .filter(Boolean);
 
-    const nome = buscarCampo(campos, ["raça", "raca", "nome", "nome da raça", "nome da raca"]);
-
-    if (!nome) {
-      erros.push(`Bloco ${numero}: nome da raça não encontrado.`);
-      return;
-    }
-
-    const nomeNormalizado = normalizarTexto(nome);
-
-    if (nomesNoTexto.has(nomeNormalizado)) {
-      erros.push(`Bloco ${numero}: a raça "${nome}" está repetida no texto e foi ignorada.`);
-      return;
-    }
-
-    nomesNoTexto.add(nomeNormalizado);
-
-    const jaExiste = state.racasDisponiveis.some((raca) => {
-      return normalizarTexto(raca.nome || "") === nomeNormalizado;
-    });
-
-    if (jaExiste) {
-      erros.push(`Bloco ${numero}: a raça "${nome}" já existe no sistema e foi ignorada.`);
-      return;
-    }
-
-    const habilidadeNome = buscarCampo(campos, ["habilidade exclusiva"]);
-    const habilidade = habilidadeNome ? encontrarPorNome(habilidadesDisponiveis, habilidadeNome) : null;
-
-    if (habilidadeNome && !habilidade) {
-      erros.push(`Bloco ${numero}: habilidade exclusiva "${habilidadeNome}" não encontrada. A raça será cadastrada sem habilidade exclusiva.`);
-    }
-
-    const raca = {
-      nome,
-      hpBase: numeroTexto(buscarCampo(campos, ["hp base", "hp"])),
-      manaBase: numeroTexto(buscarCampo(campos, ["mana base", "mana"])),
-      forcaFisica: numeroTexto(buscarCampo(campos, ["força física", "forca fisica"])),
-      forcaMagica: numeroTexto(buscarCampo(campos, ["força mágica", "forca magica"])),
-      defesaFisica: numeroTexto(buscarCampo(campos, ["defesa física", "defesa fisica"])),
-      defesaMagica: numeroTexto(buscarCampo(campos, ["defesa mágica", "defesa magica"])),
-      velocidade: numeroTexto(buscarCampo(campos, ["velocidade"])),
-      resistencia: numeroTexto(buscarCampo(campos, ["resistência", "resistencia"])),
-      carismaBonus: buscarCampo(campos, ["carisma"]) || "",
-      fatorMedoBonus: buscarCampo(campos, ["fator medo", "fator de medo"]) || "",
-      vantagens: buscarCampo(campos, ["vantagens/bônus", "vantagens/bonus", "vantagens", "bônus", "bonus"]) || "",
-      desvantagens: buscarCampo(campos, ["desvantagens/penalidades", "desvantagens", "penalidades"]) || "",
-      classesSugeridas: interpretarListaRelacionada(
-        buscarCampo(campos, ["classes sugeridas", "classe sugerida"]),
-        classesDisponiveis,
-        true,
-        false
-      ),
-      elementosAfins: interpretarListaRelacionada(
-        buscarCampo(campos, ["elementos afins", "elemento afim"]),
-        elementosDisponiveis,
-        true,
-        false
-      ),
-      habilidadeExclusiva: habilidade
-        ? {
-            id: habilidade.id,
-            nome: habilidade.nome
-          }
-        : null,
-      restricoesClasse: interpretarListaRelacionada(
-        buscarCampo(campos, ["restrição de classe", "restricao de classe", "restrições de classe", "restricoes de classe"]),
-        classesDisponiveis,
-        false,
-        true
-      )
-    };
-
-    racas.push(raca);
-  });
-
-  return {
-    racas,
-    erros
+  const raca = {
+    nome: "",
+    hpBase: 0,
+    manaBase: 0,
+    forcaFisica: 0,
+    forcaMagica: 0,
+    defesaFisica: 0,
+    defesaMagica: 0,
+    velocidade: 0,
+    resistencia: 0,
+    carismaBonus: "",
+    fatorMedoBonus: "",
+    habilidadeExclusiva: null,
+    vantagens: "",
+    desvantagens: "",
+    classesSugeridas: [],
+    elementosAfins: [],
+    restricoesClasse: []
   };
-}
 
-function extrairCamposDoBloco(bloco) {
-  const campos = {};
-  const linhas = bloco.split("\n").map((linha) => linha.trim()).filter(Boolean);
+  linhas.forEach((linha, index) => {
+    const partes = linha.split(":");
 
-  linhas.forEach((linha) => {
-    const separador = linha.indexOf(":");
+    if (partes.length < 2) {
+      if (index === 0 && !raca.nome) {
+        raca.nome = linha.replace(/^[-•\d.]+\s*/, "").trim();
+      }
 
-    if (separador === -1) return;
+      return;
+    }
 
-    const chave = normalizarTexto(linha.slice(0, separador));
-    const valor = linha.slice(separador + 1).trim();
+    const chave = normalizarTexto(partes.shift());
+    const valor = partes.join(":").trim();
 
-    campos[chave] = valor;
+    if (["nome da raca", "nome da raça", "nome", "raca", "raça"].includes(chave)) {
+      raca.nome = valor;
+      return;
+    }
+
+    if (["hp base", "hp"].includes(chave)) {
+      raca.hpBase = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["mana base", "mana"].includes(chave)) {
+      raca.manaBase = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["forca fisica", "força física", "forca física", "força fisica"].includes(chave)) {
+      raca.forcaFisica = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["forca magica", "força mágica", "forca mágica", "força magica"].includes(chave)) {
+      raca.forcaMagica = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["defesa fisica", "defesa física"].includes(chave)) {
+      raca.defesaFisica = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["defesa magica", "defesa mágica"].includes(chave)) {
+      raca.defesaMagica = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["velocidade"].includes(chave)) {
+      raca.velocidade = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["resistencia", "resistência"].includes(chave)) {
+      raca.resistencia = Number(valor.replace(",", ".")) || 0;
+      return;
+    }
+
+    if (["bonus de carisma", "bônus de carisma", "carisma"].includes(chave)) {
+      raca.carismaBonus = valor;
+      return;
+    }
+
+    if (["fator medo", "fator de medo"].includes(chave)) {
+      raca.fatorMedoBonus = valor;
+      return;
+    }
+
+    if (["habilidade exclusiva", "habilidade"].includes(chave)) {
+      raca.habilidadeExclusiva = valor ? { id: gerarIdTemporario(valor), nome: valor } : null;
+      return;
+    }
+
+    if (["vantagens"].includes(chave)) {
+      raca.vantagens = valor;
+      return;
+    }
+
+    if (["desvantagens"].includes(chave)) {
+      raca.desvantagens = valor;
+      return;
+    }
+
+    if (["classes sugeridas", "classes"].includes(chave)) {
+      raca.classesSugeridas = extrairListaTexto(valor);
+      return;
+    }
+
+    if (["elementos afins", "elementos"].includes(chave)) {
+      raca.elementosAfins = extrairListaTexto(valor);
+      return;
+    }
+
+    if (["restricoes de classes", "restrições de classes", "restricao de classe", "restrição de classe", "restricoes", "restrições"].includes(chave)) {
+      raca.restricoesClasse = extrairListaTexto(valor);
+    }
   });
 
-  return campos;
+  return raca;
 }
 
-function buscarCampo(campos, nomesPossiveis) {
-  for (const nome of nomesPossiveis) {
-    const chave = normalizarTexto(nome);
-
-    if (campos[chave] !== undefined) {
-      return campos[chave];
-    }
-  }
-
-  return "";
-}
-
-function numeroTexto(valor) {
-  if (!valor) return 0;
-
-  const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
-
-  return Number.isFinite(numero) ? numero : 0;
-}
-
-function interpretarListaRelacionada(texto, listaDisponivel, permitirTodas, permitirNenhuma) {
-  if (!texto) return [];
-
-  const valorNormalizado = normalizarTexto(texto);
-
-  if (permitirTodas && valorNormalizado === "todas") {
-    return [{ id: "__ALL__", nome: "Todas" }];
-  }
-
-  if (permitirNenhuma && valorNormalizado === "nenhuma") {
-    return [{ id: "__NONE__", nome: "Nenhuma" }];
-  }
-
-  return texto
+function extrairListaTexto(valor) {
+  return valor
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-    .map((nome) => {
-      const encontrado = encontrarPorNome(listaDisponivel, nome);
-
-      if (encontrado) {
-        return {
-          id: encontrado.id,
-          nome: encontrado.nome
-        };
-      }
-
-      return {
-        id: "",
-        nome
-      };
-    })
-    .filter((item) => item.nome);
+    .map((nome) => ({ id: gerarIdTemporario(nome), nome }));
 }
-
-function encontrarPorNome(lista, nome) {
-  const nomeNormalizado = normalizarTexto(nome);
-
-  return lista.find((item) => normalizarTexto(item.nome || "") === nomeNormalizado) || null;
-}
-
-function renderizarPreviewImportacaoRacas(erros = []) {
-  const preview = document.getElementById("previewImportacaoRacas");
-  const lista = document.getElementById("listaPreviewImportacaoRacas");
-
-  if (!preview || !lista) return;
-
-  preview.style.display = "block";
-  lista.innerHTML = "";
-
-  if (erros.length > 0) {
-    const aviso = document.createElement("div");
-    aviso.classList.add("detail-section");
-
-    aviso.innerHTML = `
-      <h4>Avisos encontrados</h4>
-      <p>${erros.map((erro) => escapeHtml(erro)).join("<br>")}</p>
-    `;
-
-    lista.appendChild(aviso);
-  }
-
-  if (importacaoRacasPendentes.length === 0) {
-    lista.innerHTML += "<p>Nenhuma raça válida encontrada.</p>";
+async function salvarImportacaoRacas() {
+  if (!importacaoRacasPendentes.length) {
+    await mostrarModal("Analise o texto antes de salvar a importação.", "Importação vazia");
     return;
   }
-
-  importacaoRacasPendentes.forEach((raca) => {
-    const card = document.createElement("div");
-    card.classList.add("resource-card");
-
-    card.innerHTML = `
-      <div class="resource-card-header">
-        <h4>${escapeHtml(raca.nome)}</h4>
-        <span>Raça</span>
-      </div>
-
-      <div class="resource-card-stats">
-        <span>HP: <b>${raca.hpBase}</b></span>
-        <span>Mana: <b>${raca.manaBase}</b></span>
-        <span>Força Física: <b>${raca.forcaFisica}</b></span>
-        <span>Força Mágica: <b>${raca.forcaMagica}</b></span>
-        <span>Defesa Física: <b>${raca.defesaFisica}</b></span>
-        <span>Defesa Mágica: <b>${raca.defesaMagica}</b></span>
-        <span>Velocidade: <b>${raca.velocidade}</b></span>
-        <span>Resistência: <b>${raca.resistencia}</b></span>
-      </div>
-
-      <p><b>Classes Sugeridas:</b> ${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p>
-      <p><b>Elementos Afins:</b> ${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p>
-      <p><b>Restrição de Classe:</b> ${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p>
-      <p><b>Habilidade Exclusiva:</b> ${escapeHtml(raca.habilidadeExclusiva?.nome || "Não informado")}</p>
-    `;
-
-    lista.appendChild(card);
-  });
-}
-
-function limparPreviewImportacaoRacas() {
-  const preview = document.getElementById("previewImportacaoRacas");
-
-  if (preview) {
-    preview.style.display = "none";
-  }
-
-  importacaoRacasPendentes = [];
-}
-
-async function confirmarImportacaoRacas() {
-  if (!state.usuarioAtual) {
-    await mostrarModal("Você precisa estar logado.", "Acesso necessário");
-    return;
-  }
-
-  if (state.dadosUsuarioAtual?.tipo !== "mestre") {
-    await mostrarModal("Apenas o Mestre pode importar raças.", "Permissão negada");
-    return;
-  }
-
-  if (importacaoRacasPendentes.length === 0) {
-    await mostrarModal("Nenhuma raça foi analisada para cadastro.", "Importação vazia");
-    return;
-  }
-
-  const racasSemDuplicidade = importacaoRacasPendentes.filter((raca) => {
-    return !state.racasDisponiveis.some((existente) => {
-      return normalizarTexto(existente.nome || "") === normalizarTexto(raca.nome || "");
-    });
-  });
-
-  const ignoradas = importacaoRacasPendentes.length - racasSemDuplicidade.length;
-
-  if (racasSemDuplicidade.length === 0) {
-    await mostrarModal(
-      "Todas as raças analisadas já existem no sistema. Nenhum cadastro foi realizado.",
-      "Importação cancelada",
-      "danger"
-    );
-    return;
-  }
-
-  const mensagemConfirmacao = ignoradas > 0
-    ? `Foram encontradas ${ignoradas} raça(s) que já existem no sistema e serão ignoradas. Deseja cadastrar as ${racasSemDuplicidade.length} raça(s) restante(s)?`
-    : `Deseja cadastrar ${racasSemDuplicidade.length} raça(s) agora?`;
-
-  const confirmar = await confirmarModal({
-    titulo: "Confirmar importação",
-    mensagem: mensagemConfirmacao,
-    confirmarTexto: "Cadastrar",
-    cancelarTexto: "Cancelar",
-    tipo: "success"
-  });
-
-  if (!confirmar) return;
 
   try {
-    const cadastros = racasSemDuplicidade.map((raca) => {
-      return addDoc(collection(db, "racas"), {
+    let salvas = 0;
+    let ignoradas = 0;
+
+    for (const raca of importacaoRacasPendentes) {
+      const existe = state.racasDisponiveis.some((item) => {
+        return normalizarTexto(item.nome || "") === normalizarTexto(raca.nome || "");
+      });
+
+      if (existe) {
+        ignoradas += 1;
+        continue;
+      }
+
+      await addDoc(collection(db, "racas"), {
         ...raca,
-        criadoPor: state.usuarioAtual.uid,
+        criadoPor: state.usuarioAtual?.uid || "",
         criadoEm: serverTimestamp()
       });
-    });
 
-    await Promise.all(cadastros);
+      salvas += 1;
+    }
 
     await mostrarModal(
-      `${racasSemDuplicidade.length} raça(s) cadastrada(s) com sucesso.`,
-      "Importação concluída",
+      `Importação concluída. Raças salvas: ${salvas}. Ignoradas por já existirem: ${ignoradas}.`,
+      "Importação salva",
       "success"
     );
 
     fecharModalImportacaoRacas();
-    renderizarRacas();
   } catch (erro) {
     console.error("Erro ao importar raças:", erro);
-    await mostrarModal("Erro ao importar raças.", "Erro", "danger");
+    await mostrarModal("Erro ao salvar importação de raças.", "Erro", "danger");
   }
 }
 
-function preencherSelectClassesRaca() {
-  preencherSelectGenerico("selectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", true, false);
-  preencherSelectGenerico("selectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada", false, true);
+function preencherSelectClassesSugeridas() {
+  const select = document.getElementById("selectClassesSugeridas");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!classesDisponiveis.length) {
+    select.innerHTML = `<option value="">Nenhuma classe cadastrada</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione uma classe</option>`;
+  select.innerHTML += `<option value="__ALL__">Todas</option>`;
+
+  classesDisponiveis.forEach((classe) => {
+    const option = document.createElement("option");
+    option.value = classe.id;
+    option.textContent = classe.nome || "Sem nome";
+    select.appendChild(option);
+  });
 }
 
-function preencherSelectClassesRacaEdicao() {
-  preencherSelectGenerico("editSelectClassesSugeridas", classesDisponiveis, "Nenhuma classe cadastrada", true, false);
-  preencherSelectGenerico("editSelectRestricaoClasse", classesDisponiveis, "Nenhuma classe cadastrada", false, true);
+function preencherSelectElementosAfins() {
+  const select = document.getElementById("selectElementosAfins");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!elementosDisponiveis.length) {
+    select.innerHTML = `<option value="">Nenhum elemento cadastrado</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione um elemento</option>`;
+  select.innerHTML += `<option value="__ALL__">Todos</option>`;
+
+  elementosDisponiveis.forEach((elemento) => {
+    const option = document.createElement("option");
+    option.value = elemento.id;
+    option.textContent = elemento.nome || "Sem nome";
+    select.appendChild(option);
+  });
 }
 
-function preencherSelectElementosRaca() {
-  preencherSelectGenerico("selectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", true, false);
+function preencherSelectRestricoesClasse() {
+  const select = document.getElementById("selectRestricoesClasse");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  select.innerHTML = `<option value="">Selecione uma restrição</option>`;
+  select.innerHTML += `<option value="__NONE__">Nenhuma</option>`;
+
+  if (!classesDisponiveis.length) {
+    return;
+  }
+
+  classesDisponiveis.forEach((classe) => {
+    const option = document.createElement("option");
+    option.value = classe.id;
+    option.textContent = classe.nome || "Sem nome";
+    select.appendChild(option);
+  });
 }
 
-function preencherSelectElementosRacaEdicao() {
-  preencherSelectGenerico("editSelectElementosAfins", elementosDisponiveis, "Nenhum elemento cadastrado", true, false);
-}
-
-function preencherSelectHabilidadesRaca() {
-  preencherSelectGenerico("racaHabilidadeExclusiva", habilidadesDisponiveis, "Nenhuma habilidade cadastrada", false, false);
-}
-
-function preencherSelectHabilidadesRacaEdicao() {
-  preencherSelectGenerico("editRacaHabilidadeExclusiva", habilidadesDisponiveis, "Nenhuma habilidade cadastrada", false, false);
-}
-
-function preencherSelectGenerico(selectId, lista, mensagemVazia, permitirTodas = false, permitirNenhuma = false) {
-  const select = document.getElementById(selectId);
+function preencherSelectHabilidadeExclusivaRaca() {
+  const select = document.getElementById("racaHabilidadeExclusiva");
 
   if (!select) return;
 
   const valorAtual = select.value;
 
-  select.innerHTML = `<option value="">Selecione uma opção</option>`;
+  select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
 
-  if (permitirTodas) {
-    select.innerHTML += `<option value="__ALL__">Todas</option>`;
-  }
-
-  if (permitirNenhuma) {
-    select.innerHTML += `<option value="__NONE__">Nenhuma</option>`;
-  }
-
-  if (!Array.isArray(lista) || lista.length === 0) {
-    if (!permitirTodas && !permitirNenhuma) {
-      select.innerHTML = `<option value="">${mensagemVazia}</option>`;
-    }
-
-    return;
-  }
-
-  lista.forEach((item) => {
+  habilidadesDisponiveis.forEach((habilidade) => {
     const option = document.createElement("option");
-    option.value = item.id;
-    option.textContent = item.nome || "Sem nome";
+    option.value = habilidade.id;
+    option.textContent = habilidade.nome || "Sem nome";
     select.appendChild(option);
   });
 
@@ -1061,11 +869,100 @@ function preencherSelectGenerico(selectId, lista, mensagemVazia, permitirTodas =
   }
 }
 
-async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) {
+function preencherSelectEditClassesSugeridas() {
+  const select = document.getElementById("editSelectClassesSugeridas");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!classesDisponiveis.length) {
+    select.innerHTML = `<option value="">Nenhuma classe cadastrada</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione uma classe</option>`;
+  select.innerHTML += `<option value="__ALL__">Todas</option>`;
+
+  classesDisponiveis.forEach((classe) => {
+    const option = document.createElement("option");
+    option.value = classe.id;
+    option.textContent = classe.nome || "Sem nome";
+    select.appendChild(option);
+  });
+}
+
+function preencherSelectEditElementosAfins() {
+  const select = document.getElementById("editSelectElementosAfins");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!elementosDisponiveis.length) {
+    select.innerHTML = `<option value="">Nenhum elemento cadastrado</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione um elemento</option>`;
+  select.innerHTML += `<option value="__ALL__">Todos</option>`;
+
+  elementosDisponiveis.forEach((elemento) => {
+    const option = document.createElement("option");
+    option.value = elemento.id;
+    option.textContent = elemento.nome || "Sem nome";
+    select.appendChild(option);
+  });
+}
+
+function preencherSelectEditRestricoesClasse() {
+  const select = document.getElementById("editSelectRestricoesClasse");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  select.innerHTML = `<option value="">Selecione uma restrição</option>`;
+  select.innerHTML += `<option value="__NONE__">Nenhuma</option>`;
+
+  if (!classesDisponiveis.length) {
+    return;
+  }
+
+  classesDisponiveis.forEach((classe) => {
+    const option = document.createElement("option");
+    option.value = classe.id;
+    option.textContent = classe.nome || "Sem nome";
+    select.appendChild(option);
+  });
+}
+
+function preencherSelectEditHabilidadeExclusivaRaca() {
+  const select = document.getElementById("editRacaHabilidadeExclusiva");
+
+  if (!select) return;
+
+  const valorAtual = select.value;
+
+  select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
+
+  habilidadesDisponiveis.forEach((habilidade) => {
+    const option = document.createElement("option");
+    option.value = habilidade.id;
+    option.textContent = habilidade.nome || "Sem nome";
+    select.appendChild(option);
+  });
+
+  if (valorAtual) {
+    select.value = valorAtual;
+  }
+}
+
+function adicionarSelecionado(selectId, lista, renderCallback) {
   const select = document.getElementById(selectId);
 
   if (!select || !select.value) {
-    await mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
+    mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
     return;
   }
 
@@ -1073,42 +970,61 @@ async function adicionarSelecionado(selectId, listaSelecionada, renderCallback) 
   const nome = select.selectedOptions[0].textContent;
 
   if (id === "__ALL__") {
-    listaSelecionada.length = 0;
-    listaSelecionada.push({ id: "__ALL__", nome: "Todas" });
+    lista.splice(0, lista.length, { id: "__ALL__", nome });
     renderCallback();
     return;
   }
 
-  if (id === "__NONE__") {
-    listaSelecionada.length = 0;
-    listaSelecionada.push({ id: "__NONE__", nome: "Nenhuma" });
-    renderCallback();
+  if (lista.some((item) => item.id === "__ALL__")) {
+    mostrarModal("Remova a opção Todas antes de selecionar opções específicas.", "Seleção inválida");
     return;
   }
 
-  const temOpcaoEspecial = listaSelecionada.some((item) => item.id === "__ALL__" || item.id === "__NONE__");
-
-  if (temOpcaoEspecial) {
-    await mostrarModal("Remova a opção especial antes de selecionar opções específicas.", "Seleção inválida");
+  if (lista.some((item) => item.id === id)) {
+    mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
     return;
   }
 
-  const jaExiste = listaSelecionada.some((item) => item.id === id);
-
-  if (jaExiste) {
-    await mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
-    return;
-  }
-
-  listaSelecionada.push({ id, nome });
+  lista.push({ id, nome });
   renderCallback();
 }
 
-function removerSelecionado(listaSelecionada, id, renderCallback) {
-  const index = listaSelecionada.findIndex((item) => item.id === id);
+function adicionarSelecionadoEspecial(selectId, lista, renderCallback) {
+  const select = document.getElementById(selectId);
+
+  if (!select || !select.value) {
+    mostrarModal("Selecione uma opção primeiro.", "Campo obrigatório");
+    return;
+  }
+
+  const id = select.value;
+  const nome = select.selectedOptions[0].textContent;
+
+  if (id === "__NONE__") {
+    lista.splice(0, lista.length, { id: "__NONE__", nome: "Nenhuma" });
+    renderCallback();
+    return;
+  }
+
+  if (lista.some((item) => item.id === "__NONE__")) {
+    mostrarModal("Remova a opção Nenhuma antes de selecionar restrições específicas.", "Seleção inválida");
+    return;
+  }
+
+  if (lista.some((item) => item.id === id)) {
+    mostrarModal("Essa opção já foi adicionada.", "Opção repetida");
+    return;
+  }
+
+  lista.push({ id, nome });
+  renderCallback();
+}
+
+function removerSelecionado(lista, id, renderCallback) {
+  const index = lista.findIndex((item) => item.id === id);
 
   if (index >= 0) {
-    listaSelecionada.splice(index, 1);
+    lista.splice(index, 1);
   }
 
   renderCallback();
@@ -1121,17 +1037,17 @@ function renderizarListaSelecionada(containerId, lista, mensagemVazia, callbackR
 
   container.innerHTML = "";
 
-  if (!lista || lista.length === 0) {
+  if (!lista.length) {
     container.innerHTML = `<span class="empty-selection">${mensagemVazia}</span>`;
     return;
   }
 
   lista.forEach((item) => {
     const chip = document.createElement("span");
-    chip.classList.add("selected-chip");
+    chip.className = "selected-chip";
 
     chip.innerHTML = `
-      ${escapeHtml(item.nome)}
+      ${escapeHtml(item.nome || "Sem nome")}
       <button type="button" title="Remover">×</button>
     `;
 
@@ -1143,119 +1059,134 @@ function renderizarListaSelecionada(containerId, lista, mensagemVazia, callbackR
   });
 }
 
-function renderizarClassesSugeridas() {
+function renderizarClassesSugeridasSelecionadas() {
   renderizarListaSelecionada(
     "listaClassesSugeridasSelecionadas",
     classesSugeridasSelecionadas,
     "Nenhuma classe sugerida selecionada.",
-    (id) => removerSelecionado(classesSugeridasSelecionadas, id, renderizarClassesSugeridas)
+    (id) => removerSelecionado(classesSugeridasSelecionadas, id, renderizarClassesSugeridasSelecionadas)
   );
 }
 
-function renderizarElementosAfins() {
+function renderizarElementosAfinsSelecionados() {
   renderizarListaSelecionada(
     "listaElementosAfinsSelecionados",
     elementosAfinsSelecionados,
     "Nenhum elemento afim selecionado.",
-    (id) => removerSelecionado(elementosAfinsSelecionados, id, renderizarElementosAfins)
+    (id) => removerSelecionado(elementosAfinsSelecionados, id, renderizarElementosAfinsSelecionados)
   );
 }
 
-function renderizarRestricoesClasse() {
+function renderizarRestricoesClasseSelecionadas() {
   renderizarListaSelecionada(
-    "listaRestricaoClasseSelecionadas",
+    "listaRestricoesClasseSelecionadas",
     restricoesClasseSelecionadas,
     "Nenhuma restrição de classe selecionada.",
-    (id) => removerSelecionado(restricoesClasseSelecionadas, id, renderizarRestricoesClasse)
+    (id) => removerSelecionado(restricoesClasseSelecionadas, id, renderizarRestricoesClasseSelecionadas)
   );
 }
 
-function renderizarEditClassesSugeridas() {
+function renderizarEditClassesSugeridasSelecionadas() {
   renderizarListaSelecionada(
     "editListaClassesSugeridasSelecionadas",
     editClassesSugeridasSelecionadas,
     "Nenhuma classe sugerida selecionada.",
-    (id) => removerSelecionado(editClassesSugeridasSelecionadas, id, renderizarEditClassesSugeridas)
+    (id) => removerSelecionado(editClassesSugeridasSelecionadas, id, renderizarEditClassesSugeridasSelecionadas)
   );
 }
 
-function renderizarEditElementosAfins() {
+function renderizarEditElementosAfinsSelecionados() {
   renderizarListaSelecionada(
     "editListaElementosAfinsSelecionados",
     editElementosAfinsSelecionados,
     "Nenhum elemento afim selecionado.",
-    (id) => removerSelecionado(editElementosAfinsSelecionados, id, renderizarEditElementosAfins)
+    (id) => removerSelecionado(editElementosAfinsSelecionados, id, renderizarEditElementosAfinsSelecionados)
   );
 }
 
-function renderizarEditRestricoesClasse() {
+function renderizarEditRestricoesClasseSelecionadas() {
   renderizarListaSelecionada(
-    "editListaRestricaoClasseSelecionadas",
+    "editListaRestricoesClasseSelecionadas",
     editRestricoesClasseSelecionadas,
     "Nenhuma restrição de classe selecionada.",
-    (id) => removerSelecionado(editRestricoesClasseSelecionadas, id, renderizarEditRestricoesClasse)
+    (id) => removerSelecionado(editRestricoesClasseSelecionadas, id, renderizarEditRestricoesClasseSelecionadas)
   );
 }
+function renderizarRacas() {
+  aplicarEstilosBuscaRacas();
 
-export function atualizarPreviewRaca(raca) {
-  const preview = document.getElementById("previewRacaNome");
+  const lista = document.getElementById("listaRacas");
 
-  if (!preview) return;
+  if (!lista) return;
 
-  preview.textContent = raca?.nome || "Nenhuma raça selecionada.";
-}
+  const racasFiltradas = filtrarRacas(state.racasDisponiveis, buscaRacasAtual);
 
-function formatarListaObjetos(lista) {
-  if (!Array.isArray(lista) || lista.length === 0) {
-    return "Não informado";
-  }
+  lista.innerHTML = "";
 
-  return lista.map((item) => item.nome || item).join(", ");
-}
-
-export function renderizarRacas() {
-  const listaRacas = document.getElementById("listaRacas");
-
-  if (!listaRacas) return;
-
-  listaRacas.innerHTML = "";
-
-  if (!state.racasDisponiveis || state.racasDisponiveis.length === 0) {
-    listaRacas.innerHTML = "<p>Nenhuma raça cadastrada ainda.</p>";
+  if (!state.racasDisponiveis.length) {
+    lista.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhuma raça cadastrada ainda.</h3>
+        <p>Clique em cadastrar para adicionar a primeira raça.</p>
+      </div>
+    `;
     return;
   }
 
-  state.racasDisponiveis.forEach((raca) => {
+  if (!racasFiltradas.length) {
+    lista.innerHTML = `
+      <div class="empty-state">
+        <h3>Nenhuma raça encontrada.</h3>
+        <p>Tente buscar por outro nome, vantagem, desvantagem, classe, elemento ou restrição.</p>
+      </div>
+    `;
+    return;
+  }
+
+  racasFiltradas.forEach((raca) => {
     const card = document.createElement("div");
-    card.classList.add("resource-card");
+    card.className = "resource-card";
+    card.dataset.searchText = normalizarTexto(montarTextoBuscaRaca(raca));
 
     card.innerHTML = `
       <div class="resource-card-header">
-        <h4>${escapeHtml(raca.nome || "Sem nome")}</h4>
+        <div>
+          <h4>${escapeHtml(raca.nome || "Raça sem nome")}</h4>
+          <p>
+            HP: ${raca.hpBase || 0}
+            • Mana: ${raca.manaBase || 0}
+            • Velocidade: ${raca.velocidade || 0}
+          </p>
+        </div>
+
         <span>Raça</span>
       </div>
 
-      <div class="resource-card-stats">
-        <span>HP: <b>${raca.hpBase || 0}</b></span>
-        <span>Mana: <b>${raca.manaBase || 0}</b></span>
-        <span>Velocidade: <b>${raca.velocidade || 0}</b></span>
-        <span>Resistência: <b>${raca.resistencia || 0}</b></span>
+      <div class="resource-card-info">
+        <div class="resource-card-line">
+          <strong>Classes Sugeridas</strong>
+          <span>${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</span>
+        </div>
+
+        <div class="resource-card-line">
+          <strong>Elementos Afins</strong>
+          <span>${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</span>
+        </div>
+
+        <div class="resource-card-line">
+          <strong>Restrições</strong>
+          <span>${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</span>
+        </div>
       </div>
 
-      <p><b>Vantagens:</b> ${escapeHtml(raca.vantagens || "Não informado")}</p>
-      <p><b>Desvantagens:</b> ${escapeHtml(raca.desvantagens || "Não informado")}</p>
-      <p><b>Classes Sugeridas:</b> ${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p>
-      <p><b>Elementos Afins:</b> ${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p>
-      <p><b>Restrições:</b> ${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p>
-
       <div class="action-row">
-        <button class="secondary-btn visualizar-raca">Visualizar</button>
-        <button class="primary-btn editar-raca">Editar</button>
+        <button class="secondary-btn ver-raca">Visualizar</button>
+        <button class="secondary-btn editar-raca">Editar</button>
         <button class="small-btn danger excluir-raca">Excluir</button>
       </div>
     `;
 
-    card.querySelector(".visualizar-raca").addEventListener("click", () => {
+    card.querySelector(".ver-raca").addEventListener("click", () => {
       setRacaSelecionada(raca);
       navegarPara("cadastrosRacaDetalhe");
     });
@@ -1263,22 +1194,50 @@ export function renderizarRacas() {
     card.querySelector(".editar-raca").addEventListener("click", () => {
       setRacaSelecionada(raca);
       navegarPara("cadastrosRacaDetalhe");
-
-      setTimeout(() => {
-        renderizarDetalheRaca(true);
-      }, 300);
+      setTimeout(() => renderizarRacaDetalhe(true), 100);
     });
 
     card.querySelector(".excluir-raca").addEventListener("click", async () => {
-      setRacaSelecionada(raca);
-      await excluirRaca();
+      await excluirRaca(raca);
     });
 
-    listaRacas.appendChild(card);
+    lista.appendChild(card);
   });
 }
 
-function renderizarDetalheRaca(modoEdicao = false) {
+function filtrarRacas(lista, termo) {
+  const busca = normalizarTexto(termo);
+
+  if (!busca) return lista;
+
+  return lista.filter((raca) => {
+    return normalizarTexto(montarTextoBuscaRaca(raca)).includes(busca);
+  });
+}
+
+function montarTextoBuscaRaca(raca) {
+  return [
+    raca.nome,
+    raca.hpBase,
+    raca.manaBase,
+    raca.forcaFisica,
+    raca.forcaMagica,
+    raca.defesaFisica,
+    raca.defesaMagica,
+    raca.velocidade,
+    raca.resistencia,
+    raca.carismaBonus,
+    raca.fatorMedoBonus,
+    raca.habilidadeExclusiva?.nome,
+    raca.vantagens,
+    raca.desvantagens,
+    formatarListaObjetos(raca.classesSugeridas),
+    formatarListaObjetos(raca.elementosAfins),
+    formatarListaObjetos(raca.restricoesClasse)
+  ].join(" ");
+}
+
+export function renderizarRacaDetalhe(modoEdicao = false) {
   const container = document.getElementById("racaDetalheContainer");
 
   if (!container) return;
@@ -1287,54 +1246,301 @@ function renderizarDetalheRaca(modoEdicao = false) {
 
   if (!raca) {
     container.innerHTML = `
-      <div class="form-card">
-        <h3>Nenhuma raça selecionada</h3>
-        <p>Volte para a lista de raças e selecione uma opção.</p>
-        <button class="secondary-btn" id="voltarListaRacas">Voltar para raças</button>
+      <div class="empty-state">
+        <h3>Nenhuma raça selecionada.</h3>
+        <p>Volte para a lista e escolha uma raça para visualizar.</p>
       </div>
     `;
-
-    document.getElementById("voltarListaRacas")?.addEventListener("click", () => {
-      navegarPara("cadastrosRacas");
-    });
-
     return;
   }
 
   if (modoEdicao) {
-    renderizarFormularioEdicaoRaca(container, raca);
+    editClassesSugeridasSelecionadas = Array.isArray(raca.classesSugeridas)
+      ? [...raca.classesSugeridas]
+      : [];
+
+    editElementosAfinsSelecionados = Array.isArray(raca.elementosAfins)
+      ? [...raca.elementosAfins]
+      : [];
+
+    editRestricoesClasseSelecionadas = Array.isArray(raca.restricoesClasse)
+      ? [...raca.restricoesClasse]
+      : [];
+
+    container.innerHTML = `
+      <div class="detail-card">
+        <div class="crud-form-content">
+          <h3>Editar Raça</h3>
+
+          <div class="form-grid">
+            <label>
+              Nome da Raça
+              <input type="text" id="editRacaNome" value="${escapeHtml(raca.nome || "")}" />
+            </label>
+
+            <label>
+              HP Base
+              <input type="number" id="editRacaHpBase" value="${raca.hpBase || 0}" />
+            </label>
+
+            <label>
+              Mana Base
+              <input type="number" id="editRacaManaBase" value="${raca.manaBase || 0}" />
+            </label>
+
+            <label>
+              Força Física
+              <input type="number" id="editRacaForcaFisica" value="${raca.forcaFisica || 0}" />
+            </label>
+
+            <label>
+              Força Mágica
+              <input type="number" id="editRacaForcaMagica" value="${raca.forcaMagica || 0}" />
+            </label>
+
+            <label>
+              Defesa Física
+              <input type="number" id="editRacaDefesaFisica" value="${raca.defesaFisica || 0}" />
+            </label>
+
+            <label>
+              Defesa Mágica
+              <input type="number" id="editRacaDefesaMagica" value="${raca.defesaMagica || 0}" />
+            </label>
+
+            <label>
+              Velocidade
+              <input type="number" id="editRacaVelocidade" value="${raca.velocidade || 0}" />
+            </label>
+
+            <label>
+              Resistência
+              <input type="number" id="editRacaResistencia" value="${raca.resistencia || 0}" />
+            </label>
+
+            <label>
+              Bônus de Carisma
+              <input type="text" id="editRacaCarismaBonus" value="${escapeHtml(raca.carismaBonus || "")}" />
+            </label>
+
+            <label>
+              Fator Medo
+              <input type="text" id="editRacaFatorMedoBonus" value="${escapeHtml(raca.fatorMedoBonus || "")}" />
+            </label>
+          </div>
+
+          <label>
+            Habilidade Exclusiva
+            <select id="editRacaHabilidadeExclusiva">
+              <option value="">Carregando habilidades...</option>
+            </select>
+          </label>
+
+          <label>
+            Vantagens
+            <textarea id="editRacaVantagens">${escapeHtml(raca.vantagens || "")}</textarea>
+          </label>
+
+          <label>
+            Desvantagens
+            <textarea id="editRacaDesvantagens">${escapeHtml(raca.desvantagens || "")}</textarea>
+          </label>
+
+          <div class="multi-select-box">
+            <label>
+              Classes Sugeridas
+              <select id="editSelectClassesSugeridas">
+                <option value="">Carregando classes...</option>
+              </select>
+            </label>
+
+            <button class="secondary-btn" type="button" id="editAdicionarClasseSugerida">Adicionar classe</button>
+
+            <div id="editListaClassesSugeridasSelecionadas" class="selected-list">
+              <span class="empty-selection">Nenhuma classe sugerida selecionada.</span>
+            </div>
+          </div>
+
+          <div class="multi-select-box">
+            <label>
+              Elementos Afins
+              <select id="editSelectElementosAfins">
+                <option value="">Carregando elementos...</option>
+              </select>
+            </label>
+
+            <button class="secondary-btn" type="button" id="editAdicionarElementoAfim">Adicionar elemento</button>
+
+            <div id="editListaElementosAfinsSelecionados" class="selected-list">
+              <span class="empty-selection">Nenhum elemento afim selecionado.</span>
+            </div>
+          </div>
+
+          <div class="multi-select-box">
+            <label>
+              Restrições de Classes
+              <select id="editSelectRestricoesClasse">
+                <option value="">Carregando classes...</option>
+              </select>
+            </label>
+
+            <button class="secondary-btn" type="button" id="editAdicionarRestricaoClasse">Adicionar restrição</button>
+
+            <div id="editListaRestricoesClasseSelecionadas" class="selected-list">
+              <span class="empty-selection">Nenhuma restrição de classe selecionada.</span>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarEdicaoRaca">Cancelar</button>
+            <button class="primary-btn" type="button" id="salvarEdicaoRaca">Salvar alterações</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    preencherSelectEditClassesSugeridas();
+    preencherSelectEditElementosAfins();
+    preencherSelectEditRestricoesClasse();
+    preencherSelectEditHabilidadeExclusivaRaca();
+
+    const selectHabilidade = document.getElementById("editRacaHabilidadeExclusiva");
+
+    if (selectHabilidade && raca.habilidadeExclusiva?.id) {
+      selectHabilidade.value = raca.habilidadeExclusiva.id;
+    }
+
+    renderizarEditClassesSugeridasSelecionadas();
+    renderizarEditElementosAfinsSelecionados();
+    renderizarEditRestricoesClasseSelecionadas();
+
+    document.getElementById("editAdicionarClasseSugerida")?.addEventListener("click", () => {
+      adicionarSelecionado(
+        "editSelectClassesSugeridas",
+        editClassesSugeridasSelecionadas,
+        renderizarEditClassesSugeridasSelecionadas
+      );
+    });
+
+    document.getElementById("editAdicionarElementoAfim")?.addEventListener("click", () => {
+      adicionarSelecionado(
+        "editSelectElementosAfins",
+        editElementosAfinsSelecionados,
+        renderizarEditElementosAfinsSelecionados
+      );
+    });
+
+    document.getElementById("editAdicionarRestricaoClasse")?.addEventListener("click", () => {
+      adicionarSelecionadoEspecial(
+        "editSelectRestricoesClasse",
+        editRestricoesClasseSelecionadas,
+        renderizarEditRestricoesClasseSelecionadas
+      );
+    });
+
+    document.getElementById("cancelarEdicaoRaca")?.addEventListener("click", () => {
+      renderizarRacaDetalhe(false);
+    });
+
+    document.getElementById("salvarEdicaoRaca")?.addEventListener("click", salvarEdicaoRaca);
+
     return;
   }
-
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="detail-card">
-      <h3>${escapeHtml(raca.nome || "Sem nome")}</h3>
-      <p class="detail-subtitle">Raça cadastrada pelo Mestre</p>
+      <div class="detail-header">
+        <div>
+          <span>Raça</span>
+          <h3>${escapeHtml(raca.nome || "Raça sem nome")}</h3>
+        </div>
 
-      <div class="detail-grid">
-        <div class="detail-item"><span>HP Base</span><strong>${raca.hpBase || 0}</strong></div>
-        <div class="detail-item"><span>Mana Base</span><strong>${raca.manaBase || 0}</strong></div>
-        <div class="detail-item"><span>Força Física</span><strong>${raca.forcaFisica || 0}</strong></div>
-        <div class="detail-item"><span>Força Mágica</span><strong>${raca.forcaMagica || 0}</strong></div>
-        <div class="detail-item"><span>Defesa Física</span><strong>${raca.defesaFisica || 0}</strong></div>
-        <div class="detail-item"><span>Defesa Mágica</span><strong>${raca.defesaMagica || 0}</strong></div>
-        <div class="detail-item"><span>Velocidade</span><strong>${raca.velocidade || 0}</strong></div>
-        <div class="detail-item"><span>Resistência</span><strong>${raca.resistencia || 0}</strong></div>
+        <div class="action-row">
+          <button class="secondary-btn" id="voltarListaRacas">Voltar</button>
+          <button class="secondary-btn" id="editarRaca">Editar</button>
+          <button class="small-btn danger" id="excluirRaca">Excluir</button>
+        </div>
       </div>
 
-      <div class="detail-section"><h4>Carisma</h4><p>${escapeHtml(raca.carismaBonus || "Não informado")}</p></div>
-      <div class="detail-section"><h4>Fator Medo</h4><p>${escapeHtml(raca.fatorMedoBonus || "Não informado")}</p></div>
-      <div class="detail-section"><h4>Vantagens/Bônus</h4><p>${escapeHtml(raca.vantagens || "Não informado")}</p></div>
-      <div class="detail-section"><h4>Desvantagens/Penalidades</h4><p>${escapeHtml(raca.desvantagens || "Não informado")}</p></div>
-      <div class="detail-section"><h4>Classes Sugeridas</h4><p>${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</p></div>
-      <div class="detail-section"><h4>Elementos Afins</h4><p>${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</p></div>
-      <div class="detail-section"><h4>Habilidade Exclusiva</h4><p>${escapeHtml(raca.habilidadeExclusiva?.nome || "Não informado")}</p></div>
-      <div class="detail-section"><h4>Restrição de Classe</h4><p>${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</p></div>
+      <div class="detail-grid">
+        <div class="detail-field">
+          <span>HP Base</span>
+          <strong>${raca.hpBase || 0}</strong>
+        </div>
 
-      <div class="action-row">
-        <button class="secondary-btn" id="voltarListaRacas">Voltar</button>
-        <button class="primary-btn" id="abrirEdicaoRaca">Editar raça</button>
-        <button class="small-btn danger" id="excluirRacaDetalhe">Excluir raça</button>
+        <div class="detail-field">
+          <span>Mana Base</span>
+          <strong>${raca.manaBase || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Força Física</span>
+          <strong>${raca.forcaFisica || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Força Mágica</span>
+          <strong>${raca.forcaMagica || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Defesa Física</span>
+          <strong>${raca.defesaFisica || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Defesa Mágica</span>
+          <strong>${raca.defesaMagica || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Velocidade</span>
+          <strong>${raca.velocidade || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Resistência</span>
+          <strong>${raca.resistencia || 0}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Bônus de Carisma</span>
+          <strong>${escapeHtml(raca.carismaBonus || "Não informado")}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Fator Medo</span>
+          <strong>${escapeHtml(raca.fatorMedoBonus || "Não informado")}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Habilidade Exclusiva</span>
+          <strong>${escapeHtml(raca.habilidadeExclusiva?.nome || "Não informado")}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Vantagens</span>
+          <strong>${escapeHtml(raca.vantagens || "Não informado")}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Desvantagens</span>
+          <strong>${escapeHtml(raca.desvantagens || "Não informado")}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Classes Sugeridas</span>
+          <strong>${escapeHtml(formatarListaObjetos(raca.classesSugeridas))}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Elementos Afins</span>
+          <strong>${escapeHtml(formatarListaObjetos(raca.elementosAfins))}</strong>
+        </div>
+
+        <div class="detail-field">
+          <span>Restrições de Classe</span>
+          <strong>${escapeHtml(formatarListaObjetos(raca.restricoesClasse))}</strong>
+        </div>
       </div>
     </div>
   `;
@@ -1343,129 +1549,276 @@ function renderizarDetalheRaca(modoEdicao = false) {
     navegarPara("cadastrosRacas");
   });
 
-  document.getElementById("abrirEdicaoRaca")?.addEventListener("click", () => {
-    renderizarDetalheRaca(true);
+  document.getElementById("editarRaca")?.addEventListener("click", () => {
+    renderizarRacaDetalhe(true);
   });
 
-  document.getElementById("excluirRacaDetalhe")?.addEventListener("click", excluirRaca);
+  document.getElementById("excluirRaca")?.addEventListener("click", async () => {
+    await excluirRaca(raca);
+    navegarPara("cadastrosRacas");
+  });
 }
 
-function renderizarFormularioEdicaoRaca(container, raca) {
-  editClassesSugeridasSelecionadas = Array.isArray(raca.classesSugeridas) ? [...raca.classesSugeridas] : [];
-  editElementosAfinsSelecionados = Array.isArray(raca.elementosAfins) ? [...raca.elementosAfins] : [];
-  editRestricoesClasseSelecionadas = Array.isArray(raca.restricoesClasse) ? [...raca.restricoesClasse] : [];
+async function salvarEdicaoRaca() {
+  const raca = state.racaSelecionada;
 
-  container.innerHTML = `
-    <div class="form-card edit-panel">
-      <h3>Editar Raça</h3>
-
-      <div class="form-grid">
-        <label>Nome da Raça<input type="text" id="editRacaNome" value="${escapeHtml(raca.nome || "")}" /></label>
-        <label>HP Base<input type="number" id="editRacaHpBase" value="${raca.hpBase || 0}" /></label>
-        <label>Mana Base<input type="number" id="editRacaManaBase" value="${raca.manaBase || 0}" /></label>
-        <label>Força Física<input type="number" id="editRacaForcaFisica" value="${raca.forcaFisica || 0}" /></label>
-        <label>Força Mágica<input type="number" id="editRacaForcaMagica" value="${raca.forcaMagica || 0}" /></label>
-        <label>Defesa Física<input type="number" id="editRacaDefesaFisica" value="${raca.defesaFisica || 0}" /></label>
-        <label>Defesa Mágica<input type="number" id="editRacaDefesaMagica" value="${raca.defesaMagica || 0}" /></label>
-        <label>Velocidade<input type="number" id="editRacaVelocidade" value="${raca.velocidade || 0}" /></label>
-        <label>Resistência<input type="number" id="editRacaResistencia" value="${raca.resistencia || 0}" /></label>
-      </div>
-
-      <label>Carisma<input type="text" id="editRacaCarisma" value="${escapeHtml(raca.carismaBonus || "")}" /></label>
-      <label>Fator Medo<input type="text" id="editRacaFatorMedo" value="${escapeHtml(raca.fatorMedoBonus || "")}" /></label>
-      <label>Vantagens/Bônus<textarea id="editRacaVantagens">${escapeHtml(raca.vantagens || "")}</textarea></label>
-      <label>Desvantagens/Penalidades<textarea id="editRacaDesvantagens">${escapeHtml(raca.desvantagens || "")}</textarea></label>
-
-      ${montarMultiEdicao("Classes Sugeridas", "editSelectClassesSugeridas", "editAdicionarClasseSugerida", "editListaClassesSugeridasSelecionadas")}
-      ${montarMultiEdicao("Elementos Afins", "editSelectElementosAfins", "editAdicionarElementoAfim", "editListaElementosAfinsSelecionados")}
-
-      <label>
-        Habilidade Exclusiva
-        <select id="editRacaHabilidadeExclusiva">
-          <option value="">Carregando habilidades...</option>
-        </select>
-      </label>
-
-      ${montarMultiEdicao("Restrição de Classe", "editSelectRestricaoClasse", "editAdicionarRestricaoClasse", "editListaRestricaoClasseSelecionadas")}
-
-      <div class="action-row">
-        <button class="secondary-btn" id="cancelarEdicaoRaca">Cancelar</button>
-        <button class="primary-btn" id="salvarEdicaoRaca">Salvar alterações</button>
-      </div>
-    </div>
-  `;
-
-  preencherSelectClassesRacaEdicao();
-  preencherSelectElementosRacaEdicao();
-  preencherSelectHabilidadesRacaEdicao();
-
-  const habilidade = document.getElementById("editRacaHabilidadeExclusiva");
-
-  if (habilidade && raca.habilidadeExclusiva?.id) {
-    habilidade.value = raca.habilidadeExclusiva.id;
+  if (!raca) {
+    await mostrarModal("Nenhuma raça selecionada.", "Erro", "danger");
+    return;
   }
 
-  renderizarEditClassesSugeridas();
-  renderizarEditElementosAfins();
-  renderizarEditRestricoesClasse();
+  const nome = textoCampo("editRacaNome");
 
-  document.getElementById("editAdicionarClasseSugerida")?.addEventListener("click", () => {
-    adicionarSelecionado("editSelectClassesSugeridas", editClassesSugeridasSelecionadas, renderizarEditClassesSugeridas);
-  });
-
-  document.getElementById("editAdicionarElementoAfim")?.addEventListener("click", () => {
-    adicionarSelecionado("editSelectElementosAfins", editElementosAfinsSelecionados, renderizarEditElementosAfins);
-  });
-
-  document.getElementById("editAdicionarRestricaoClasse")?.addEventListener("click", () => {
-    adicionarSelecionado("editSelectRestricaoClasse", editRestricoesClasseSelecionadas, renderizarEditRestricoesClasse);
-  });
-
-  document.getElementById("cancelarEdicaoRaca")?.addEventListener("click", () => {
-    renderizarDetalheRaca(false);
-  });
-
-  document.getElementById("salvarEdicaoRaca")?.addEventListener("click", salvarEdicaoRaca);
-}
-
-function montarMultiEdicao(label, selectId, botaoId, listaId) {
-  return `
-    <div class="multi-select-box">
-      <label>
-        ${label}
-        <select id="${selectId}">
-          <option value="">Carregando opções...</option>
-        </select>
-      </label>
-
-      <button class="secondary-btn" type="button" id="${botaoId}">Adicionar</button>
-
-      <div id="${listaId}" class="selected-list">
-        <span class="empty-selection">Nenhuma opção selecionada.</span>
-      </div>
-    </div>
-  `;
-}
-
-function atualizarContadorRacas() {
-  const contador = document.getElementById("contadorRacas");
-
-  if (contador) {
-    contador.textContent = state.racasDisponiveis.length;
+  if (!nome) {
+    await mostrarModal("Digite o nome da raça.", "Campo obrigatório");
+    return;
   }
+
+  const existeOutraRaca = state.racasDisponiveis.some((item) => {
+    return item.id !== raca.id && normalizarTexto(item.nome || "") === normalizarTexto(nome);
+  });
+
+  if (existeOutraRaca) {
+    await mostrarModal(`Já existe outra raça chamada "${nome}".`, "Raça duplicada", "danger");
+    return;
+  }
+
+  const habilidadeExclusivaId = valorCampo("editRacaHabilidadeExclusiva");
+  const habilidadeExclusivaNome = textoSelectSelecionado("editRacaHabilidadeExclusiva");
+
+  const dadosAtualizados = {
+    nome,
+    hpBase: numeroCampo("editRacaHpBase"),
+    manaBase: numeroCampo("editRacaManaBase"),
+    forcaFisica: numeroCampo("editRacaForcaFisica"),
+    forcaMagica: numeroCampo("editRacaForcaMagica"),
+    defesaFisica: numeroCampo("editRacaDefesaFisica"),
+    defesaMagica: numeroCampo("editRacaDefesaMagica"),
+    velocidade: numeroCampo("editRacaVelocidade"),
+    resistencia: numeroCampo("editRacaResistencia"),
+    carismaBonus: textoCampo("editRacaCarismaBonus"),
+    fatorMedoBonus: textoCampo("editRacaFatorMedoBonus"),
+    habilidadeExclusiva: habilidadeExclusivaId
+      ? {
+          id: habilidadeExclusivaId,
+          nome: habilidadeExclusivaNome
+        }
+      : null,
+    vantagens: textoCampo("editRacaVantagens"),
+    desvantagens: textoCampo("editRacaDesvantagens"),
+    classesSugeridas: editClassesSugeridasSelecionadas,
+    elementosAfins: editElementosAfinsSelecionados,
+    restricoesClasse: editRestricoesClasseSelecionadas,
+    atualizadoEm: serverTimestamp()
+  };
+
+  try {
+    await updateDoc(doc(db, "racas", raca.id), dadosAtualizados);
+
+    setRacaSelecionada({
+      ...raca,
+      ...dadosAtualizados
+    });
+
+    await mostrarModal("Raça atualizada com sucesso.", "Alterações salvas", "success");
+
+    renderizarRacaDetalhe(false);
+  } catch (erro) {
+    console.error("Erro ao editar raça:", erro);
+    await mostrarModal("Erro ao editar raça.", "Erro", "danger");
+  }
+}
+
+async function excluirRaca(raca) {
+  const confirmar = await confirmarModal({
+    titulo: "Excluir raça",
+    mensagem: `Tem certeza que deseja excluir a raça “${raca.nome}”? Essa ação não pode ser desfeita.`,
+    confirmarTexto: "Excluir",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  try {
+    await deleteDoc(doc(db, "racas", raca.id));
+
+    if (state.racaSelecionada?.id === raca.id) {
+      setRacaSelecionada(null);
+    }
+
+    await mostrarModal("Raça excluída com sucesso.", "Exclusão concluída", "success");
+  } catch (erro) {
+    console.error("Erro ao excluir raça:", erro);
+    await mostrarModal("Erro ao excluir raça.", "Erro", "danger");
+  }
+}
+
+function vincularBuscaRacas() {
+  const input = document.getElementById("buscaRacas");
+
+  if (!input) return;
+
+  buscaRacasAtual = input.value || "";
+
+  input.oninput = () => {
+    buscaRacasAtual = input.value || "";
+    renderizarRacas();
+  };
+}
+
+function aplicarEstilosBuscaRacas() {
+  if (document.getElementById("racasBuscaStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "racasBuscaStyles";
+
+  style.textContent = `
+    .list-header-with-search {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .list-header-with-search h3 {
+      margin-bottom: 6px;
+    }
+
+    .list-header-with-search p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .search-input {
+      width: min(320px, 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--text);
+      padding: 13px 15px;
+      font-size: 14px;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .search-input:focus {
+      border-color: var(--purple-soft);
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16);
+    }
+
+    .resource-card-info {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .resource-card-line {
+      display: grid;
+      gap: 5px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .resource-card-line strong {
+      color: rgba(255,255,255,0.48);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .resource-card-line span {
+      color: rgba(255,255,255,0.78);
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    @media (max-width: 760px) {
+      .list-header-with-search {
+        display: grid;
+      }
+
+      .search-input {
+        width: 100%;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+function formatarListaObjetos(lista) {
+  if (!Array.isArray(lista) || !lista.length) {
+    return "Não informado";
+  }
+
+  return lista.map((item) => item.nome || item.id || item).join(", ");
+}
+
+function gerarIdTemporario(nome) {
+  return normalizarTexto(nome)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || `temp-${Date.now()}`;
 }
 
 function escapeHtml(texto) {
-  return String(texto)
+  return String(texto ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
 
+export function buscarRacaPorId(id) {
+  return state.racasDisponiveis.find((raca) => raca.id === id) || null;
+}
+
+export function preencherSelectRacas(selectId = "personagemRaca", valorAtual = "") {
+  const select = document.getElementById(selectId);
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  if (!state.racasDisponiveis.length) {
+    select.innerHTML = `<option value="">Nenhuma raça cadastrada</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Selecione uma raça</option>`;
+
+  state.racasDisponiveis.forEach((raca) => {
+    const option = document.createElement("option");
+    option.value = raca.id;
+    option.textContent = raca.nome || "Sem nome";
+    select.appendChild(option);
+  });
+
+  if (valorAtual) {
+    select.value = valorAtual;
+  }
+}
+
+export function atualizarPreviewRaca(raca) {
+  const preview = document.getElementById("previewRacaNome");
+
+  if (!preview || !raca) return;
+
+  preview.textContent = raca.nome || "Nenhuma raça selecionada.";
+}
+
 export function initRacas() {
   onPageLoaded((pagina) => {
     if (pagina === "cadastrosRacas") {
+      aplicarEstilosBuscaRacas();
+      vincularBuscaRacas();
       renderizarRacas();
 
       document.getElementById("abrirCadastroRacas")?.addEventListener("click", abrirModalCadastroRaca);
@@ -1473,11 +1826,7 @@ export function initRacas() {
     }
 
     if (pagina === "cadastrosRacaDetalhe") {
-      renderizarDetalheRaca(false);
-    }
-
-    if (pagina === "dashboard") {
-      atualizarContadorRacas();
+      renderizarRacaDetalhe(false);
     }
   });
 }

@@ -25,6 +25,7 @@ export function criarCadastroCrud(config) {
   let multiselectsEdicao = {};
   let cadastroModalAberto = false;
   let importacaoPendentes = [];
+  let buscaAtual = "";
 
   const abrirCadastroId = config.abrirCadastroId || `abrirCadastro${capitalizar(config.colecao)}`;
   const abrirImportacaoId = config.abrirImportacaoId || `abrirImportacao${capitalizar(config.colecao)}`;
@@ -119,8 +120,10 @@ export function criarCadastroCrud(config) {
       if (pagina === config.paginaLista) {
         cadastroModalAberto = false;
         multiselectsCadastro = criarEstadoMultiselect();
+        aplicarEstilosBuscaCadastro();
         vincularBotaoAbrirCadastro();
         vincularBotaoAbrirImportacao();
+        vincularBuscaLista();
         renderizarLista();
       }
 
@@ -515,30 +518,27 @@ export function criarCadastroCrud(config) {
         }
 
         return;
-      }
+              }
 
-      if (campo.tipo === "number") {
-        dados[campo.nome] = Number(document.getElementById(id)?.value) || 0;
+      const campoElemento = document.getElementById(id);
+
+      if (!campoElemento) {
+        dados[campo.nome] = "";
         return;
       }
 
-      dados[campo.nome] = document.getElementById(id)?.value.trim() || "";
+      if (campo.tipo === "number") {
+        dados[campo.nome] = Number(campoElemento.value) || 0;
+        return;
+      }
+
+      dados[campo.nome] = campoElemento.value.trim();
     });
 
     return dados;
   }
 
   async function salvar() {
-    if (!state.usuarioAtual) {
-      await mostrarModal("Você precisa estar logado.", "Acesso necessário");
-      return;
-    }
-
-    if (state.dadosUsuarioAtual?.tipo !== "mestre") {
-      await mostrarModal(`Apenas o Mestre pode cadastrar ${config.nomePlural.toLowerCase()}.`, "Permissão negada");
-      return;
-    }
-
     const dados = pegarDadosFormulario("", multiselectsCadastro);
 
     if (!dados.nome) {
@@ -546,32 +546,247 @@ export function criarCadastroCrud(config) {
       return;
     }
 
-    const duplicado = registros.some((registro) => {
-      return normalizarTexto(registro.nome || "") === normalizarTexto(dados.nome || "");
-    });
-
-    if (duplicado) {
-      await mostrarModal(`${config.nomeSingular} "${dados.nome}" já existe no sistema.`, "Registro duplicado", "danger");
-      return;
-    }
-
     try {
       await addDoc(collection(db, config.colecao), {
         ...dados,
-        criadoPor: state.usuarioAtual.uid,
+        criadoPor: state.usuarioAtual?.uid || "",
         criadoEm: serverTimestamp()
       });
 
-      multiselectsCadastro = criarEstadoMultiselect();
-
-      await mostrarModal(`${config.nomeSingular} salvo com sucesso.`, "Cadastro realizado", "success");
+      await mostrarModal(`${config.nomeSingular} cadastrado com sucesso.`, "Cadastro realizado", "success");
 
       fecharModalCadastro();
-      renderizarLista();
     } catch (erro) {
-      console.error(`Erro ao salvar ${config.nomeSingular}:`, erro);
-      await mostrarModal(`Erro ao salvar ${config.nomeSingular}.`, "Erro", "danger");
+      console.error(`Erro ao cadastrar ${config.nomeSingular}:`, erro);
+      await mostrarModal(`Erro ao cadastrar ${config.nomeSingular.toLowerCase()}.`, "Erro", "danger");
     }
+  }
+
+  function renderizarLista() {
+    aplicarEstilosBuscaCadastro();
+
+    const lista = document.getElementById(config.listaId);
+
+    if (!lista) return;
+
+    const registrosFiltrados = filtrarRegistros(registros, buscaAtual);
+
+    lista.innerHTML = "";
+
+    if (!registros.length) {
+      lista.innerHTML = `
+        <div class="empty-state">
+          <h3>Nenhum ${config.nomeSingular.toLowerCase()} cadastrado ainda.</h3>
+          <p>Clique em cadastrar para adicionar o primeiro registro.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (!registrosFiltrados.length) {
+      lista.innerHTML = `
+        <div class="empty-state">
+          <h3>Nenhum resultado encontrado.</h3>
+          <p>Tente buscar por outro nome, tipo, categoria ou informação cadastrada.</p>
+        </div>
+      `;
+      return;
+    }
+
+    registrosFiltrados.forEach((registro) => {
+      const card = document.createElement("div");
+      card.className = "resource-card";
+      card.dataset.searchText = normalizarTextoBusca(montarTextoBuscaRegistro(registro));
+
+      const nome = registro.nome || `${config.nomeSingular} sem nome`;
+      const camposResumo = config.camposResumo || config.camposPrincipais || [];
+
+      card.innerHTML = `
+        <div class="resource-card-header">
+          <div>
+            <h4>${escapeHtml(nome)}</h4>
+            <p>${montarResumoRegistro(registro, camposResumo)}</p>
+          </div>
+
+          <span>${escapeHtml(config.nomeSingular)}</span>
+        </div>
+
+        ${montarCamposCard(registro)}
+
+        <div class="action-row">
+          <button class="secondary-btn ver-detalhe">Visualizar</button>
+          <button class="secondary-btn editar-registro">Editar</button>
+          <button class="small-btn danger excluir-registro">Excluir</button>
+        </div>
+      `;
+
+      card.querySelector(".ver-detalhe")?.addEventListener("click", () => {
+        registroSelecionado = registro;
+        navegarPara(config.paginaDetalhe);
+      });
+
+      card.querySelector(".editar-registro")?.addEventListener("click", () => {
+        registroSelecionado = registro;
+        navegarPara(config.paginaDetalhe);
+        setTimeout(() => renderizarDetalhe(true), 100);
+      });
+
+      card.querySelector(".excluir-registro")?.addEventListener("click", async () => {
+        await excluir(registro);
+      });
+
+      lista.appendChild(card);
+    });
+  }
+
+  function montarResumoRegistro(registro, camposResumo) {
+    if (!camposResumo.length) {
+      return "Sem resumo cadastrado.";
+    }
+
+    const partes = camposResumo
+      .map((nomeCampo) => {
+        const campo = obterCampo(nomeCampo);
+        const valor = registro[nomeCampo];
+
+        if (valor === null || valor === undefined || valor === "") return "";
+
+        return `${campo?.label || nomeCampo}: ${formatarValor(valor)}`;
+      })
+      .filter(Boolean);
+
+    return partes.length ? partes.join(" • ") : "Sem resumo cadastrado.";
+  }
+
+  function montarCamposCard(registro) {
+    const camposCard = config.camposCard || [];
+
+    if (!camposCard.length) return "";
+
+    const linhas = camposCard
+      .map((nomeCampo) => {
+        const campo = obterCampo(nomeCampo);
+        const valor = registro[nomeCampo];
+
+        if (valor === null || valor === undefined || valor === "") return "";
+
+        return `
+          <div class="resource-card-line">
+            <strong>${escapeHtml(campo?.label || nomeCampo)}</strong>
+            <span>${escapeHtml(formatarValor(valor))}</span>
+          </div>
+        `;
+      })
+      .filter(Boolean)
+      .join("");
+
+    if (!linhas) return "";
+
+    return `
+      <div class="resource-card-info">
+        ${linhas}
+      </div>
+    `;
+  }
+
+  function renderizarDetalhe(modoEdicao = false) {
+    const container = document.getElementById(config.detalheContainerId);
+
+    if (!container) return;
+
+    if (!registroSelecionado) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>Nenhum ${config.nomeSingular.toLowerCase()} selecionado.</h3>
+          <p>Volte para a lista e escolha um registro para visualizar.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (modoEdicao) {
+      multiselectsEdicao = criarEstadoMultiselect();
+
+      config.campos.forEach((campo) => {
+        if (campo.tipo === "multi") {
+          multiselectsEdicao[campo.nome] = Array.isArray(registroSelecionado[campo.nome])
+            ? [...registroSelecionado[campo.nome]]
+            : [];
+        }
+      });
+
+      container.innerHTML = `
+        <div class="detail-card">
+          ${montarFormulario({
+            prefixo: "edit",
+            titulo: `Editar ${config.nomeSingular}`,
+            botaoId: "salvarEdicaoRegistro",
+            botaoTexto: "Salvar alterações",
+            valores: registroSelecionado,
+            multiselects: multiselectsEdicao,
+            modoEdicao: true
+          })}
+        </div>
+      `;
+
+      vincularEventosFormulario({
+        prefixo: "edit",
+        botaoSalvarId: "salvarEdicaoRegistro",
+        multiselects: multiselectsEdicao,
+        onSalvar: salvarEdicao
+      });
+
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="detail-card">
+        <div class="detail-header">
+          <div>
+            <span>${escapeHtml(config.nomeSingular)}</span>
+            <h3>${escapeHtml(registroSelecionado.nome || `${config.nomeSingular} sem nome`)}</h3>
+          </div>
+
+          <div class="action-row">
+            <button class="secondary-btn" id="voltarListaRegistro">Voltar</button>
+            <button class="secondary-btn" id="editarRegistro">Editar</button>
+            <button class="small-btn danger" id="excluirRegistro">Excluir</button>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          ${montarDetalhesRegistro(registroSelecionado)}
+        </div>
+      </div>
+    `;
+
+    document.getElementById("voltarListaRegistro")?.addEventListener("click", () => {
+      navegarPara(config.paginaLista);
+    });
+
+    document.getElementById("editarRegistro")?.addEventListener("click", () => {
+      renderizarDetalhe(true);
+    });
+
+    document.getElementById("excluirRegistro")?.addEventListener("click", async () => {
+      await excluir(registroSelecionado);
+      navegarPara(config.paginaLista);
+    });
+  }
+
+  function montarDetalhesRegistro(registro) {
+    return config.campos
+      .map((campo) => {
+        const valor = registro[campo.nome];
+
+        return `
+          <div class="detail-field">
+            <span>${escapeHtml(campo.label)}</span>
+            <strong>${escapeHtml(formatarValor(valor))}</strong>
+          </div>
+        `;
+      })
+      .join("");
   }
 
   async function salvarEdicao() {
@@ -587,18 +802,6 @@ export function criarCadastroCrud(config) {
       return;
     }
 
-    const duplicado = registros.some((registro) => {
-      const mesmoNome = normalizarTexto(registro.nome || "") === normalizarTexto(dados.nome || "");
-      const outroRegistro = registro.id !== registroSelecionado.id;
-
-      return mesmoNome && outroRegistro;
-    });
-
-    if (duplicado) {
-      await mostrarModal(`Já existe outro registro chamado "${dados.nome}".`, "Registro duplicado", "danger");
-      return;
-    }
-
     try {
       await updateDoc(doc(db, config.colecao, registroSelecionado.id), {
         ...dados,
@@ -611,22 +814,18 @@ export function criarCadastroCrud(config) {
       };
 
       await mostrarModal(`${config.nomeSingular} atualizado com sucesso.`, "Alterações salvas", "success");
+
       renderizarDetalhe(false);
     } catch (erro) {
       console.error(`Erro ao editar ${config.nomeSingular}:`, erro);
-      await mostrarModal(`Erro ao editar ${config.nomeSingular}.`, "Erro", "danger");
+      await mostrarModal(`Erro ao editar ${config.nomeSingular.toLowerCase()}.`, "Erro", "danger");
     }
   }
 
-  async function excluir() {
-    if (!registroSelecionado) {
-      await mostrarModal("Nenhum registro selecionado.", "Erro", "danger");
-      return;
-    }
-
+  async function excluir(registro) {
     const confirmar = await confirmarModal({
       titulo: `Excluir ${config.nomeSingular}`,
-      mensagem: `Tem certeza que deseja excluir “${registroSelecionado.nome}”? Essa ação não pode ser desfeita.`,
+      mensagem: `Tem certeza que deseja excluir “${registro.nome || config.nomeSingular}”? Essa ação não pode ser desfeita.`,
       confirmarTexto: "Excluir",
       cancelarTexto: "Cancelar",
       tipo: "danger"
@@ -635,15 +834,16 @@ export function criarCadastroCrud(config) {
     if (!confirmar) return;
 
     try {
-      await deleteDoc(doc(db, config.colecao, registroSelecionado.id));
-
-      registroSelecionado = null;
+      await deleteDoc(doc(db, config.colecao, registro.id));
 
       await mostrarModal(`${config.nomeSingular} excluído com sucesso.`, "Exclusão concluída", "success");
-      navegarPara(config.paginaLista);
+
+      if (registroSelecionado?.id === registro.id) {
+        registroSelecionado = null;
+      }
     } catch (erro) {
       console.error(`Erro ao excluir ${config.nomeSingular}:`, erro);
-      await mostrarModal(`Erro ao excluir ${config.nomeSingular}.`, "Erro", "danger");
+      await mostrarModal(`Erro ao excluir ${config.nomeSingular.toLowerCase()}.`, "Erro", "danger");
     }
   }
 
@@ -654,45 +854,34 @@ export function criarCadastroCrud(config) {
 
     const overlay = document.createElement("div");
     overlay.className = "crud-form-overlay";
-    overlay.id = `modalImportacao${capitalizar(config.colecao)}`;
+    overlay.id = "crudImportacaoOverlay";
 
     overlay.innerHTML = `
       <div class="crud-form-modal">
         <div class="crud-form-header">
           <div>
-            <h3>Importar ${config.nomePlural} em Massa</h3>
-            <p>Cole vários registros seguindo o modelo. Separe um cadastro do outro usando uma linha com três traços: ---</p>
+            <h3>Importar ${config.nomePlural}</h3>
+            <p>Cole um texto com vários registros. O sistema tentará identificar os campos automaticamente.</p>
           </div>
 
-          <button class="crud-form-close" type="button" id="fecharImportacaoCrud">×</button>
+          <button class="crud-form-close" type="button" id="fecharImportacaoModal">×</button>
         </div>
 
         <div class="crud-form-body">
           <div class="crud-form-content">
             <label>
               Texto para importação
-              <textarea id="textoImportacaoCrud" rows="18" placeholder="Cole aqui os registros seguindo o modelo..."></textarea>
+              <textarea id="textoImportacaoCrud" placeholder="${escapeHtml(montarModeloImportacao())}"></textarea>
             </label>
-
-            <div class="detail-section">
-              <h4>Modelo esperado</h4>
-              <p>${montarModeloImportacaoHtml()}</p>
-            </div>
 
             <div class="action-row">
               <button class="secondary-btn" type="button" id="cancelarImportacaoCrud">Cancelar</button>
-              <button class="primary-btn" type="button" id="analisarImportacaoCrud">Analisar texto</button>
+              <button class="secondary-btn" type="button" id="analisarImportacaoCrud">Analisar texto</button>
+              <button class="primary-btn" type="button" id="salvarImportacaoCrud">Salvar importação</button>
             </div>
 
-            <div id="previewImportacaoCrud" class="list-card" style="display:none;">
-              <h3>Prévia da importação</h3>
-
-              <div id="listaPreviewImportacaoCrud" class="resource-list"></div>
-
-              <div class="action-row">
-                <button class="secondary-btn" type="button" id="limparPreviewImportacaoCrud">Revisar texto</button>
-                <button class="primary-btn" type="button" id="confirmarImportacaoCrud">Cadastrar todos</button>
-              </div>
+            <div id="previewImportacaoCrud" class="import-preview">
+              <p>Nenhum registro analisado ainda.</p>
             </div>
           </div>
         </div>
@@ -701,11 +890,10 @@ export function criarCadastroCrud(config) {
 
     document.body.appendChild(overlay);
 
-    document.getElementById("fecharImportacaoCrud")?.addEventListener("click", fecharModalImportacao);
+    document.getElementById("fecharImportacaoModal")?.addEventListener("click", fecharModalImportacao);
     document.getElementById("cancelarImportacaoCrud")?.addEventListener("click", fecharModalImportacao);
     document.getElementById("analisarImportacaoCrud")?.addEventListener("click", analisarImportacao);
-    document.getElementById("limparPreviewImportacaoCrud")?.addEventListener("click", limparPreviewImportacao);
-    document.getElementById("confirmarImportacaoCrud")?.addEventListener("click", confirmarImportacao);
+    document.getElementById("salvarImportacaoCrud")?.addEventListener("click", salvarImportacao);
 
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) {
@@ -715,7 +903,7 @@ export function criarCadastroCrud(config) {
   }
 
   function fecharModalImportacao() {
-    const overlay = document.getElementById(`modalImportacao${capitalizar(config.colecao)}`);
+    const overlay = document.getElementById("crudImportacaoOverlay");
 
     if (overlay) {
       overlay.remove();
@@ -724,607 +912,281 @@ export function criarCadastroCrud(config) {
     importacaoPendentes = [];
   }
 
-  async function analisarImportacao() {
-    const texto = document.getElementById("textoImportacaoCrud")?.value.trim() || "";
+  function montarModeloImportacao() {
+    const linhas = config.campos.map((campo) => `${campo.label}:`);
 
-    if (!texto) {
-      await mostrarModal("Cole o texto antes de analisar.", "Campo obrigatório");
-      return;
-    }
-
-    const resultado = interpretarTextoImportacao(texto);
-
-    if (resultado.erros.length > 0 && resultado.registros.length === 0) {
-      await mostrarModal(resultado.erros.join("\n"), "Não foi possível importar", "danger");
-      return;
-    }
-
-    importacaoPendentes = resultado.registros;
-    renderizarPreviewImportacao(resultado.erros);
+    return `${config.nomeSingular} 1\n${linhas.join("\n")}\n\n${config.nomeSingular} 2\n${linhas.join("\n")}`;
   }
 
-  function interpretarTextoImportacao(texto) {
+  function analisarImportacao() {
+    const texto = document.getElementById("textoImportacaoCrud")?.value || "";
+    const preview = document.getElementById("previewImportacaoCrud");
+
+    if (!preview) return;
+
+    importacaoPendentes = extrairRegistrosImportacao(texto);
+
+    if (!importacaoPendentes.length) {
+      preview.innerHTML = `
+        <div class="empty-state">
+          <h3>Nenhum registro identificado.</h3>
+          <p>Confira se o texto tem nomes e campos separados por dois-pontos.</p>
+        </div>
+      `;
+      return;
+    }
+
+    preview.innerHTML = `
+      <div class="import-preview-list">
+        ${importacaoPendentes
+          .map((item, index) => {
+            return `
+              <div class="import-preview-card">
+                <strong>${index + 1}. ${escapeHtml(item.nome || `${config.nomeSingular} sem nome`)}</strong>
+                <p>${escapeHtml(montarResumoRegistro(item, config.camposResumo || config.camposPrincipais || []))}</p>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function extrairRegistrosImportacao(texto) {
     const blocos = texto
-      .split(/\n\s*---\s*\n/g)
+      .split(/\n\s*\n/g)
       .map((bloco) => bloco.trim())
       .filter(Boolean);
 
-    const registrosEncontrados = [];
-    const erros = [];
-    const nomesNoTexto = new Set();
-
-    blocos.forEach((bloco, index) => {
-      const camposTexto = extrairCamposDoBloco(bloco);
-      const numero = index + 1;
-
-      const nome = buscarCampoImportacao(camposTexto, [
-        "nome",
-        config.campos.find((campo) => campo.nome === "nome")?.label || "nome"
-      ]);
-
-      if (!nome) {
-        erros.push(`Bloco ${numero}: nome não encontrado.`);
-        return;
-      }
-
-      const nomeNormalizado = normalizarTexto(nome);
-
-      if (nomesNoTexto.has(nomeNormalizado)) {
-        erros.push(`Bloco ${numero}: "${nome}" está repetido no texto e foi ignorado.`);
-        return;
-      }
-
-      nomesNoTexto.add(nomeNormalizado);
-
-      const jaExiste = registros.some((registro) => {
-        return normalizarTexto(registro.nome || "") === nomeNormalizado;
-      });
-
-      if (jaExiste) {
-        erros.push(`Bloco ${numero}: "${nome}" já existe no sistema e foi ignorado.`);
-        return;
-      }
-
-      const registro = {};
-
-      config.campos.forEach((campo) => {
-        const valor = buscarCampoImportacao(camposTexto, [campo.label, campo.nome]);
-
-        if (campo.nome === "nome") {
-          registro[campo.nome] = nome;
-          return;
-        }
-
-        if (campo.tipo === "number") {
-          registro[campo.nome] = numeroTexto(valor);
-          return;
-        }
-
-        if (campo.tipo === "select") {
-          registro[campo.nome] = interpretarValorSelect(campo, valor, erros, numero);
-          return;
-        }
-
-        if (campo.tipo === "multi") {
-          registro[campo.nome] = interpretarValorMulti(campo, valor, erros, numero);
-          return;
-        }
-
-        registro[campo.nome] = valor || "";
-      });
-
-      registrosEncontrados.push(registro);
-    });
-
-    return {
-      registros: registrosEncontrados,
-      erros
-    };
+    return blocos
+      .map((bloco) => extrairRegistroBloco(bloco))
+      .filter((registro) => registro.nome);
   }
-
-  function extrairCamposDoBloco(bloco) {
-    const campos = {};
-    const linhas = bloco.split("\n").map((linha) => linha.trim()).filter(Boolean);
-
-    linhas.forEach((linha) => {
-      const separador = linha.indexOf(":");
-
-      if (separador === -1) return;
-
-      const chave = normalizarTexto(linha.slice(0, separador));
-      const valor = linha.slice(separador + 1).trim();
-
-      campos[chave] = valor;
-    });
-
-    return campos;
-  }
-
-  function buscarCampoImportacao(campos, nomesPossiveis) {
-    for (const nome of nomesPossiveis) {
-      const chave = normalizarTexto(nome);
-
-      if (campos[chave] !== undefined) {
-        return campos[chave];
-      }
-    }
-
-    return "";
-  }
-
-  function interpretarValorSelect(campo, valor, erros, numeroBloco) {
-    if (!valor) return null;
-
-    const valorNormalizado = normalizarTexto(valor);
-
-    if (campo.permitirTodas && valorNormalizado === "todas") {
-      return { id: "__ALL__", nome: "Todas" };
-    }
-
-    if (campo.permitirNenhuma && valorNormalizado === "nenhuma") {
-      return { id: "__NONE__", nome: "Nenhuma" };
-    }
-
-    if (campo.opcoes && campo.opcoes.length > 0) {
-      const encontrado = campo.opcoes.find((opcao) => {
-        return normalizarTexto(opcao.nome) === valorNormalizado || normalizarTexto(opcao.valor) === valorNormalizado;
-      });
-
-      if (encontrado) {
-        return encontrado.valor;
-      }
-
-      erros.push(`Bloco ${numeroBloco}: opção "${valor}" não encontrada no campo "${campo.label}".`);
-      return "";
-    }
-
-    if (campo.colecao) {
-      const lista = opcoesRelacionadas[campo.colecao] || [];
-      const encontrado = encontrarPorNome(lista, valor);
-
-      if (encontrado) {
-        return {
-          id: encontrado.id,
-          nome: encontrado.nome
-        };
-      }
-
-      erros.push(`Bloco ${numeroBloco}: "${valor}" não encontrado no campo "${campo.label}".`);
-      return null;
-    }
-
-    return valor;
-  }
-
-  function interpretarValorMulti(campo, valor, erros, numeroBloco) {
-    if (!valor) return [];
-
-    const valorNormalizado = normalizarTexto(valor);
-
-    if (campo.permitirTodas && valorNormalizado === "todas") {
-      return [{ id: "__ALL__", nome: "Todas" }];
-    }
-
-    if (campo.permitirNenhuma && valorNormalizado === "nenhuma") {
-      return [{ id: "__NONE__", nome: "Nenhuma" }];
-    }
-
-    return valor
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((nome) => {
-        if (campo.opcoes && campo.opcoes.length > 0) {
-          const encontrado = campo.opcoes.find((opcao) => {
-            return normalizarTexto(opcao.nome) === normalizarTexto(nome) || normalizarTexto(opcao.valor) === normalizarTexto(nome);
-          });
-
-          if (encontrado) {
-            return {
-              id: encontrado.valor,
-              nome: encontrado.nome
-            };
-          }
-
-          erros.push(`Bloco ${numeroBloco}: opção "${nome}" não encontrada no campo "${campo.label}".`);
-          return null;
-        }
-
-        if (campo.colecao) {
-          const lista = opcoesRelacionadas[campo.colecao] || [];
-          const encontrado = encontrarPorNome(lista, nome);
-
-          if (encontrado) {
-            return {
-              id: encontrado.id,
-              nome: encontrado.nome
-            };
-          }
-
-          erros.push(`Bloco ${numeroBloco}: "${nome}" não encontrado no campo "${campo.label}".`);
-          return {
-            id: "",
-            nome
-          };
-        }
-
-        return {
-          id: "",
-          nome
-        };
-      })
+    function extrairRegistroBloco(bloco) {
+    const linhas = bloco
+      .split("\n")
+      .map((linha) => linha.trim())
       .filter(Boolean);
-  }
 
-  function renderizarPreviewImportacao(erros = []) {
-    const preview = document.getElementById("previewImportacaoCrud");
-    const lista = document.getElementById("listaPreviewImportacaoCrud");
+    const registro = {};
 
-    if (!preview || !lista) return;
-
-    preview.style.display = "block";
-    lista.innerHTML = "";
-
-    if (erros.length > 0) {
-      const aviso = document.createElement("div");
-      aviso.classList.add("detail-section");
-
-      aviso.innerHTML = `
-        <h4>Avisos encontrados</h4>
-        <p>${erros.map((erro) => escapeHtml(erro)).join("<br>")}</p>
-      `;
-
-      lista.appendChild(aviso);
-    }
-
-    if (importacaoPendentes.length === 0) {
-      lista.innerHTML += "<p>Nenhum registro válido encontrado.</p>";
-      return;
-    }
-
-    importacaoPendentes.forEach((registro) => {
-      const card = document.createElement("div");
-      card.classList.add("resource-card");
-
-      card.innerHTML = `
-        <div class="resource-card-header">
-          <h4>${escapeHtml(registro.nome || "Sem nome")}</h4>
-          <span>${config.nomeSingular}</span>
-        </div>
-
-        <div class="resource-card-stats">
-          ${montarResumoCard(registro)}
-        </div>
-
-        ${montarDescricaoCard(registro)}
-      `;
-
-      lista.appendChild(card);
+    config.campos.forEach((campo) => {
+      registro[campo.nome] = campo.tipo === "number" ? 0 : campo.tipo === "multi" ? [] : "";
     });
-  }
 
-  function limparPreviewImportacao() {
-    const preview = document.getElementById("previewImportacaoCrud");
+    linhas.forEach((linha, index) => {
+      const partes = linha.split(":");
 
-    if (preview) {
-      preview.style.display = "none";
-    }
+      if (partes.length < 2) {
+        if (index === 0 && !registro.nome) {
+          registro.nome = linha.replace(/^[-•\d.]+\s*/, "").trim();
+        }
 
-    importacaoPendentes = [];
-  }
+        return;
+      }
 
-  async function confirmarImportacao() {
-    if (!state.usuarioAtual) {
-      await mostrarModal("Você precisa estar logado.", "Acesso necessário");
-      return;
-    }
+      const chave = normalizarTextoBusca(partes.shift());
+      const valor = partes.join(":").trim();
 
-    if (state.dadosUsuarioAtual?.tipo !== "mestre") {
-      await mostrarModal(`Apenas o Mestre pode importar ${config.nomePlural.toLowerCase()}.`, "Permissão negada");
-      return;
-    }
+      const campoEncontrado = config.campos.find((campo) => {
+        const labelNormalizada = normalizarTextoBusca(campo.label);
+        const nomeNormalizado = normalizarTextoBusca(campo.nome);
 
-    if (importacaoPendentes.length === 0) {
-      await mostrarModal("Nenhum registro foi analisado para cadastro.", "Importação vazia");
-      return;
-    }
-
-    const registrosSemDuplicidade = importacaoPendentes.filter((pendente) => {
-      return !registros.some((existente) => {
-        return normalizarTexto(existente.nome || "") === normalizarTexto(pendente.nome || "");
+        return chave === labelNormalizada || chave === nomeNormalizado;
       });
+
+      if (!campoEncontrado) return;
+
+      if (campoEncontrado.tipo === "number") {
+        registro[campoEncontrado.nome] = Number(valor.replace(",", ".")) || 0;
+        return;
+      }
+
+      if (campoEncontrado.tipo === "multi") {
+        registro[campoEncontrado.nome] = valor
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .map((nome) => ({ id: gerarIdTemporario(nome), nome }));
+        return;
+      }
+
+      if (campoEncontrado.tipo === "select" && campoEncontrado.colecao) {
+        registro[campoEncontrado.nome] = valor
+          ? { id: gerarIdTemporario(valor), nome: valor }
+          : null;
+        return;
+      }
+
+      registro[campoEncontrado.nome] = valor;
     });
 
-    const ignorados = importacaoPendentes.length - registrosSemDuplicidade.length;
+    return registro;
+  }
 
-    if (registrosSemDuplicidade.length === 0) {
-      await mostrarModal(
-        "Todos os registros analisados já existem no sistema. Nenhum cadastro foi realizado.",
-        "Importação cancelada",
-        "danger"
-      );
+  async function salvarImportacao() {
+    if (!importacaoPendentes.length) {
+      await mostrarModal("Analise o texto antes de salvar a importação.", "Importação vazia");
       return;
     }
-
-    const mensagemConfirmacao = ignorados > 0
-      ? `Foram encontrados ${ignorados} registro(s) que já existem no sistema e serão ignorados. Deseja cadastrar os ${registrosSemDuplicidade.length} restante(s)?`
-      : `Deseja cadastrar ${registrosSemDuplicidade.length} registro(s) agora?`;
-
-    const confirmar = await confirmarModal({
-      titulo: "Confirmar importação",
-      mensagem: mensagemConfirmacao,
-      confirmarTexto: "Cadastrar",
-      cancelarTexto: "Cancelar",
-      tipo: "success"
-    });
-
-    if (!confirmar) return;
 
     try {
-      const cadastros = registrosSemDuplicidade.map((registro) => {
-        return addDoc(collection(db, config.colecao), {
+      for (const registro of importacaoPendentes) {
+        const existe = registros.some((item) => {
+          return normalizarTextoBusca(item.nome) === normalizarTextoBusca(registro.nome);
+        });
+
+        if (existe) continue;
+
+        await addDoc(collection(db, config.colecao), {
           ...registro,
-          criadoPor: state.usuarioAtual.uid,
+          criadoPor: state.usuarioAtual?.uid || "",
           criadoEm: serverTimestamp()
         });
-      });
+      }
 
-      await Promise.all(cadastros);
-
-      await mostrarModal(
-        `${registrosSemDuplicidade.length} registro(s) cadastrado(s) com sucesso.`,
-        "Importação concluída",
-        "success"
-      );
-
+      await mostrarModal("Importação concluída com sucesso.", "Importação salva", "success");
       fecharModalImportacao();
-      renderizarLista();
     } catch (erro) {
       console.error(`Erro ao importar ${config.nomePlural}:`, erro);
-      await mostrarModal(`Erro ao importar ${config.nomePlural}.`, "Erro", "danger");
+      await mostrarModal("Erro ao salvar importação.", "Erro", "danger");
     }
   }
 
-  function montarModeloImportacaoHtml() {
-    const linhas = config.campos.map((campo) => {
-      let exemplo = exemploCampo(campo);
-      return `${campo.label}: ${exemplo}`;
-    });
-
-    linhas.push("---");
-
-    const segundaLinha = config.campos.find((campo) => campo.nome === "nome");
-
-    if (segundaLinha) {
-      linhas.push(`${segundaLinha.label}: Outro exemplo`);
-    }
-
-    return linhas.map((linha) => escapeHtml(linha)).join("<br>");
-  }
-
-  function exemploCampo(campo) {
-    if (campo.nome === "nome") return `Exemplo de ${config.nomeSingular}`;
-
-    if (campo.tipo === "number") return "10";
-
-    if (campo.tipo === "textarea") return "Descrição do campo.";
-
-    if (campo.tipo === "select") {
-      if (campo.opcoes && campo.opcoes.length > 0) return campo.opcoes[0].nome;
-      if (campo.permitirTodas) return "Todas";
-      if (campo.permitirNenhuma) return "Nenhuma";
-      return "Nome de um cadastro existente";
-    }
-
-    if (campo.tipo === "multi") {
-      if (campo.permitirTodas) return "Todas";
-      if (campo.permitirNenhuma) return "Nenhuma";
-      return "Nome 1, Nome 2";
-    }
-
-    return "Texto";
-  }
-
-  function renderizarLista() {
+  function vincularBuscaLista() {
     const lista = document.getElementById(config.listaId);
 
     if (!lista) return;
 
-    lista.innerHTML = "";
+    const inputId = lista.dataset.searchInput;
 
-    if (!registros.length) {
-      lista.innerHTML = `<p>Nenhum registro cadastrado ainda.</p>`;
-      return;
-    }
+    if (!inputId) return;
 
-    registros.forEach((registro) => {
-      const card = document.createElement("div");
-      card.classList.add("resource-card");
+    const input = document.getElementById(inputId);
 
-      card.innerHTML = `
-        <div class="resource-card-header">
-          <h4>${escapeHtml(registro.nome || "Sem nome")}</h4>
-          <span>${config.nomeSingular}</span>
-        </div>
+    if (!input) return;
 
-        <div class="resource-card-stats">
-          ${montarResumoCard(registro)}
-        </div>
+    buscaAtual = input.value || "";
 
-        ${montarDescricaoCard(registro)}
+    input.oninput = () => {
+      buscaAtual = input.value || "";
+      renderizarLista();
+    };
+  }
 
-        <div class="action-row">
-          <button class="secondary-btn visualizar-item">Visualizar</button>
-          <button class="primary-btn editar-item">Editar</button>
-          <button class="small-btn danger excluir-item">Excluir</button>
-        </div>
-      `;
+  function filtrarRegistros(lista, termo) {
+    const busca = normalizarTextoBusca(termo);
 
-      card.querySelector(".visualizar-item").addEventListener("click", () => {
-        registroSelecionado = registro;
-        navegarPara(config.paginaDetalhe);
-      });
+    if (!busca) return lista;
 
-      card.querySelector(".editar-item").addEventListener("click", () => {
-        registroSelecionado = registro;
-        navegarPara(config.paginaDetalhe);
-        setTimeout(() => {
-          renderizarDetalhe(true);
-        }, 300);
-      });
-
-      card.querySelector(".excluir-item").addEventListener("click", async () => {
-        registroSelecionado = registro;
-        await excluir();
-      });
-
-      lista.appendChild(card);
+    return lista.filter((registro) => {
+      return normalizarTextoBusca(montarTextoBuscaRegistro(registro)).includes(busca);
     });
   }
 
-  function montarResumoCard(registro) {
-    const camposResumo = config.camposResumo || [];
-
-    if (!camposResumo.length) {
-      return `<span>Tipo: <b>${config.nomeSingular}</b></span>`;
-    }
-
-    return camposResumo
-      .map((campoNome) => {
-        const campo = config.campos.find((item) => item.nome === campoNome);
-        const valor = formatarValor(registro[campoNome]);
-        return `<span>${campo?.label || campoNome}: <b>${valor}</b></span>`;
-      })
-      .join("");
-  }
-
-  function montarDescricaoCard(registro) {
-    const campos = config.camposCard || [];
-
-    return campos
-      .map((campoNome) => {
-        const campo = config.campos.find((item) => item.nome === campoNome);
-        return `<p><b>${campo?.label || campoNome}:</b> ${formatarValor(registro[campoNome])}</p>`;
-      })
-      .join("");
-  }
-
-  function renderizarDetalhe(modoEdicao = false) {
-    const container = document.getElementById(config.detalheContainerId);
-
-    if (!container) return;
-
-    if (!registroSelecionado) {
-      container.innerHTML = `
-        <div class="form-card">
-          <h3>Nenhum registro selecionado</h3>
-          <p>Volte para a lista e selecione uma opção.</p>
-          <button class="secondary-btn" id="voltarLista">Voltar</button>
-        </div>
-      `;
-
-      document.getElementById("voltarLista").addEventListener("click", () => {
-        navegarPara(config.paginaLista);
-      });
-
-      return;
-    }
-
-    if (modoEdicao) {
-      renderizarFormularioEdicao(container);
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="detail-card">
-        <h3>${escapeHtml(registroSelecionado.nome || "Sem nome")}</h3>
-        <p class="detail-subtitle">${config.nomeSingular} cadastrado pelo Mestre</p>
-
-        <div class="detail-grid">
-          ${montarItensDetalhe(registroSelecionado)}
-        </div>
-
-        ${montarSecoesDetalhe(registroSelecionado)}
-
-        <div class="action-row">
-          <button class="secondary-btn" id="voltarLista">Voltar</button>
-          <button class="primary-btn" id="abrirEdicao">Editar</button>
-          <button class="small-btn danger" id="excluirItem">Excluir</button>
-        </div>
-      </div>
-    `;
-
-    document.getElementById("voltarLista").addEventListener("click", () => {
-      navegarPara(config.paginaLista);
-    });
-
-    document.getElementById("abrirEdicao").addEventListener("click", () => {
-      renderizarDetalhe(true);
-    });
-
-    document.getElementById("excluirItem").addEventListener("click", excluir);
-  }
-
-  function montarItensDetalhe(registro) {
-    const camposPrincipais = config.camposPrincipais || [];
-
-    return camposPrincipais
-      .map((campoNome) => {
-        const campo = config.campos.find((item) => item.nome === campoNome);
-        return `
-          <div class="detail-item">
-            <span>${campo?.label || campoNome}</span>
-            <strong>${formatarValor(registro[campoNome])}</strong>
-          </div>
-        `;
-      })
-      .join("");
-  }
-
-  function montarSecoesDetalhe(registro) {
-    const camposSecao = config.campos
-      .filter((campo) => !(config.camposPrincipais || []).includes(campo.nome))
-      .filter((campo) => campo.nome !== "nome");
-
-    return camposSecao
-      .map((campo) => {
-        return `
-          <div class="detail-section">
-            <h4>${campo.label}</h4>
-            <p>${formatarValor(registro[campo.nome])}</p>
-          </div>
-        `;
-      })
-      .join("");
-  }
-
-  function renderizarFormularioEdicao(container) {
-    multiselectsEdicao = criarEstadoMultiselect();
+  function montarTextoBuscaRegistro(registro) {
+    const partes = [];
 
     config.campos.forEach((campo) => {
-      if (campo.tipo === "multi") {
-        multiselectsEdicao[campo.nome] = Array.isArray(registroSelecionado[campo.nome])
-          ? [...registroSelecionado[campo.nome]]
-          : [];
+      partes.push(campo.label);
+      partes.push(campo.nome);
+      partes.push(formatarValor(registro[campo.nome]));
+    });
+
+    partes.push(registro.nome || "");
+
+    return partes.join(" ");
+  }
+
+  function aplicarEstilosBuscaCadastro() {
+    if (document.getElementById("cadastroBuscaStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "cadastroBuscaStyles";
+
+    style.textContent = `
+      .list-header-with-search {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
       }
-    });
 
-    container.innerHTML = montarFormulario({
-      prefixo: "edit",
-      titulo: `Editar ${config.nomeSingular}`,
-      botaoId: "salvarEdicaoCrud",
-      botaoTexto: "Salvar alterações",
-      valores: registroSelecionado,
-      multiselects: multiselectsEdicao,
-      modoEdicao: true
-    });
+      .list-header-with-search h3 {
+        margin-bottom: 6px;
+      }
 
-    vincularEventosFormulario({
-      prefixo: "edit",
-      botaoSalvarId: "salvarEdicaoCrud",
-      multiselects: multiselectsEdicao,
-      onSalvar: salvarEdicao
-    });
+      .list-header-with-search p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .search-input {
+        width: min(320px, 100%);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.35);
+        color: var(--text);
+        padding: 13px 15px;
+        font-size: 14px;
+        font-weight: 700;
+        outline: none;
+      }
+
+      .search-input::placeholder {
+        color: var(--muted);
+      }
+
+      .search-input:focus {
+        border-color: var(--purple-soft);
+        box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16);
+      }
+
+      .resource-card-info {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .resource-card-line {
+        display: grid;
+        gap: 5px;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.045);
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .resource-card-line strong {
+        color: rgba(255,255,255,0.48);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .resource-card-line span {
+        color: rgba(255,255,255,0.78);
+        line-height: 1.45;
+        font-weight: 700;
+      }
+
+      @media (max-width: 760px) {
+        .list-header-with-search {
+          display: grid;
+        }
+
+        .search-input {
+          width: 100%;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function obterCampo(nomeCampo) {
+    return config.campos.find((campo) => campo.nome === nomeCampo) || null;
   }
 
   function formatarValor(valor) {
@@ -1332,46 +1194,45 @@ export function criarCadastroCrud(config) {
       return "Não informado";
     }
 
-    if (typeof valor === "number") {
-      return String(valor);
-    }
-
     if (Array.isArray(valor)) {
       if (!valor.length) return "Não informado";
-      return escapeHtml(valor.map((item) => item.nome || item).join(", "));
+
+      return valor.map((item) => {
+        if (typeof item === "object") {
+          return item.nome || item.id || "Item";
+        }
+
+        return item;
+      }).join(", ");
     }
 
     if (typeof valor === "object") {
-      return escapeHtml(valor.nome || "Não informado");
+      return valor.nome || valor.id || "Não informado";
     }
 
-    const campoComOpcao = config.campos.find((campo) => {
-      return campo.opcoes?.some((opcao) => opcao.valor === valor);
-    });
+    if (typeof valor === "string") {
+      const mapa = {
+        historia: "Boss de História",
+        farm: "Boss de Farm",
+        arma: "Arma",
+        armadura: "Armadura",
+        consumivel: "Consumível",
+        acessorio: "Acessório",
+        artefato: "Artefato",
+        material: "Material",
+        runa: "Runa",
+        chave: "Chave",
+        missao: "Missão",
+        especial: "Especial"
+      };
 
-    if (campoComOpcao) {
-      const opcao = campoComOpcao.opcoes.find((item) => item.valor === valor);
-      return escapeHtml(opcao?.nome || valor);
+      return mapa[valor] || valor;
     }
 
-    return escapeHtml(valor);
+    return String(valor);
   }
 
-  function encontrarPorNome(lista, nome) {
-    const nomeNormalizado = normalizarTexto(nome);
-
-    return lista.find((item) => normalizarTexto(item.nome || "") === nomeNormalizado) || null;
-  }
-
-  function numeroTexto(valor) {
-    if (!valor) return 0;
-
-    const numero = Number(String(valor).replace(",", ".").replace(/[^\d.-]/g, ""));
-
-    return Number.isFinite(numero) ? numero : 0;
-  }
-
-  function normalizarTexto(texto) {
+  function normalizarTextoBusca(texto) {
     return String(texto || "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -1379,16 +1240,24 @@ export function criarCadastroCrud(config) {
       .trim();
   }
 
+  function gerarIdTemporario(nome) {
+    return normalizarTextoBusca(nome)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || `temp-${Date.now()}`;
+  }
+
+  function capitalizar(texto) {
+    const textoLimpo = String(texto || "");
+
+    return textoLimpo.charAt(0).toUpperCase() + textoLimpo.slice(1);
+  }
+
   function escapeHtml(texto) {
-    return String(texto)
+    return String(texto ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll('"', "&quot;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
-  }
-
-  function capitalizar(texto) {
-    return String(texto || "").charAt(0).toUpperCase() + String(texto || "").slice(1);
   }
 
   return {

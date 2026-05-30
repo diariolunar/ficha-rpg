@@ -10,9 +10,31 @@ const crud = criarCadastroCrud({
   listaId: "listaItens",
   detalheContainerId: "itemDetalheContainer",
   botaoSalvarId: "salvarItem",
-  camposPrincipais: ["categoria", "raridade", "nivelRequerido", "valor", "durabilidade", "peso"],
-  camposResumo: ["categoria", "raridade", "nivelRequerido", "valor"],
-  camposCard: ["efeitoPrincipal", "bonusAtributo"],
+
+  camposPrincipais: [
+    "categoria",
+    "subcategoria",
+    "raridade",
+    "nivelRequerido",
+    "valor",
+    "durabilidade",
+    "peso"
+  ],
+
+  camposResumo: [
+    "categoria",
+    "subcategoria",
+    "raridade",
+    "nivelRequerido",
+    "valor"
+  ],
+
+  camposCard: [
+    "efeitoPrincipal",
+    "bonusAtributo",
+    "metodoObtencao"
+  ],
+
   campos: [
     {
       nome: "nome",
@@ -23,14 +45,32 @@ const crud = criarCadastroCrud({
     {
       nome: "categoria",
       label: "Categoria",
+      tipo: "select",
+      opcoes: [
+        { valor: "arma", nome: "Arma" },
+        { valor: "armadura", nome: "Armadura" },
+        { valor: "consumivel", nome: "Consumível" },
+        { valor: "acessorio", nome: "Acessório" },
+        { valor: "artefato", nome: "Artefato" },
+        { valor: "material", nome: "Material" },
+        { valor: "runa", nome: "Runa" },
+        { valor: "chave", nome: "Chave" },
+        { valor: "missao", nome: "Missão" },
+        { valor: "farm", nome: "Farm" },
+        { valor: "especial", nome: "Especial" }
+      ]
+    },
+    {
+      nome: "subcategoria",
+      label: "Subcategoria",
       tipo: "text",
-      placeholder: "Ex: Arma, Armadura, Consumível, Runa, Artefato..."
+      placeholder: "Ex: Espada, Escudo, Poção, Anel, Pergaminho, Fragmento, Recurso raro..."
     },
     {
       nome: "raridade",
       label: "Raridade",
       tipo: "text",
-      placeholder: "Ex: Comum, Raro, Épico, Lendário..."
+      placeholder: "Ex: Comum, Incomum, Raro, Épico, Lendário, Mítico, Único..."
     },
     {
       nome: "nivelRequerido",

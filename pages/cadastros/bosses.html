@@ -2,7 +2,7 @@
   <div class="page-header page-header-actions">
     <div>
       <h2>Cadastro de Bosses</h2>
-      <p>Gerencie bosses, fases, ataques especiais, invocações, recompensas e condições de vitória.</p>
+      <p>Gerencie bosses de história, bosses de farm, fases, ataques especiais, invocações, recompensas e condições de vitória.</p>
     </div>
 
     <div class="action-row">
@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Bosses cadastrados</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Bosses cadastrados</h3>
+        <p>Busque por nome, título, divisão, tipo, rank, recompensa ou condição de vitória.</p>
+      </div>
 
-    <div id="listaBosses" class="resource-list">
+      <input
+        type="search"
+        id="buscaBosses"
+        class="search-input"
+        placeholder="Buscar boss..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaBosses" class="resource-list" data-search-input="buscaBosses">
       <p>Carregando bosses...</p>
     </div>
   </div>

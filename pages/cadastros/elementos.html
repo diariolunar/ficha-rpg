@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Elementos cadastrados</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Elementos cadastrados</h3>
+        <p>Busque por nome, tipo, efeito, fraquezas, vantagens ou combinações.</p>
+      </div>
 
-    <div id="listaElementos" class="resource-list">
+      <input
+        type="search"
+        id="buscaElementos"
+        class="search-input"
+        placeholder="Buscar elemento..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaElementos" class="resource-list" data-search-input="buscaElementos">
       <p>Carregando elementos...</p>
     </div>
   </div>

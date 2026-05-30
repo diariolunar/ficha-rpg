@@ -1,3 +1,8 @@
+let protecaoGlobalModaisAtiva = false;
+const callbacksFechamentoModal = new WeakMap();
+
+ativarProtecaoGlobalModais();
+
 export function mostrarModal(mensagem, titulo = "Aviso", tipo = "info") {
   return new Promise((resolve) => {
     const modalExistente = document.querySelector(".app-modal-overlay");
@@ -91,29 +96,53 @@ export function protegerModalContraCliqueFora(overlay, fecharCallback) {
 
   overlay.dataset.protegerCliqueFora = "true";
 
-  overlay.addEventListener("click", async (event) => {
-    if (event.target !== overlay) return;
+  if (typeof fecharCallback === "function") {
+    callbacksFechamentoModal.set(overlay, fecharCallback);
+  }
+}
 
-    event.preventDefault();
-    event.stopPropagation();
+function ativarProtecaoGlobalModais() {
+  if (protecaoGlobalModaisAtiva) return;
 
-    const confirmarSaida = await confirmarModal({
-      titulo: "Sair sem salvar?",
-      mensagem: "Deseja realmente sair? As informações não salvas serão perdidas.",
-      confirmarTexto: "Sair",
-      cancelarTexto: "Continuar editando",
-      tipo: "danger"
-    });
+  protecaoGlobalModaisAtiva = true;
 
-    if (!confirmarSaida) return;
+  document.addEventListener(
+    "click",
+    async (event) => {
+      const overlay = event.target;
 
-    if (typeof fecharCallback === "function") {
-      fecharCallback();
-      return;
-    }
+      if (!(overlay instanceof HTMLElement)) return;
 
-    overlay.remove();
-  });
+      if (!overlay.classList.contains("crud-form-overlay")) return;
+
+      if (event.target !== overlay) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const confirmarSaida = await confirmarModal({
+        titulo: "Sair sem salvar?",
+        mensagem: "Deseja realmente sair? As informações não salvas serão perdidas.",
+        confirmarTexto: "Sair",
+        cancelarTexto: "Continuar editando",
+        tipo: "danger"
+      });
+
+      if (!confirmarSaida) return;
+
+      const callback = callbacksFechamentoModal.get(overlay);
+
+      if (typeof callback === "function") {
+        callback();
+        callbacksFechamentoModal.delete(overlay);
+        return;
+      }
+
+      overlay.remove();
+    },
+    true
+  );
 }
 
 function aplicarEstilosModal(overlay) {
@@ -122,6 +151,7 @@ function aplicarEstilosModal(overlay) {
   overlay.style.background = "rgba(0, 0, 0, 0.68)";
   overlay.style.display = "flex";
   overlay.style.alignItems = "center";
+  overlay.style.justContent = "center";
   overlay.style.justifyContent = "center";
   overlay.style.zIndex = "9999";
   overlay.style.padding = "20px";

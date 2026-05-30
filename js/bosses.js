@@ -10,15 +10,46 @@ const crud = criarCadastroCrud({
   listaId: "listaBosses",
   detalheContainerId: "bossDetalheContainer",
   botaoSalvarId: "salvarBoss",
-  camposPrincipais: ["titulo", "tipo", "rankNivelAmeaca", "hp", "mana", "fatorMedo"],
-  camposResumo: ["titulo", "rankNivelAmeaca", "hp", "mana"],
-  camposCard: ["ultimate", "condicaoVitoria"],
+
+  camposPrincipais: [
+    "categoriaBoss",
+    "titulo",
+    "tipo",
+    "rankNivelAmeaca",
+    "hp",
+    "mana",
+    "fatorMedo"
+  ],
+
+  camposResumo: [
+    "categoriaBoss",
+    "titulo",
+    "rankNivelAmeaca",
+    "hp",
+    "mana"
+  ],
+
+  camposCard: [
+    "ultimate",
+    "condicaoVitoria",
+    "xpRecompensa"
+  ],
+
   campos: [
     {
       nome: "nome",
       label: "Nome do Boss",
       tipo: "text",
       placeholder: "Ex: Dragão Ancestral, Rei Devorador..."
+    },
+    {
+      nome: "categoriaBoss",
+      label: "Divisão do Boss",
+      tipo: "select",
+      opcoes: [
+        { valor: "historia", nome: "Boss de História" },
+        { valor: "farm", nome: "Boss de Farm" }
+      ]
     },
     {
       nome: "titulo",

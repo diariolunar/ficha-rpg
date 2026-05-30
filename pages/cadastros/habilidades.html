@@ -12,9 +12,22 @@
   </div>
 
   <div class="list-card">
-    <h3>Habilidades cadastradas</h3>
+    <div class="list-header-with-search">
+      <div>
+        <h3>Habilidades cadastradas</h3>
+        <p>Busque por nome, tipo, custo, cooldown, efeito, alcance ou evolução.</p>
+      </div>
 
-    <div id="listaHabilidades" class="resource-list">
+      <input
+        type="search"
+        id="buscaHabilidades"
+        class="search-input"
+        placeholder="Buscar habilidade..."
+        autocomplete="off"
+      />
+    </div>
+
+    <div id="listaHabilidades" class="resource-list" data-search-input="buscaHabilidades">
       <p>Carregando habilidades...</p>
     </div>
   </div>
