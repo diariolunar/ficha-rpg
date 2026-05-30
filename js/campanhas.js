@@ -1782,6 +1782,28 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
     botao.addEventListener("click", () => abrirModalAdicionarCriaturaCampanha(campanha, "boss"));
   });
 
+  card.querySelectorAll(".criar-boss-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalCriarBossCampanha(campanha));
+  });
+
+  card.querySelectorAll(".ataque-inimigo-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      abrirModalAtaqueInimigo(campanha, botao.dataset.entidadeId);
+    });
+  });
+
+  card.querySelectorAll(".aplicar-recompensas-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalRecompensasCombate(campanha));
+  });
+
+  card.querySelectorAll(".resumo-sessao-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalResumoSessao(campanha));
+  });
+
+  card.querySelectorAll(".exportar-historico-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => exportarHistoricoSessao(campanha));
+  });
+
   card.querySelectorAll(".usar-habilidade-pet-campanha").forEach((botao) => {
     botao.addEventListener("click", () => {
       const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
@@ -1982,6 +2004,10 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
       <button class="secondary-btn cura-alvo-campanha">Aplicar cura</button>
       <button class="secondary-btn adicionar-monstro-campanha">Adicionar monstro</button>
       <button class="secondary-btn adicionar-boss-campanha">Adicionar boss</button>
+      <button class="secondary-btn criar-boss-campanha">Criar boss</button>
+      <button class="secondary-btn aplicar-recompensas-campanha">Aplicar recompensas</button>
+      <button class="secondary-btn resumo-sessao-campanha">Resumo da sessão</button>
+      <button class="secondary-btn exportar-historico-campanha">Exportar histórico</button>
       <button class="secondary-btn avancar-turno-campanha">Avançar turno</button>
       <button class="secondary-btn avancar-rodada-campanha">Avançar rodada</button>
       <button class="secondary-btn pausar-sessao-campanha">Pausar sessão</button>
@@ -2164,6 +2190,10 @@ function montarInimigosCampanha(campanha) {
               <span>HP ${hpAtual}/${hpMax}</span>
               <span>Mana ${manaAtual}/${manaMax}</span>
               <span>Vel. ${Number(entidade.velocidade || 0)}</span>
+            </div>
+
+            <div class="campaign-character-actions">
+              <button class="secondary-btn ataque-inimigo-campanha" data-entidade-id="${entidade.entidadeId}">Atacar alvo</button>
             </div>
           </div>
         `;
@@ -2815,6 +2845,572 @@ function normalizarTexto(texto) {
     .toLowerCase();
 }
 
+
+function abrirModalCriarBossCampanha(campanha) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Criar boss na campanha</h3>
+          <p>Crie um boss exclusivo para esta sessão sem depender do catálogo.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <div class="form-grid">
+            <label>
+              Nome do boss
+              <input type="text" id="bossSessaoNome" placeholder="Ex: Guardião da Cripta" />
+            </label>
+
+            <label>
+              Título
+              <input type="text" id="bossSessaoTitulo" placeholder="Ex: O Devorador de Ecos" />
+            </label>
+
+            <label>
+              Rank / Ameaça
+              <input type="text" id="bossSessaoRank" placeholder="Ex: Rank A, Chefe de masmorra..." />
+            </label>
+
+            <label>
+              HP
+              <input type="number" id="bossSessaoHp" value="100" min="1" />
+            </label>
+
+            <label>
+              Mana
+              <input type="number" id="bossSessaoMana" value="0" min="0" />
+            </label>
+
+            <label>
+              Velocidade
+              <input type="number" id="bossSessaoVelocidade" value="0" />
+            </label>
+          </div>
+
+          <label>
+            Ataques
+            <textarea id="bossSessaoAtaques" placeholder="Descreva ataques, dano e efeitos..."></textarea>
+          </label>
+
+          <label>
+            Drops
+            <textarea id="bossSessaoDrops" placeholder="Itens, materiais ou recompensas deixadas pelo boss..."></textarea>
+          </label>
+
+          <label>
+            XP / Recompensa
+            <textarea id="bossSessaoXp" placeholder="XP, ouro, avanço narrativo ou recompensa especial..."></textarea>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarCriarBossSessao">Criar boss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarCriarBossSessao")?.addEventListener("click", criarBossDiretoNaCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function criarBossDiretoNaCampanha() {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const nome = textoCampo("bossSessaoNome");
+
+  if (!nome) {
+    await mostrarModal("Digite o nome do boss.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const hpMax = Math.max(1, numeroCampo("bossSessaoHp"));
+  const manaMax = Math.max(0, numeroCampo("bossSessaoMana"));
+
+  const boss = {
+    id: `boss-manual-${Date.now()}`,
+    instanciaId: `boss-manual-${Date.now()}`,
+    catalogoId: "manual",
+    tipoEntidade: "boss",
+    categoriaBoss: "historia",
+    nome,
+    titulo: textoCampo("bossSessaoTitulo"),
+    rankNivelAmeaca: textoCampo("bossSessaoRank"),
+    hpMax,
+    hpAtual: hpMax,
+    manaMax,
+    manaAtual: manaMax,
+    velocidade: numeroCampo("bossSessaoVelocidade"),
+    ataques: textoCampo("bossSessaoAtaques"),
+    drops: textoCampo("bossSessaoDrops"),
+    xpRecompensa: textoCampo("bossSessaoXp"),
+    condicoes: [],
+    criadoNaSessao: true,
+    criadoEmTexto: new Date().toLocaleString("pt-BR")
+  };
+
+  const bossesSessao = [...obterBossesSessaoCampanha(campanhaSelecionadaAcao), boss];
+  const campanhaAtualizada = {
+    ...campanhaSelecionadaAcao,
+    bossesSessao
+  };
+  const ordemTurnos = criarOrdemTurnos(obterPersonagensDaCampanha(campanhaSelecionadaAcao), campanhaAtualizada);
+  const texto = `Boss ${boss.nome} criado dentro da campanha ativa.`;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      bossesSessao,
+      ordemTurnos,
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "boss"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Boss criado na campanha com sucesso.", "Boss criado", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao criar boss na campanha:", erro);
+    await mostrarModal("Erro ao criar boss na campanha.", "Erro", "danger");
+  }
+}
+
+function abrirModalAtaqueInimigo(campanha, entidadeId) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const atacante = obterInimigosCampanha(campanha).find((entidade) => entidade.entidadeId === entidadeId);
+
+  if (!atacante) {
+    mostrarModal("Atacante não encontrado.", "Erro", "danger");
+    return;
+  }
+
+  const alvos = obterEntidadesCombate(campanha).filter((entidade) => {
+    if (entidade.entidadeId === atacante.entidadeId) return false;
+    return Number(entidade.hpAtual ?? entidade.hp ?? 0) > 0;
+  });
+
+  const danoSugerido = obterDanoSugeridoEntidade(atacante);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Ataque de ${escapeHtml(atacante.nome || "criatura")}</h3>
+          <p>Escolha um alvo específico para receber dano direto no HP.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Alvo
+            <select id="ataqueInimigoAlvo">
+              ${montarOptionsEntidadesGenericas(alvos)}
+            </select>
+          </label>
+
+          <label>
+            Dano
+            <input type="number" id="ataqueInimigoDano" value="${danoSugerido}" min="1" />
+          </label>
+
+          <label>
+            Descrição
+            <input type="text" id="ataqueInimigoDescricao" value="Ataque de ${escapeHtml(atacante.nome || "criatura")}" />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarAtaqueInimigo">Atacar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarAtaqueInimigo")?.addEventListener("click", () => confirmarAtaqueInimigo(atacante));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function confirmarAtaqueInimigo(atacante) {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const alvoId = valorCampo("ataqueInimigoAlvo");
+  const dano = Math.max(1, numeroCampo("ataqueInimigoDano"));
+  const descricao = textoCampo("ataqueInimigoDescricao") || `Ataque de ${atacante.nome || "criatura"}`;
+  const alvo = obterEntidadesCombate(campanhaSelecionadaAcao).find((entidade) => entidade.entidadeId === alvoId);
+
+  if (!alvo) {
+    await mostrarModal("Selecione um alvo válido.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  try {
+    await aplicarAtualizacaoHpAlvo(campanhaSelecionadaAcao, alvo, "dano", dano);
+
+    const texto = `${atacante.nome || "Criatura"} atacou ${alvo.nome || "alvo"} e causou ${dano} de dano. ${descricao}`;
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "ataque"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Ataque aplicado com sucesso.", "Ataque registrado", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao aplicar ataque da criatura:", erro);
+    await mostrarModal("Erro ao aplicar ataque da criatura.", "Erro", "danger");
+  }
+}
+
+function obterDanoSugeridoEntidade(entidade) {
+  return numeroDeCampos(entidade, [
+    "dano",
+    "danoBase",
+    "forcaFisica",
+    "forcaMagica",
+    "poder",
+    "ataque"
+  ]) || 10;
+}
+
+function montarOptionsEntidadesGenericas(entidades) {
+  if (!entidades.length) {
+    return `<option value="">Nenhum alvo disponível</option>`;
+  }
+
+  return entidades
+    .map((entidade) => {
+      const hpAtual = Number(entidade.hpAtual ?? entidade.hp ?? 0);
+      const hpMax = Number(entidade.hpMax ?? entidade.hp ?? 0);
+      return `<option value="${entidade.entidadeId}">${escapeHtml(rotuloTipoEntidade(entidade.tipo))}: ${escapeHtml(entidade.nome || "Sem nome")} — HP ${hpAtual}/${hpMax}</option>`;
+    })
+    .join("");
+}
+
+function abrirModalRecompensasCombate(campanha) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const derrotados = obterInimigosCampanha(campanha).filter((entidade) => Number(entidade.hpAtual ?? entidade.hp ?? 0) <= 0);
+  const recompensas = montarResumoRecompensas(derrotados);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Aplicar recompensas</h3>
+          <p>Registre as recompensas do combate no histórico da sessão.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <div class="campaign-summary-box">
+            ${
+              derrotados.length
+                ? `<p><strong>Inimigos derrotados:</strong> ${derrotados.map((item) => escapeHtml(item.nome || "Criatura")).join(", ")}</p>`
+                : `<p>Nenhum monstro ou boss derrotado foi identificado automaticamente. Você ainda pode registrar uma recompensa manual.</p>`
+            }
+          </div>
+
+          <label>
+            Recompensas
+            <textarea id="recompensasCombateTexto">${escapeHtml(recompensas)}</textarea>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarRecompensasCombate">Aplicar recompensas</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarRecompensasCombate")?.addEventListener("click", salvarRecompensasCombate);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+function montarResumoRecompensas(derrotados) {
+  if (!derrotados.length) return "";
+
+  const linhas = [];
+
+  derrotados.forEach((entidade) => {
+    const nome = entidade.nome || "Criatura";
+    const xp = entidade.xpRecompensa || entidade.recompensa || "";
+    const drops = entidade.drops || "";
+
+    linhas.push(`• ${nome}`);
+    if (xp) linhas.push(`  XP/Recompensa: ${xp}`);
+    if (drops) linhas.push(`  Drops: ${drops}`);
+  });
+
+  return linhas.join("\n");
+}
+
+async function salvarRecompensasCombate() {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const recompensas = textoCampo("recompensasCombateTexto");
+
+  if (!recompensas) {
+    await mostrarModal("Informe as recompensas do combate.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const registro = {
+    texto: recompensas,
+    criadoEmTexto: new Date().toLocaleString("pt-BR")
+  };
+
+  const recompensasSessao = Array.isArray(campanhaSelecionadaAcao.recompensasSessao)
+    ? [registro, ...campanhaSelecionadaAcao.recompensasSessao]
+    : [registro];
+
+  const texto = `Recompensas aplicadas ao fim do combate: ${recompensas.replace(/\n/g, " | ")}`;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      recompensasSessao,
+      mensagemSessao: "Recompensas do combate aplicadas.",
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "recompensa"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Recompensas registradas com sucesso.", "Recompensas aplicadas", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao aplicar recompensas:", erro);
+    await mostrarModal("Erro ao aplicar recompensas.", "Erro", "danger");
+  }
+}
+
+function abrirModalResumoSessao(campanha) {
+  fecharModalAcaoPersonagem();
+
+  const personagens = obterPersonagensDaCampanha(campanha);
+  const inimigos = obterInimigosCampanha(campanha);
+  const historico = Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao : [];
+  const recompensas = Array.isArray(campanha.recompensasSessao) ? campanha.recompensasSessao : [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Resumo da sessão</h3>
+          <p>${escapeHtml(campanha.nome || "Campanha")}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <div class="session-summary-grid">
+            <span><b>Status</b>${escapeHtml(obterTextoStatusCampanha(campanha))}</span>
+            <span><b>Rodada</b>${Number(campanha.rodadaAtual || 0)}</span>
+            <span><b>Turno</b>${Number(campanha.turnoAtual || 0)}</span>
+            <span><b>Personagens</b>${personagens.length}</span>
+            <span><b>Inimigos</b>${inimigos.length}</span>
+            <span><b>Eventos</b>${historico.length}</span>
+          </div>
+
+          <div class="campaign-summary-box">
+            <h4>Personagens</h4>
+            ${personagens.length ? personagens.map((personagem) => `<p>${escapeHtml(personagem.nome || "Personagem")} — HP ${Number(personagem.hpAtual || 0)}/${Number(personagem.hpMax || 0)} — Mana ${Number(personagem.manaAtual || 0)}/${Number(personagem.manaMax || 0)}</p>`).join("") : "<p>Nenhum personagem vinculado.</p>"}
+          </div>
+
+          <div class="campaign-summary-box">
+            <h4>Monstros e bosses</h4>
+            ${inimigos.length ? inimigos.map((entidade) => `<p>${escapeHtml(rotuloTipoEntidade(entidade.tipo))}: ${escapeHtml(entidade.nome || "Criatura")} — HP ${Number(entidade.hpAtual ?? entidade.hp ?? 0)}/${Number(entidade.hpMax ?? entidade.hp ?? 0)}</p>`).join("") : "<p>Nenhum inimigo na sessão.</p>"}
+          </div>
+
+          <div class="campaign-summary-box">
+            <h4>Recompensas registradas</h4>
+            ${recompensas.length ? recompensas.map((item) => `<p>${escapeHtml(item.texto || "Recompensa")}</p>`).join("") : "<p>Nenhuma recompensa registrada.</p>"}
+          </div>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Fechar</button>
+            <button class="primary-btn" type="button" id="registrarResumoSessao">Registrar resumo no histórico</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("registrarResumoSessao")?.addEventListener("click", () => registrarResumoSessao(campanha));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function registrarResumoSessao(campanha) {
+  const resumo = gerarTextoResumoSessao(campanha);
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      resumoSessao: resumo,
+      registroFinalSessao: resumo,
+      historicoSessao: adicionarEventoHistorico(campanha, `Resumo da sessão registrado. ${resumo}`, "resumo"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Resumo registrado no histórico.", "Resumo salvo", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao registrar resumo:", erro);
+    await mostrarModal("Erro ao registrar resumo.", "Erro", "danger");
+  }
+}
+
+function gerarTextoResumoSessao(campanha) {
+  const personagens = obterPersonagensDaCampanha(campanha);
+  const inimigos = obterInimigosCampanha(campanha);
+  const historico = Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao : [];
+  const recompensas = Array.isArray(campanha.recompensasSessao) ? campanha.recompensasSessao : [];
+
+  const linhas = [];
+
+  linhas.push(`Resumo da sessão — ${campanha.nome || "Campanha sem nome"}`);
+  linhas.push(`Status: ${obterTextoStatusCampanha(campanha)}`);
+  linhas.push(`Rodada: ${Number(campanha.rodadaAtual || 0)} | Turno: ${Number(campanha.turnoAtual || 0)}`);
+  linhas.push("");
+  linhas.push("Personagens:");
+  personagens.forEach((personagem) => {
+    linhas.push(`- ${personagem.nome || "Personagem"}: HP ${Number(personagem.hpAtual || 0)}/${Number(personagem.hpMax || 0)}, Mana ${Number(personagem.manaAtual || 0)}/${Number(personagem.manaMax || 0)}`);
+  });
+  if (!personagens.length) linhas.push("- Nenhum personagem vinculado.");
+  linhas.push("");
+  linhas.push("Monstros e bosses:");
+  inimigos.forEach((entidade) => {
+    linhas.push(`- ${rotuloTipoEntidade(entidade.tipo)} ${entidade.nome || "Criatura"}: HP ${Number(entidade.hpAtual ?? entidade.hp ?? 0)}/${Number(entidade.hpMax ?? entidade.hp ?? 0)}`);
+  });
+  if (!inimigos.length) linhas.push("- Nenhum inimigo na sessão.");
+  linhas.push("");
+  linhas.push("Recompensas:");
+  recompensas.forEach((item) => linhas.push(`- ${item.texto || "Recompensa"}`));
+  if (!recompensas.length) linhas.push("- Nenhuma recompensa registrada.");
+  linhas.push("");
+  linhas.push("Últimos eventos:");
+  historico.slice(0, 12).forEach((evento) => {
+    linhas.push(`- ${evento.criadoEmTexto || ""} ${evento.texto || "Evento"}`.trim());
+  });
+
+  return linhas.join("\n");
+}
+
+async function exportarHistoricoSessao(campanha) {
+  const historico = Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao : [];
+  const resumo = gerarTextoResumoSessao(campanha);
+  const linhas = [];
+
+  linhas.push(resumo);
+  linhas.push("\n==============================\n");
+  linhas.push("Histórico completo da sessão:");
+
+  historico.slice().reverse().forEach((evento) => {
+    linhas.push(`[${evento.criadoEmTexto || "sem data"}] ${evento.texto || "Evento sem descrição"}`);
+  });
+
+  const conteudo = linhas.join("\n");
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      registroFinalSessao: conteudo,
+      exportadoEmTexto: new Date().toLocaleString("pt-BR"),
+      atualizadaEm: serverTimestamp()
+    });
+  } catch (erro) {
+    console.error("Erro ao registrar histórico final no banco:", erro);
+  }
+
+  const blob = new Blob([conteudo], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const nomeArquivo = `historico-${normalizarTexto(campanha.nome || "campanha").replace(/[^a-z0-9]+/g, "-") || "campanha"}.txt`;
+
+  link.href = url;
+  link.download = nomeArquivo;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  await mostrarModal("Histórico exportado e registro final salvo na campanha.", "Exportação concluída", "success");
+}
+
 function aplicarEstilosCampanhas() {
   if (document.getElementById("campanhasStyles")) return;
 
@@ -3233,6 +3829,42 @@ function aplicarEstilosCampanhas() {
       color: #fff;
       border-color: rgba(255,255,255,0.18);
       background: rgba(255,255,255,0.08);
+    }
+
+
+    .session-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .session-summary-grid span,
+    .campaign-summary-box {
+      display: grid;
+      gap: 6px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.76);
+      font-weight: 800;
+    }
+
+    .session-summary-grid b,
+    .campaign-summary-box h4 {
+      margin: 0;
+      color: rgba(255,255,255,0.48);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-summary-box p {
+      margin: 0;
+      color: rgba(255,255,255,0.76);
+      line-height: 1.45;
+      font-weight: 700;
     }
 
     @media (max-width: 920px) {
