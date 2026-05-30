@@ -24,6 +24,9 @@ let unsubscribePersonagensCampanhas = null;
 let unsubscribePersonagensCampanhasExtras = null;
 let unsubscribeHabilidadesCatalogo = null;
 let unsubscribeItensCatalogo = null;
+let unsubscribeMonstrosCatalogo = null;
+let unsubscribeBossesCatalogo = null;
+let unsubscribePetsCatalogo = null;
 
 let campanhaSelecionadaEdicao = null;
 let campanhaSelecionadaRolagem = null;
@@ -38,6 +41,9 @@ let personagensCriadosPeloUsuario = [];
 
 let habilidadesCatalogo = [];
 let itensCatalogo = [];
+let monstrosCatalogo = [];
+let bossesCatalogo = [];
+let petsCatalogo = [];
 
 const CONDICOES_PADRAO = [
   "Envenenado",
@@ -181,6 +187,51 @@ function iniciarEscutaCatalogosCampanha() {
     },
     (erro) => {
       console.error("Erro ao carregar catálogo de itens:", erro);
+    }
+  );
+
+  unsubscribeMonstrosCatalogo = onSnapshot(
+    query(collection(db, "monstros"), orderBy("nome", "asc")),
+    (snapshot) => {
+      monstrosCatalogo = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderizarCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar catálogo de monstros:", erro);
+    }
+  );
+
+  unsubscribeBossesCatalogo = onSnapshot(
+    query(collection(db, "bosses"), orderBy("nome", "asc")),
+    (snapshot) => {
+      bossesCatalogo = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderizarCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar catálogo de bosses:", erro);
+    }
+  );
+
+  unsubscribePetsCatalogo = onSnapshot(
+    query(collection(db, "pets"), orderBy("nome", "asc")),
+    (snapshot) => {
+      petsCatalogo = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderizarCampanhas();
+    },
+    (erro) => {
+      console.error("Erro ao carregar catálogo de pets:", erro);
     }
   );
 }
@@ -352,6 +403,21 @@ export function pararCampanhas() {
     unsubscribeItensCatalogo = null;
   }
 
+  if (unsubscribeMonstrosCatalogo) {
+    unsubscribeMonstrosCatalogo();
+    unsubscribeMonstrosCatalogo = null;
+  }
+
+  if (unsubscribeBossesCatalogo) {
+    unsubscribeBossesCatalogo();
+    unsubscribeBossesCatalogo = null;
+  }
+
+  if (unsubscribePetsCatalogo) {
+    unsubscribePetsCatalogo();
+    unsubscribePetsCatalogo = null;
+  }
+
   campanhasPorMestreId = [];
   campanhasPorCriadoPor = [];
   campanhasPorEmail = [];
@@ -359,6 +425,9 @@ export function pararCampanhas() {
   personagensCriadosPeloUsuario = [];
   habilidadesCatalogo = [];
   itensCatalogo = [];
+  monstrosCatalogo = [];
+  bossesCatalogo = [];
+  petsCatalogo = [];
 }
 
 function gerarCodigoCampanha() {
@@ -651,7 +720,7 @@ async function iniciarSessaoCampanha(campanha) {
 
   if (!confirmar) return;
 
-  const ordemTurnos = criarOrdemTurnos(personagens);
+  const ordemTurnos = criarOrdemTurnos(personagens, campanha);
   const primeiro = ordemTurnos[0] || null;
 
   try {
@@ -663,6 +732,10 @@ async function iniciarSessaoCampanha(campanha) {
       turnoIndice: 0,
       ordemTurnos,
       personagemTurnoId: primeiro?.personagemId || "",
+      entidadeTurnoId: primeiro?.entidadeId || "",
+      entidadeTurnoTipo: primeiro?.tipo || "",
+      entidadeTurnoId: primeiro?.entidadeId || "",
+      entidadeTurnoTipo: primeiro?.tipo || "",
       personagemTurnoNome: primeiro?.nome || "",
       personagemTurnoDonoId: primeiro?.donoId || "",
       mensagemSessao: primeiro
@@ -778,6 +851,8 @@ async function avancarTurnoCampanha(campanha) {
       turnoAtual: proximoIndice + 1,
       turnoIndice: proximoIndice,
       personagemTurnoId: proximoTurno?.personagemId || "",
+      entidadeTurnoId: proximoTurno?.entidadeId || "",
+      entidadeTurnoTipo: proximoTurno?.tipo || "",
       personagemTurnoNome: proximoTurno?.nome || "",
       personagemTurnoDonoId: proximoTurno?.donoId || "",
       mensagemSessao: `Turno de ${proximoTurno?.nome || "personagem não definido"}.`,
@@ -815,6 +890,8 @@ async function avancarRodadaCampanha(campanha) {
       turnoAtual: primeiro ? 1 : 0,
       turnoIndice: primeiro ? 0 : -1,
       personagemTurnoId: primeiro?.personagemId || "",
+      entidadeTurnoId: primeiro?.entidadeId || "",
+      entidadeTurnoTipo: primeiro?.tipo || "",
       personagemTurnoNome: primeiro?.nome || "",
       personagemTurnoDonoId: primeiro?.donoId || "",
       mensagemSessao: primeiro
@@ -836,18 +913,20 @@ async function avancarRodadaCampanha(campanha) {
   }
 }
 
-function criarOrdemTurnos(personagens) {
-  return personagens
-    .map((personagem) => ({
-      personagemId: personagem.id,
-      nome: personagem.nome || "Personagem sem nome",
-      donoId: personagem.donoId || "",
-      donoNome: personagem.donoNome || "",
-      velocidade: Number(personagem.velocidade || 0),
-      hpAtual: Number(personagem.hpAtual || 0),
-      hpMax: Number(personagem.hpMax || 0),
-      manaAtual: Number(personagem.manaAtual || 0),
-      manaMax: Number(personagem.manaMax || 0)
+function criarOrdemTurnos(personagens, campanha = null) {
+  return obterEntidadesCombate(campanha, personagens)
+    .map((entidade) => ({
+      entidadeId: entidade.entidadeId,
+      tipo: entidade.tipo,
+      personagemId: entidade.tipo === "personagem" ? entidade.id : "",
+      donoId: entidade.donoId || "",
+      donoNome: entidade.donoNome || "",
+      nome: entidade.nome || "Entidade sem nome",
+      velocidade: Number(entidade.velocidade || 0),
+      hpAtual: Number(entidade.hpAtual || 0),
+      hpMax: Number(entidade.hpMax || 0),
+      manaAtual: Number(entidade.manaAtual || 0),
+      manaMax: Number(entidade.manaMax || 0)
     }))
     .sort((a, b) => {
       if (b.velocidade !== a.velocidade) return b.velocidade - a.velocidade;
@@ -1626,6 +1705,15 @@ export function renderizarCampanhas() {
         ${montarPersonagensCampanha(personagens, campanha)}
       </div>
 
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title">
+          <span>Monstros e bosses da campanha</span>
+          <strong>${obterInimigosCampanha(campanha).length}</strong>
+        </div>
+
+        ${montarInimigosCampanha(campanha)}
+      </div>
+
       <div class="campaign-turn-panel">
         <div class="campaign-section-title">
           <span>Ordem de turno</span>
@@ -1677,6 +1765,29 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
   if (botaoEditar) botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
   if (botaoExcluir) botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
   if (botaoRolar) botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
+
+  card.querySelectorAll(".ataque-alvo-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalAcaoAlvo(campanha, "dano"));
+  });
+
+  card.querySelectorAll(".cura-alvo-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalAcaoAlvo(campanha, "cura"));
+  });
+
+  card.querySelectorAll(".adicionar-monstro-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalAdicionarCriaturaCampanha(campanha, "monstro"));
+  });
+
+  card.querySelectorAll(".adicionar-boss-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalAdicionarCriaturaCampanha(campanha, "boss"));
+  });
+
+  card.querySelectorAll(".usar-habilidade-pet-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) abrirModalUsarHabilidadePetCampanha(campanha, personagem, botao.dataset.petId);
+    });
+  });
 
   card.querySelectorAll(".usar-habilidade-campanha").forEach((botao) => {
     botao.addEventListener("click", () => {
@@ -1753,6 +1864,10 @@ function montarPersonagensCampanha(personagens, campanha) {
 
               ${
                 montarCooldownsPersonagem(personagem)
+              }
+
+              ${
+                montarPetsPersonagemCampanha(personagem, campanha, podeAgir)
               }
 
               ${
@@ -1863,6 +1978,10 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
   if (sessaoAtiva) {
     return `
       <button class="secondary-btn rolar-d20-sessao">Rolar D20</button>
+      <button class="secondary-btn ataque-alvo-campanha">Aplicar dano</button>
+      <button class="secondary-btn cura-alvo-campanha">Aplicar cura</button>
+      <button class="secondary-btn adicionar-monstro-campanha">Adicionar monstro</button>
+      <button class="secondary-btn adicionar-boss-campanha">Adicionar boss</button>
       <button class="secondary-btn avancar-turno-campanha">Avançar turno</button>
       <button class="secondary-btn avancar-rodada-campanha">Avançar rodada</button>
       <button class="secondary-btn pausar-sessao-campanha">Pausar sessão</button>
@@ -1902,6 +2021,575 @@ function montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens) {
       Aguardando o Mestre iniciar a sessão.
     </span>
   `;
+}
+
+
+function obterPetsPersonagemCampanha(personagem) {
+  if (Array.isArray(personagem?.pets)) return personagem.pets;
+  if (personagem?.pet) return [personagem.pet];
+  return [];
+}
+
+function obterInimigosCampanha(campanha) {
+  return [
+    ...obterMonstrosSessaoCampanha(campanha),
+    ...obterBossesSessaoCampanha(campanha)
+  ];
+}
+
+function obterMonstrosSessaoCampanha(campanha) {
+  return Array.isArray(campanha.monstrosSessao) ? campanha.monstrosSessao : [];
+}
+
+function obterBossesSessaoCampanha(campanha) {
+  return Array.isArray(campanha.bossesSessao) ? campanha.bossesSessao : [];
+}
+
+function obterEntidadesCombate(campanha, personagensBase = null) {
+  const personagens = personagensBase || obterPersonagensDaCampanha(campanha);
+
+  const entidades = [];
+
+  personagens.forEach((personagem) => {
+    entidades.push({
+      ...personagem,
+      tipo: "personagem",
+      entidadeId: `personagem:${personagem.id}`,
+      hpAtual: Number(personagem.hpAtual || 0),
+      hpMax: Number(personagem.hpMax || 0),
+      manaAtual: Number(personagem.manaAtual || 0),
+      manaMax: Number(personagem.manaMax || 0)
+    });
+
+    obterPetsPersonagemCampanha(personagem).forEach((pet) => {
+      entidades.push({
+        ...pet,
+        tipo: "pet",
+        entidadeId: `pet:${personagem.id}:${pet.id}`,
+        personagemId: personagem.id,
+        donoId: personagem.donoId || "",
+        donoNome: personagem.donoNome || "",
+        donoPersonagemNome: personagem.nome || "",
+        hpAtual: Number(pet.hpAtual ?? pet.hp ?? 0),
+        hpMax: Number(pet.hpMax ?? pet.hp ?? 0),
+        manaAtual: Number(pet.manaAtual ?? pet.mana ?? 0),
+        manaMax: Number(pet.manaMax ?? pet.mana ?? 0)
+      });
+    });
+  });
+
+  obterMonstrosSessaoCampanha(campanha).forEach((monstro) => {
+    entidades.push({
+      ...monstro,
+      tipo: "monstro",
+      entidadeId: `monstro:${monstro.instanciaId}`,
+      hpAtual: Number(monstro.hpAtual ?? monstro.hp ?? 0),
+      hpMax: Number(monstro.hpMax ?? monstro.hp ?? 0),
+      manaAtual: Number(monstro.manaAtual ?? monstro.mana ?? 0),
+      manaMax: Number(monstro.manaMax ?? monstro.mana ?? 0)
+    });
+  });
+
+  obterBossesSessaoCampanha(campanha).forEach((boss) => {
+    entidades.push({
+      ...boss,
+      tipo: "boss",
+      entidadeId: `boss:${boss.instanciaId}`,
+      hpAtual: Number(boss.hpAtual ?? boss.hp ?? 0),
+      hpMax: Number(boss.hpMax ?? boss.hp ?? 0),
+      manaAtual: Number(boss.manaAtual ?? boss.mana ?? 0),
+      manaMax: Number(boss.manaMax ?? boss.mana ?? 0)
+    });
+  });
+
+  return entidades;
+}
+
+function montarPetsPersonagemCampanha(personagem, campanha, podeAgir) {
+  const pets = obterPetsPersonagemCampanha(personagem);
+
+  if (!pets.length) {
+    return `<div class="campaign-pet-list"><small>Sem pets vinculados</small></div>`;
+  }
+
+  return `
+    <div class="campaign-pet-list">
+      ${pets.map((pet) => {
+        const hpAtual = Number(pet.hpAtual ?? pet.hp ?? 0);
+        const hpMax = Number(pet.hpMax ?? pet.hp ?? 0);
+        const manaAtual = Number(pet.manaAtual ?? pet.mana ?? 0);
+        const manaMax = Number(pet.manaMax ?? pet.mana ?? 0);
+
+        return `
+          <div class="campaign-pet-card">
+            <strong>Pet: ${escapeHtml(pet.nome || "Pet sem nome")}</strong>
+            <span>HP ${hpAtual}/${hpMax}</span>
+            <span>Mana ${manaAtual}/${manaMax}</span>
+            ${podeAgir ? `<button class="secondary-btn usar-habilidade-pet-campanha" data-personagem-id="${personagem.id}" data-pet-id="${pet.id}">Ação do pet</button>` : ""}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function montarInimigosCampanha(campanha) {
+  const inimigos = obterInimigosCampanha(campanha);
+
+  if (!inimigos.length) {
+    return `
+      <div class="campaign-empty-box">
+        Nenhum monstro ou boss foi adicionado à campanha ativa.
+      </div>
+    `;
+  }
+
+  return `
+    <div class="campaign-character-grid">
+      ${inimigos.map((entidade) => {
+        const hpAtual = Number(entidade.hpAtual ?? entidade.hp ?? 0);
+        const hpMax = Number(entidade.hpMax ?? entidade.hp ?? 0);
+        const manaAtual = Number(entidade.manaAtual ?? entidade.mana ?? 0);
+        const manaMax = Number(entidade.manaMax ?? entidade.mana ?? 0);
+        const tipo = entidade.tipoEntidade || (entidade.categoriaBoss ? "boss" : "monstro");
+
+        return `
+          <div class="campaign-character-card enemy-card">
+            <div>
+              <strong>${escapeHtml(entidade.nome || "Criatura sem nome")}</strong>
+              <span>${tipo === "boss" ? "Boss" : "Monstro"} • ${escapeHtml(entidade.rankNivelAmeaca || "Sem rank")}</span>
+            </div>
+
+            <div class="campaign-character-stats">
+              <span>HP ${hpAtual}/${hpMax}</span>
+              <span>Mana ${manaAtual}/${manaMax}</span>
+              <span>Vel. ${Number(entidade.velocidade || 0)}</span>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function montarOptionsEntidadesAlvo(campanha) {
+  const entidades = obterEntidadesCombate(campanha);
+
+  if (!entidades.length) {
+    return `<option value="">Nenhum alvo disponível</option>`;
+  }
+
+  return entidades
+    .map((entidade) => {
+      const tipo = formatarTipoEntidade(entidade.tipo);
+      return `<option value="${entidade.entidadeId}">${escapeHtml(tipo)} — ${escapeHtml(entidade.nome || "Sem nome")}</option>`;
+    })
+    .join("");
+}
+
+function formatarTipoEntidade(tipo) {
+  const mapa = {
+    personagem: "Personagem",
+    pet: "Pet",
+    monstro: "Monstro",
+    boss: "Boss"
+  };
+
+  return mapa[tipo] || "Alvo";
+}
+
+function abrirModalAcaoAlvo(campanha, modo) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>${modo === "cura" ? "Aplicar cura" : "Aplicar dano"}</h3>
+          <p>Selecione um alvo da campanha ativa.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Alvo
+            <select id="acaoAlvoEntidade">
+              ${montarOptionsEntidadesAlvo(campanha)}
+            </select>
+          </label>
+
+          <label>
+            Valor
+            <input type="number" id="acaoAlvoValor" value="0" min="0" />
+          </label>
+
+          <label>
+            Descrição da ação
+            <input type="text" id="acaoAlvoDescricao" placeholder="Ex: Ataque com espada, magia de cura..." />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarAcaoAlvo">${modo === "cura" ? "Aplicar cura" : "Aplicar dano"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarAcaoAlvo")?.addEventListener("click", () => aplicarAcaoEmAlvo(modo));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function aplicarAcaoEmAlvo(modo) {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const alvoId = valorCampo("acaoAlvoEntidade");
+  const valor = Math.max(0, numeroCampo("acaoAlvoValor"));
+  const descricao = textoCampo("acaoAlvoDescricao") || (modo === "cura" ? "cura" : "dano");
+
+  if (!alvoId || valor <= 0) {
+    await mostrarModal("Selecione um alvo e informe um valor maior que zero.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const alvo = obterEntidadesCombate(campanhaSelecionadaAcao).find((entidade) => entidade.entidadeId === alvoId);
+
+  if (!alvo) {
+    await mostrarModal("Alvo não encontrado.", "Erro", "danger");
+    return;
+  }
+
+  try {
+    await aplicarAtualizacaoHpAlvo(campanhaSelecionadaAcao, alvo, modo, valor);
+
+    const texto = `${modo === "cura" ? "Cura" : "Dano"} aplicado em ${alvo.nome || "alvo"}: ${valor} ponto(s). Motivo: ${descricao}.`;
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, modo === "cura" ? "cura" : "dano"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal(`${modo === "cura" ? "Cura" : "Dano"} aplicado com sucesso.`, "Ação registrada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao aplicar ação no alvo:", erro);
+    await mostrarModal("Erro ao aplicar ação no alvo.", "Erro", "danger");
+  }
+}
+
+async function aplicarAtualizacaoHpAlvo(campanha, alvo, modo, valor) {
+  const hpAtual = Number(alvo.hpAtual || 0);
+  const hpMax = Number(alvo.hpMax || alvo.hp || 0);
+  const novoHp = modo === "cura"
+    ? Math.min(hpMax, hpAtual + valor)
+    : Math.max(0, hpAtual - valor);
+
+  if (alvo.tipo === "personagem") {
+    await updateDoc(doc(db, "personagens", alvo.id), {
+      hpAtual: novoHp,
+      atualizadoEm: serverTimestamp()
+    });
+
+    return;
+  }
+
+  if (alvo.tipo === "pet") {
+    const personagem = state.personagens.find((item) => item.id === alvo.personagemId);
+    const pets = obterPetsPersonagemCampanha(personagem);
+    const novosPets = pets.map((pet) => pet.id === alvo.id ? { ...pet, hpAtual: novoHp, hpMax } : pet);
+
+    await updateDoc(doc(db, "personagens", alvo.personagemId), {
+      pets: novosPets,
+      pet: novosPets[0] || null,
+      atualizadoEm: serverTimestamp()
+    });
+
+    return;
+  }
+
+  if (alvo.tipo === "monstro") {
+    const monstrosSessao = obterMonstrosSessaoCampanha(campanha).map((monstro) => {
+      if (monstro.instanciaId !== alvo.instanciaId) return monstro;
+      return { ...monstro, hpAtual: novoHp, hpMax };
+    });
+
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      monstrosSessao,
+      atualizadaEm: serverTimestamp()
+    });
+
+    return;
+  }
+
+  if (alvo.tipo === "boss") {
+    const bossesSessao = obterBossesSessaoCampanha(campanha).map((boss) => {
+      if (boss.instanciaId !== alvo.instanciaId) return boss;
+      return { ...boss, hpAtual: novoHp, hpMax };
+    });
+
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      bossesSessao,
+      atualizadaEm: serverTimestamp()
+    });
+  }
+}
+
+function abrirModalAdicionarCriaturaCampanha(campanha, tipo) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const catalogo = tipo === "boss" ? bossesCatalogo : monstrosCatalogo;
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>${tipo === "boss" ? "Adicionar boss" : "Adicionar monstro"}</h3>
+          <p>Adicione uma criatura à campanha ativa.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            ${tipo === "boss" ? "Boss" : "Monstro"}
+            <select id="criaturaCatalogoSessao">
+              ${
+                catalogo.length
+                  ? catalogo.map((item) => `<option value="${item.id}">${escapeHtml(item.nome || "Criatura sem nome")}</option>`).join("")
+                  : `<option value="">Nenhum cadastro disponível</option>`
+              }
+            </select>
+          </label>
+
+          <label>
+            Quantidade
+            <input type="number" id="criaturaQuantidadeSessao" value="1" min="1" />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarAdicionarCriatura">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarAdicionarCriatura")?.addEventListener("click", () => adicionarCriaturaCampanha(tipo));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function adicionarCriaturaCampanha(tipo) {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const catalogo = tipo === "boss" ? bossesCatalogo : monstrosCatalogo;
+  const id = valorCampo("criaturaCatalogoSessao");
+  const quantidade = Math.max(1, numeroCampo("criaturaQuantidadeSessao"));
+  const base = catalogo.find((item) => item.id === id);
+
+  if (!base) {
+    await mostrarModal("Selecione uma criatura válida.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const novos = [];
+
+  for (let i = 0; i < quantidade; i++) {
+    const hpMax = Number(base.hpMax || base.hp || 0);
+    const manaMax = Number(base.manaMax || base.mana || 0);
+
+    novos.push({
+      ...base,
+      instanciaId: `${tipo}-${base.id}-${Date.now()}-${i}`,
+      catalogoId: base.id,
+      tipoEntidade: tipo,
+      hpMax,
+      hpAtual: hpMax,
+      manaMax,
+      manaAtual: manaMax,
+      condicoes: [],
+      criadoEmTexto: new Date().toLocaleString("pt-BR")
+    });
+  }
+
+  const campo = tipo === "boss" ? "bossesSessao" : "monstrosSessao";
+  const listaAtual = tipo === "boss" ? obterBossesSessaoCampanha(campanhaSelecionadaAcao) : obterMonstrosSessaoCampanha(campanhaSelecionadaAcao);
+  const listaNova = [...listaAtual, ...novos];
+
+  const texto = `${quantidade} ${tipo === "boss" ? "boss(es)" : "monstro(s)"} adicionado(s) à campanha.`;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      [campo]: listaNova,
+      ordemTurnos: criarOrdemTurnos(obterPersonagensDaCampanha(campanhaSelecionadaAcao), {
+        ...campanhaSelecionadaAcao,
+        [campo]: listaNova
+      }),
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, tipo),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Criatura adicionada com sucesso.", "Campanha atualizada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao adicionar criatura:", erro);
+    await mostrarModal("Erro ao adicionar criatura.", "Erro", "danger");
+  }
+}
+
+function abrirModalUsarHabilidadePetCampanha(campanha, personagem, petId) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+  personagemSelecionadoAcao = personagem;
+
+  const pet = obterPetsPersonagemCampanha(personagem).find((item) => item.id === petId);
+  const habilidades = obterHabilidadesPetCampanha(pet);
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Ação do pet</h3>
+          <p>${escapeHtml(pet?.nome || "Pet")}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Habilidade do pet
+            <select id="habilidadePetSessao">
+              ${
+                habilidades.length
+                  ? habilidades.map((habilidade) => `<option value="${habilidade.id}">${escapeHtml(habilidade.nome || "Habilidade")}</option>`).join("")
+                  : `<option value="">Nenhuma habilidade disponível</option>`
+              }
+            </select>
+          </label>
+
+          <label>
+            Alvo opcional
+            <select id="alvoPetSessao">
+              <option value="">Nenhum alvo direto</option>
+              ${montarOptionsEntidadesAlvo(campanha)}
+            </select>
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarAcaoPet">Registrar ação</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarAcaoPet")?.addEventListener("click", () => registrarAcaoPetCampanha(petId));
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+function obterHabilidadesPetCampanha(pet) {
+  if (!pet) return [];
+
+  const habilidades = [];
+
+  if (Array.isArray(pet.habilidades)) {
+    pet.habilidades.forEach((habilidade) => habilidades.push(habilidade));
+  }
+
+  const mapa = new Map();
+
+  habilidades.forEach((habilidade) => {
+    const completa = completarHabilidade(habilidade);
+    if (completa?.id) mapa.set(completa.id, completa);
+  });
+
+  return Array.from(mapa.values());
+}
+
+async function registrarAcaoPetCampanha(petId) {
+  if (!campanhaSelecionadaAcao || !personagemSelecionadoAcao) {
+    await mostrarModal("Nenhuma ação selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const pet = obterPetsPersonagemCampanha(personagemSelecionadoAcao).find((item) => item.id === petId);
+  const habilidade = obterHabilidadesPetCampanha(pet).find((item) => item.id === valorCampo("habilidadePetSessao"));
+
+  if (!pet || !habilidade) {
+    await mostrarModal("Selecione uma habilidade válida para o pet.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const texto = `${pet.nome || "Pet"} de ${personagemSelecionadoAcao.nome || "Personagem"} usou ${habilidade.nome || "uma habilidade"}.`;
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "pet"),
+      atualizadaEm: serverTimestamp()
+    });
+
+    await mostrarModal("Ação do pet registrada.", "Ação registrada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao registrar ação do pet:", erro);
+    await mostrarModal("Erro ao registrar ação do pet.", "Erro", "danger");
+  }
 }
 
 function obterTextoStatusCampanha(campanha) {
@@ -2404,6 +3092,41 @@ function aplicarEstilosCampanhas() {
     .campaign-character-actions button {
       padding: 9px 11px;
       font-size: 12px;
+    }
+
+    .campaign-pet-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .campaign-pet-list small {
+      color: rgba(255,255,255,0.46);
+      font-weight: 800;
+    }
+
+    .campaign-pet-card {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-pet-card strong {
+      width: 100%;
+      font-size: 14px;
+    }
+
+    .campaign-pet-card button {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .enemy-card {
+      border-color: rgba(255,255,255,0.16);
     }
 
     .turn-order-list {

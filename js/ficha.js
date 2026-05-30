@@ -10,11 +10,10 @@ import {
 } from "./firebase.js";
 
 import { state } from "./state.js";
-import { onPageLoaded, navegarPara } from "./navigation.js";
+import { onPageLoaded } from "./navigation.js";
 import { mostrarModal } from "./ui.js";
 
 let personagemFichaAtual = null;
-let personagemFichaPendenteId = "";
 let historicoD20 = [];
 let habilidadesCatalogoFicha = [];
 let itensCatalogoFicha = [];
@@ -74,12 +73,51 @@ function iniciarCatalogosFicha() {
 }
 
 export function abrirFichaPersonagem(personagem) {
-  if (!personagem) return;
-
-  personagemFichaPendenteId = personagem.id;
   personagemFichaAtual = personagem;
 
-  navegarPara("ficha");
+  aplicarEstilosFicha();
+  fecharFichaPersonagem();
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalFichaPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal ficha-modal-restaurada">
+      <div class="crud-form-header">
+        <div>
+          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
+          <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        ${montarFichaModal(personagem)}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharFichaPersonagem")?.addEventListener("click", fecharFichaPersonagem);
+  document.getElementById("salvarStatusFichaModal")?.addEventListener("click", () => salvarStatusFicha("modal"));
+  document.getElementById("rolarD20FichaModal")?.addEventListener("click", () => rolarD20("modal"));
+
+  overlay.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "modal"));
+  });
+
+  overlay.querySelectorAll(".usar-item-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "modal"));
+  });
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      fecharFichaPersonagem();
+    }
+  });
 }
 
 function renderizarTelaFicha() {
@@ -96,7 +134,6 @@ function renderizarTelaFicha() {
   if (!personagens.length) {
     select.innerHTML = `<option value="">Nenhum personagem criado</option>`;
     personagemFichaAtual = null;
-    personagemFichaPendenteId = "";
     limparFicha();
     return;
   }
@@ -109,12 +146,6 @@ function renderizarTelaFicha() {
     option.textContent = personagem.nome || "Personagem sem nome";
     select.appendChild(option);
   });
-
-  if (personagemFichaPendenteId) {
-    const personagemPendente = personagens.find((personagem) => personagem.id === personagemFichaPendenteId);
-    personagemFichaAtual = personagemPendente || personagemFichaAtual;
-    personagemFichaPendenteId = "";
-  }
 
   if (!personagemFichaAtual) {
     personagemFichaAtual = personagens[0];
@@ -139,8 +170,16 @@ function renderizarTelaFicha() {
 
   preencherFicha(personagemFichaAtual);
 
-  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha());
-  document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20());
+  document.getElementById("salvarStatusFicha")?.addEventListener("click", () => salvarStatusFicha("pagina"));
+  document.getElementById("rolarD20Ficha")?.addEventListener("click", () => rolarD20("pagina"));
+
+  document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
+  });
+
+  document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
+  });
 }
 
 function obterPersonagensDisponiveis() {
@@ -238,12 +277,159 @@ function preencherFicha(personagem) {
   setHtml("fichaHistoriaTexto", escapeHtml(personagem.historia || "Nenhuma história cadastrada."));
 
   document.querySelectorAll(".usar-habilidade-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId));
+    botao.addEventListener("click", () => usarHabilidadeFicha(botao.dataset.habilidadeId, "pagina"));
   });
 
   document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
-    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId));
+    botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
   });
+}
+
+function montarFichaModal(personagem) {
+  const hpAtual = Number(personagem.hpAtual || 0);
+  const hpMax = Number(personagem.hpMax || 0);
+  const manaAtual = Number(personagem.manaAtual || 0);
+  const manaMax = Number(personagem.manaMax || 0);
+  const fome = Number(personagem.fome || 0);
+  const fadiga = Number(personagem.fadiga || 0);
+
+  return `
+    <div class="sheet-layout sheet-layout-modal">
+      <section class="sheet-card sheet-profile-card">
+        <div class="sheet-avatar">🧙</div>
+
+        <h3>${escapeHtml(personagem.nome || "Personagem sem nome")}</h3>
+        <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
+
+        <span class="sheet-pill">Campanha: ${escapeHtml(personagem.campanhaNome || "Sem campanha")}</span>
+      </section>
+
+      <section class="sheet-card sheet-status-card">
+        <h3>Status principais</h3>
+
+        ${montarStatusLinha("HP", hpAtual, hpMax, calcularPercentual(hpAtual, hpMax))}
+        ${montarStatusLinha("Mana", manaAtual, manaMax, calcularPercentual(manaAtual, manaMax))}
+        ${montarStatusLinha("Fome", fome, 100, limitarNumero(fome, 0, 100), true)}
+        ${montarStatusLinha("Fadiga", fadiga, 100, limitarNumero(fadiga, 0, 100), true)}
+
+        <div class="sheet-status-editor">
+          <label>
+            HP Atual
+            <input type="number" id="fichaHpAtualModal" value="${hpAtual}" />
+          </label>
+
+          <label>
+            HP Máximo
+            <input type="number" id="fichaHpMaxModal" value="${hpMax}" />
+          </label>
+
+          <label>
+            Mana Atual
+            <input type="number" id="fichaManaAtualModal" value="${manaAtual}" />
+          </label>
+
+          <label>
+            Mana Máxima
+            <input type="number" id="fichaManaMaxModal" value="${manaMax}" />
+          </label>
+
+          <label>
+            Fome
+            <input type="number" id="fichaFomeModal" value="${fome}" />
+          </label>
+
+          <label>
+            Fadiga
+            <input type="number" id="fichaFadigaModal" value="${fadiga}" />
+          </label>
+        </div>
+
+        <button class="primary-btn" type="button" id="salvarStatusFichaModal">Salvar status</button>
+      </section>
+
+      <section class="sheet-card sheet-dice-card">
+        <h3>Rolagem de D20</h3>
+
+        <label>
+          Bônus
+          <input type="number" id="bonusD20FichaModal" value="0" />
+        </label>
+
+        <button class="primary-btn" type="button" id="rolarD20FichaModal">Rolar D20</button>
+
+        <div class="dice-result-box">
+          <span>Resultado:</span>
+          <strong id="resultadoD20FichaModal">--</strong>
+        </div>
+
+        <div class="dice-history">
+          <h4>Últimos 2 resultados:</h4>
+          <div id="historicoD20FichaModal">
+            ${montarHistoricoD20()}
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="sheet-grid-lower sheet-grid-modal">
+      <section class="sheet-card">
+        <h3>Identidade</h3>
+        <ul>${montarIdentidade(personagem)}</ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Atributos</h3>
+        <ul>${montarAtributos(personagem)}</ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Raça</h3>
+        <ul>${montarRaca(personagem)}</ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Classe</h3>
+        <ul>${montarClasse(personagem)}</ul>
+      </section>
+
+      <section class="sheet-card">
+        <h3>Habilidades</h3>
+        ${montarHabilidades(personagem)}
+      </section>
+
+      <section class="sheet-card">
+        <h3>Itens</h3>
+        ${montarItens(personagem)}
+      </section>
+
+      <section class="sheet-card">
+        <h3>Pet</h3>
+        ${montarPet(personagem)}
+      </section>
+
+      <section class="sheet-card">
+        <h3>Condições / Status</h3>
+        ${montarCondicoes(personagem)}
+      </section>
+
+      <section class="sheet-card">
+        <h3>História / Descrição</h3>
+        <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
+      </section>
+    </div>
+  `;
+}
+
+function montarStatusLinha(label, atual, maximo, percentual, porcentagem = false) {
+  return `
+    <div class="sheet-status-row">
+      <span>${escapeHtml(label)}</span>
+      <div class="sheet-status-bar">
+        <div style="width:${percentual}%"></div>
+      </div>
+      <strong>${escapeHtml(atual)}${porcentagem ? "%" : `/${escapeHtml(maximo)}`}</strong>
+    </div>
+  `;
 }
 
 function montarIdentidade(personagem) {
@@ -353,25 +539,85 @@ function montarItens(personagem) {
 }
 
 function montarPet(personagem) {
-  const pet = personagem.pet;
+  const pets = obterPetsPersonagem(personagem);
 
-  if (!pet) {
+  if (!pets.length) {
     return `<p>Nenhum pet vinculado a este personagem.</p>`;
   }
 
   return `
-    <ul>
-      <li><strong>Nome:</strong> ${escapeHtml(pet.nome || "Não informado")}</li>
-      <li><strong>Espécie:</strong> ${escapeHtml(pet.especie || "Não informado")}</li>
-      <li><strong>Rank:</strong> ${escapeHtml(pet.rank || "Não informado")}</li>
-      <li><strong>Elemento Afim:</strong> ${escapeHtml(pet.elementoAfim || "Não informado")}</li>
-      <li><strong>Habilidades:</strong> ${escapeHtml(formatarValor(pet.habilidades))}</li>
-      <li><strong>Bônus ao Dono:</strong> ${escapeHtml(pet.bonusDono || "Não informado")}</li>
-    </ul>
+    <div class="sheet-mini-list">
+      ${pets
+        .map((pet) => {
+          const hpAtual = Number(pet.hpAtual ?? pet.hp ?? 0);
+          const hpMax = Number(pet.hpMax ?? pet.hp ?? 0);
+          const manaAtual = Number(pet.manaAtual ?? pet.mana ?? 0);
+          const manaMax = Number(pet.manaMax ?? pet.mana ?? 0);
+          const habilidades = obterHabilidadesPet(pet);
+
+          return `
+            <div class="sheet-mini-card pet-sheet-card">
+              <strong>${escapeHtml(pet.nome || "Pet sem nome")}</strong>
+              <span>${escapeHtml(pet.especie || "Espécie não informada")} • ${escapeHtml(pet.rank || "Sem rank")}</span>
+
+              <div class="pet-status-grid">
+                <label>
+                  HP Atual
+                  <input type="number" id="petHpAtual-${pet.id}" value="${hpAtual}" />
+                </label>
+
+                <label>
+                  HP Máximo
+                  <input type="number" id="petHpMax-${pet.id}" value="${hpMax}" />
+                </label>
+
+                <label>
+                  Mana Atual
+                  <input type="number" id="petManaAtual-${pet.id}" value="${manaAtual}" />
+                </label>
+
+                <label>
+                  Mana Máxima
+                  <input type="number" id="petManaMax-${pet.id}" value="${manaMax}" />
+                </label>
+              </div>
+
+              <button class="secondary-btn salvar-pet-ficha" type="button" data-pet-id="${pet.id}">
+                Salvar status do pet
+              </button>
+
+              <div class="pet-habilidades-list">
+                ${
+                  habilidades.length
+                    ? habilidades.map((habilidade) => {
+                        const custo = obterCustoManaHabilidade(habilidade);
+                        const cooldown = obterCooldownHabilidade(habilidade);
+                        const restante = obterCooldownRestante(pet, habilidade.id);
+
+                        return `
+                          <button class="secondary-btn usar-habilidade-pet-ficha" type="button" data-pet-id="${pet.id}" data-habilidade-id="${habilidade.id}">
+                            ${escapeHtml(habilidade.nome || "Habilidade")} • Mana ${custo} • CD ${cooldown}${restante > 0 ? ` • Restante ${restante}` : ""}
+                          </button>
+                        `;
+                      }).join("")
+                    : `<small>Nenhuma habilidade cadastrada para este pet.</small>`
+                }
+              </div>
+
+              <ul>
+                <li><strong>Elemento Afim:</strong> ${escapeHtml(formatarValor(pet.elementoAfim))}</li>
+                <li><strong>Bônus ao Dono:</strong> ${escapeHtml(pet.bonusDono || "Não informado")}</li>
+                <li><strong>Condições:</strong> ${escapeHtml(formatarValor(pet.condicoes))}</li>
+              </ul>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
   `;
 }
 
-async function usarHabilidadeFicha(habilidadeId) {
+async function usarHabilidadeFicha(habilidadeId, origem) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
@@ -426,14 +672,20 @@ async function usarHabilidadeFicha(habilidadeId) {
     };
 
     await mostrarModal("Habilidade usada com sucesso.", "Ação registrada", "success");
-    preencherFicha(personagemFichaAtual);
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
+    } else {
+      preencherFicha(personagemFichaAtual);
+    }
   } catch (erro) {
     console.error("Erro ao usar habilidade:", erro);
     await mostrarModal("Erro ao usar habilidade.", "Erro", "danger");
   }
 }
 
-async function usarItemFicha(itemId) {
+async function usarItemFicha(itemId, origem) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
@@ -465,26 +717,189 @@ async function usarItemFicha(itemId) {
     };
 
     await mostrarModal(resultado.descricao, "Item usado", "success");
-    preencherFicha(personagemFichaAtual);
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
+    } else {
+      preencherFicha(personagemFichaAtual);
+    }
   } catch (erro) {
     console.error("Erro ao usar item:", erro);
     await mostrarModal("Erro ao usar item.", "Erro", "danger");
   }
 }
 
-async function salvarStatusFicha() {
+
+function obterPetsPersonagem(personagem) {
+  if (Array.isArray(personagem?.pets)) return personagem.pets;
+  if (personagem?.pet) return [personagem.pet];
+  return [];
+}
+
+function obterHabilidadesPet(pet) {
+  if (!pet) return [];
+
+  const habilidades = [];
+
+  if (Array.isArray(pet.habilidades)) {
+    pet.habilidades.forEach((habilidade) => habilidades.push(habilidade));
+  }
+
+  if (pet.habilidadeExclusiva) habilidades.push(pet.habilidadeExclusiva);
+
+  const mapa = new Map();
+
+  habilidades.forEach((habilidade) => {
+    const completa = completarHabilidade(habilidade);
+    if (completa?.id) mapa.set(completa.id, completa);
+  });
+
+  return Array.from(mapa.values());
+}
+
+async function salvarStatusPetFicha(petId) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
     return;
   }
 
-  const hpMax = numeroCampo("fichaHpMax");
-  const manaMax = numeroCampo("fichaManaMax");
+  const pets = obterPetsPersonagem(personagemFichaAtual);
+  const pet = pets.find((item) => item.id === petId);
 
-  const hpAtual = limitarNumero(numeroCampo("fichaHpAtual"), 0, hpMax);
-  const manaAtual = limitarNumero(numeroCampo("fichaManaAtual"), 0, manaMax);
-  const fome = limitarNumero(numeroCampo("fichaFome"), 0, 100);
-  const fadiga = limitarNumero(numeroCampo("fichaFadiga"), 0, 100);
+  if (!pet) {
+    await mostrarModal("Pet não encontrado.", "Erro", "danger");
+    return;
+  }
+
+  const hpMax = Number(document.getElementById(`petHpMax-${petId}`)?.value) || 0;
+  const manaMax = Number(document.getElementById(`petManaMax-${petId}`)?.value) || 0;
+  const hpAtual = limitarNumero(Number(document.getElementById(`petHpAtual-${petId}`)?.value) || 0, 0, hpMax);
+  const manaAtual = limitarNumero(Number(document.getElementById(`petManaAtual-${petId}`)?.value) || 0, 0, manaMax);
+
+  const novosPets = pets.map((item) => {
+    if (item.id !== petId) return item;
+
+    return {
+      ...item,
+      hpAtual,
+      hpMax,
+      manaAtual,
+      manaMax
+    };
+  });
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+      pets: novosPets,
+      pet: novosPets[0] || null,
+      atualizadoEm: serverTimestamp()
+    });
+
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
+      pets: novosPets,
+      pet: novosPets[0] || null
+    };
+
+    await mostrarModal("Status do pet atualizado com sucesso.", "Pet atualizado", "success");
+    preencherFicha(personagemFichaAtual);
+  } catch (erro) {
+    console.error("Erro ao salvar status do pet:", erro);
+    await mostrarModal("Erro ao salvar status do pet.", "Erro", "danger");
+  }
+}
+
+async function usarHabilidadePetFicha(petId, habilidadeId) {
+  if (!personagemFichaAtual) {
+    await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
+    return;
+  }
+
+  const pets = obterPetsPersonagem(personagemFichaAtual);
+  const pet = pets.find((item) => item.id === petId);
+
+  if (!pet) {
+    await mostrarModal("Pet não encontrado.", "Erro", "danger");
+    return;
+  }
+
+  const habilidade = obterHabilidadesPet(pet).find((item) => item.id === habilidadeId);
+
+  if (!habilidade) {
+    await mostrarModal("Habilidade do pet não encontrada.", "Erro", "danger");
+    return;
+  }
+
+  const custoMana = obterCustoManaHabilidade(habilidade);
+  const cooldown = obterCooldownHabilidade(habilidade);
+  const cooldownRestante = obterCooldownRestante(pet, habilidade.id);
+  const manaAtual = Number(pet.manaAtual ?? pet.mana ?? 0);
+
+  if (cooldownRestante > 0) {
+    await mostrarModal(`Essa habilidade ainda está em cooldown por ${cooldownRestante} turno(s).`, "Cooldown ativo", "danger");
+    return;
+  }
+
+  if (manaAtual < custoMana) {
+    await mostrarModal(`Mana insuficiente. Necessário: ${custoMana}. Mana atual: ${manaAtual}.`, "Mana insuficiente", "danger");
+    return;
+  }
+
+  const cooldowns = {
+    ...(pet.cooldownsHabilidades || {})
+  };
+
+  if (cooldown > 0) {
+    cooldowns[habilidade.id] = cooldown;
+  }
+
+  const novosPets = pets.map((item) => {
+    if (item.id !== petId) return item;
+
+    return {
+      ...item,
+      manaAtual: manaAtual - custoMana,
+      cooldownsHabilidades: cooldowns
+    };
+  });
+
+  try {
+    await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
+      pets: novosPets,
+      pet: novosPets[0] || null,
+      atualizadoEm: serverTimestamp()
+    });
+
+    personagemFichaAtual = {
+      ...personagemFichaAtual,
+      pets: novosPets,
+      pet: novosPets[0] || null
+    };
+
+    await mostrarModal("Habilidade do pet usada com sucesso.", "Ação registrada", "success");
+    preencherFicha(personagemFichaAtual);
+  } catch (erro) {
+    console.error("Erro ao usar habilidade do pet:", erro);
+    await mostrarModal("Erro ao usar habilidade do pet.", "Erro", "danger");
+  }
+}
+
+async function salvarStatusFicha(origem) {
+  if (!personagemFichaAtual) {
+    await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
+    return;
+  }
+
+  const sufixo = origem === "modal" ? "Modal" : "";
+
+  const hpMax = numeroCampo(`fichaHpMax${sufixo}`);
+  const manaMax = numeroCampo(`fichaManaMax${sufixo}`);
+
+  const hpAtual = limitarNumero(numeroCampo(`fichaHpAtual${sufixo}`), 0, hpMax);
+  const manaAtual = limitarNumero(numeroCampo(`fichaManaAtual${sufixo}`), 0, manaMax);
+  const fome = limitarNumero(numeroCampo(`fichaFome${sufixo}`), 0, 100);
+  const fadiga = limitarNumero(numeroCampo(`fichaFadiga${sufixo}`), 0, 100);
 
   try {
     await updateDoc(doc(db, "personagens", personagemFichaAtual.id), {
@@ -508,6 +923,13 @@ async function salvarStatusFicha() {
     };
 
     await mostrarModal("Status atualizado com sucesso.", "Alterações salvas", "success");
+
+    if (origem === "modal") {
+      fecharFichaPersonagem();
+      abrirFichaPersonagem(personagemFichaAtual);
+      return;
+    }
+
     preencherFicha(personagemFichaAtual);
   } catch (erro) {
     console.error("Erro ao salvar status da ficha:", erro);
@@ -515,8 +937,10 @@ async function salvarStatusFicha() {
   }
 }
 
-function rolarD20() {
-  const bonus = Number(document.getElementById("bonusD20Ficha")?.value) || 0;
+function rolarD20(origem) {
+  const sufixo = origem === "modal" ? "Modal" : "";
+
+  const bonus = Number(document.getElementById(`bonusD20Ficha${sufixo}`)?.value) || 0;
   const dado = Math.floor(Math.random() * 20) + 1;
   const total = dado + bonus;
 
@@ -529,8 +953,8 @@ function rolarD20() {
   historicoD20.unshift(resultado);
   historicoD20 = historicoD20.slice(0, 2);
 
-  setText("resultadoD20Ficha", total);
-  setHtml("historicoD20Ficha", montarHistoricoD20());
+  setText(`resultadoD20Ficha${sufixo}`, total);
+  setHtml(`historicoD20Ficha${sufixo}`, montarHistoricoD20());
 }
 
 function montarHistoricoD20() {
@@ -807,6 +1231,14 @@ function setValue(id, valor) {
   }
 }
 
+function fecharFichaPersonagem() {
+  const overlay = document.getElementById("modalFichaPersonagem");
+
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
 function escapeHtml(texto) {
   return String(texto ?? "")
     .replaceAll("&", "&amp;")
@@ -841,11 +1273,19 @@ function aplicarEstilosFicha() {
       align-items: stretch;
     }
 
+    .sheet-layout-modal {
+      grid-template-columns: minmax(240px, 0.8fr) minmax(360px, 1.25fr) minmax(280px, 0.9fr);
+    }
+
     .sheet-grid-lower {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 26px;
       margin-top: 26px;
+    }
+
+    .sheet-grid-modal {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .sheet-card {
@@ -1071,12 +1511,78 @@ function aplicarEstilosFicha() {
       font-size: 12px;
     }
 
+    .pet-status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .pet-status-grid label {
+      display: grid;
+      gap: 6px;
+      color: rgba(255,255,255,0.68);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .pet-status-grid input {
+      width: 100%;
+      min-width: 0;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .pet-habilidades-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pet-habilidades-list small {
+      color: rgba(255,255,255,0.5);
+      font-weight: 800;
+    }
+
+    .sheet-condition-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sheet-condition-list span {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.86);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .ficha-modal-restaurada {
+      width: min(1180px, 96vw);
+      max-height: 92vh;
+      overflow: hidden;
+    }
+
+    .ficha-modal-restaurada .crud-form-body {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
     @media (max-width: 1180px) {
-      .sheet-layout {
+      .sheet-layout,
+      .sheet-layout-modal {
         grid-template-columns: 1fr;
       }
 
-      .sheet-grid-lower {
+      .sheet-grid-lower,
+      .sheet-grid-modal {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -1086,7 +1592,8 @@ function aplicarEstilosFicha() {
         width: 100%;
       }
 
-      .sheet-grid-lower {
+      .sheet-grid-lower,
+      .sheet-grid-modal {
         grid-template-columns: 1fr;
       }
 
