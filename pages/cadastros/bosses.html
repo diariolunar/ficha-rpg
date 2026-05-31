@@ -15,7 +15,7 @@
     <div class="list-header-with-search">
       <div>
         <h3>Bosses cadastrados</h3>
-        <p>Busque por nome, título, divisão, tipo, rank, recompensa ou condição de vitória.</p>
+        <p>Use as abas para separar Bosses de História e Bosses de Farm.</p>
       </div>
 
       <input
@@ -25,6 +25,20 @@
         placeholder="Buscar boss..."
         autocomplete="off"
       />
+    </div>
+
+    <div class="boss-tabs">
+      <button class="boss-tab-button active" type="button" data-boss-tab="todos">
+        Todos
+      </button>
+
+      <button class="boss-tab-button" type="button" data-boss-tab="historia">
+        Bosses de História
+      </button>
+
+      <button class="boss-tab-button" type="button" data-boss-tab="farm">
+        Bosses de Farm
+      </button>
     </div>
 
     <div id="listaBosses" class="resource-list" data-search-input="buscaBosses">
