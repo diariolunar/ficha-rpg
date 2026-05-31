@@ -2,7 +2,7 @@ import { criarCadastroCrud } from "./cadastroCrud.js";
 import { onPageLoaded } from "./navigation.js";
 
 let abaBossAtiva = "todos";
-let observerListaBosses = null;
+let intervaloFiltroBosses = null;
 
 const crud = criarCadastroCrud({
   colecao: "bosses",
@@ -175,7 +175,7 @@ const crud = criarCadastroCrud({
       nome: "resistencias",
       label: "Resistências",
       tipo: "textarea",
-      placeholder: "Ex: Trevas, fogo, veneno, dano físico..."
+      placeholder: "Ex: Trevas, veneno, dano físico..."
     },
     {
       nome: "condicaoVitoria",
@@ -205,9 +205,9 @@ export function iniciarBosses() {
 export function pararBosses() {
   crud.parar();
 
-  if (observerListaBosses) {
-    observerListaBosses.disconnect();
-    observerListaBosses = null;
+  if (intervaloFiltroBosses) {
+    clearInterval(intervaloFiltroBosses);
+    intervaloFiltroBosses = null;
   }
 }
 
@@ -218,7 +218,7 @@ export function initBosses() {
     if (pagina === "cadastrosBosses") {
       aplicarEstilosAbasBosses();
       vincularAbasBosses();
-      observarListaBosses();
+      iniciarFiltroSeguroBosses();
       aplicarFiltroAbaBosses();
     }
   });
@@ -226,11 +226,11 @@ export function initBosses() {
 
 function vincularAbasBosses() {
   document.querySelectorAll(".boss-tab-button").forEach((botao) => {
-    botao.addEventListener("click", () => {
+    botao.onclick = () => {
       abaBossAtiva = botao.dataset.bossTab || "todos";
       atualizarVisualAbasBosses();
       aplicarFiltroAbaBosses();
-    });
+    };
   });
 
   atualizarVisualAbasBosses();
@@ -238,29 +238,27 @@ function vincularAbasBosses() {
 
 function atualizarVisualAbasBosses() {
   document.querySelectorAll(".boss-tab-button").forEach((botao) => {
-    const ativo = botao.dataset.bossTab === abaBossAtiva;
-    botao.classList.toggle("active", ativo);
+    botao.classList.toggle("active", botao.dataset.bossTab === abaBossAtiva);
   });
 }
 
-function observarListaBosses() {
-  const lista = document.getElementById("listaBosses");
-
-  if (!lista) return;
-
-  if (observerListaBosses) {
-    observerListaBosses.disconnect();
-    observerListaBosses = null;
+function iniciarFiltroSeguroBosses() {
+  if (intervaloFiltroBosses) {
+    clearInterval(intervaloFiltroBosses);
+    intervaloFiltroBosses = null;
   }
 
-  observerListaBosses = new MutationObserver(() => {
-    aplicarFiltroAbaBosses();
-  });
+  let tentativas = 0;
 
-  observerListaBosses.observe(lista, {
-    childList: true,
-    subtree: true
-  });
+  intervaloFiltroBosses = setInterval(() => {
+    tentativas += 1;
+    aplicarFiltroAbaBosses();
+
+    if (tentativas >= 20) {
+      clearInterval(intervaloFiltroBosses);
+      intervaloFiltroBosses = null;
+    }
+  }, 250);
 }
 
 function aplicarFiltroAbaBosses() {
@@ -268,63 +266,83 @@ function aplicarFiltroAbaBosses() {
 
   if (!lista) return;
 
-  const cards = Array.from(lista.querySelectorAll(".resource-card"));
-  const avisoExistente = lista.querySelector(".boss-tab-empty-state");
+  removerAvisoAbaBoss(lista);
 
-  if (avisoExistente) {
-    avisoExistente.remove();
-  }
+  const cards = Array.from(lista.querySelectorAll(".resource-card"));
 
   if (!cards.length) return;
 
   let visiveis = 0;
 
   cards.forEach((card) => {
-    const texto = normalizarTexto(card.textContent || "");
-    const categoria = identificarCategoriaBoss(texto);
+    const categoria = identificarCategoriaBoss(card);
 
-    const deveMostrar =
+    const mostrar =
       abaBossAtiva === "todos" ||
       abaBossAtiva === categoria;
 
-    card.style.display = deveMostrar ? "" : "none";
+    card.hidden = !mostrar;
 
-    if (deveMostrar) {
+    if (mostrar) {
       visiveis += 1;
     }
   });
 
   if (visiveis === 0) {
-    const aviso = document.createElement("div");
-    aviso.className = "empty-state boss-tab-empty-state";
-
-    aviso.innerHTML = `
-      <h3>Nenhum boss encontrado nesta aba.</h3>
-      <p>Cadastre um boss nesta divisão ou altere o filtro para visualizar outros registros.</p>
-    `;
-
-    lista.appendChild(aviso);
+    adicionarAvisoAbaBoss(lista);
   }
 }
 
-function identificarCategoriaBoss(textoNormalizado) {
-  if (
-    textoNormalizado.includes("boss de historia") ||
-    textoNormalizado.includes("divisao do boss historia") ||
-    textoNormalizado.includes("categoria boss historia")
-  ) {
+function identificarCategoriaBoss(card) {
+  const texto = normalizarTexto(card.textContent || "");
+
+  if (texto.includes("boss de historia")) {
     return "historia";
   }
 
-  if (
-    textoNormalizado.includes("boss de farm") ||
-    textoNormalizado.includes("divisao do boss farm") ||
-    textoNormalizado.includes("categoria boss farm")
-  ) {
+  if (texto.includes("boss de farm")) {
+    return "farm";
+  }
+
+  if (texto.includes("categoria boss historia")) {
+    return "historia";
+  }
+
+  if (texto.includes("categoria boss farm")) {
+    return "farm";
+  }
+
+  if (texto.includes("divisao do boss historia")) {
+    return "historia";
+  }
+
+  if (texto.includes("divisao do boss farm")) {
     return "farm";
   }
 
   return "outro";
+}
+
+function adicionarAvisoAbaBoss(lista) {
+  if (lista.querySelector(".boss-tab-empty-state")) return;
+
+  const aviso = document.createElement("div");
+  aviso.className = "empty-state boss-tab-empty-state";
+
+  aviso.innerHTML = `
+    <h3>Nenhum boss encontrado nesta aba.</h3>
+    <p>Cadastre um boss nesta divisão ou altere a aba selecionada.</p>
+  `;
+
+  lista.appendChild(aviso);
+}
+
+function removerAvisoAbaBoss(lista) {
+  const aviso = lista.querySelector(".boss-tab-empty-state");
+
+  if (aviso) {
+    aviso.remove();
+  }
 }
 
 function normalizarTexto(texto) {
