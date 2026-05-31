@@ -37,7 +37,6 @@ let petsDisponiveisPersonagem = [];
 
 let habilidadesIniciaisSelecionadas = [];
 let itensIniciaisSelecionados = [];
-let petsSelecionados = [];
 
 let personagemEmEdicao = null;
 let personagensPorCampanhaDoMestre = [];
@@ -287,7 +286,6 @@ function abrirModalCriacaoPersonagem() {
   personagemEmEdicao = null;
   habilidadesIniciaisSelecionadas = [];
   itensIniciaisSelecionados = [];
-  petsSelecionados = [];
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -325,7 +323,6 @@ function abrirModalCriacaoPersonagem() {
 
   renderizarHabilidadesIniciais();
   renderizarItensIniciais();
-  renderizarPetsSelecionados();
   atualizarPreviewPersonagem();
 
   overlay.addEventListener("click", (event) => {
@@ -346,12 +343,6 @@ function abrirModalEdicaoPersonagem(personagem) {
   itensIniciaisSelecionados = Array.isArray(personagem.itensIniciais)
     ? [...personagem.itensIniciais]
     : [];
-
-  petsSelecionados = obterPetsPersonagem(personagem).map((pet) => ({
-    id: pet.id,
-    nome: pet.nome || "Pet sem nome",
-    ...pet
-  }));
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -391,7 +382,6 @@ function abrirModalEdicaoPersonagem(personagem) {
 
   renderizarHabilidadesIniciais();
   renderizarItensIniciais();
-  renderizarPetsSelecionados();
   atualizarPreviewPersonagem();
 
   overlay.addEventListener("click", (event) => {
@@ -415,7 +405,7 @@ function preencherValoresEdicaoPersonagem(personagem) {
 
   setCampoValor("personagemSubclasse", personagem.subclasseId || personagem.subclasse?.id || "");
   setCampoValor("personagemElemento", personagem.elementoId || personagem.elemento?.id || "");
-  setCampoValor("personagemLimitePets", personagem.limitePets || personagem.petLimite || 1);
+  setCampoValor("personagemPet", personagem.pet?.id || "");
   setCampoValor("personagemHistoria", personagem.historia || "");
 }
 
@@ -438,7 +428,7 @@ function fecharModalPersonagem() {
 }
 
 function montarFormularioPersonagem(personagem = null) {
-  const modoEdicao = Boolean(personagem);
+    const modoEdicao = Boolean(personagem);
 
   return `
     <div class="crud-form-content">
@@ -489,8 +479,10 @@ function montarFormularioPersonagem(personagem = null) {
         </label>
 
         <label>
-          Limite de pets
-          <input type="number" id="personagemLimitePets" value="1" min="0" />
+          Pet
+          <select id="personagemPet">
+            <option value="">Carregando pets...</option>
+          </select>
         </label>
       </div>
 
@@ -541,21 +533,6 @@ function montarFormularioPersonagem(personagem = null) {
             <p><strong>Vantagens:</strong> <span id="previewVantagensRaca">Nenhuma raça selecionada.</span></p>
             <p><strong>Restrições de Classe:</strong> <span id="previewRestricoesClasse">Não informado</span></p>
           </div>
-        </div>
-      </div>
-
-      <div class="multi-select-box">
-        <label>
-          Pets do personagem
-          <select id="selectPetsPersonagem">
-            <option value="">Carregando pets...</option>
-          </select>
-        </label>
-
-        <button class="secondary-btn" type="button" id="adicionarPetPersonagem">Adicionar pet</button>
-
-        <div id="listaPetsPersonagemSelecionados" class="selected-list">
-          <span class="empty-selection">Nenhum pet selecionado.</span>
         </div>
       </div>
 
@@ -625,17 +602,13 @@ function vincularEventosFormularioPersonagem() {
     );
   });
 
-  document.getElementById("adicionarPetPersonagem")?.addEventListener("click", async () => {
-    await adicionarPetSelecionado();
-  });
-
   const camposPreview = [
     "personagemNivel",
     "personagemRaca",
     "personagemClasse",
     "personagemSubclasse",
     "personagemElemento",
-    "personagemLimitePets"
+    "personagemPet"
   ];
 
   camposPreview.forEach((id) => {
@@ -717,6 +690,53 @@ function formatarAtributo(valor) {
   };
 
   return mapa[valor] || "Não informado";
+}
+
+function normalizarTextoComparacao(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function normalizarIdComparacao(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .trim();
+}
+
+function subclasseCorrespondeAoVinculo(subclasse, vinculo) {
+  if (!subclasse || !vinculo) return false;
+
+  const subclasseId = String(subclasse.id || "");
+  const subclasseNome = normalizarTextoComparacao(subclasse.nome || "");
+  const subclasseNomeComoId = normalizarIdComparacao(subclasse.nome || "");
+
+  const vinculoId = String(
+    typeof vinculo === "object"
+      ? vinculo.id || ""
+      : vinculo || ""
+  );
+
+  const vinculoNome = normalizarTextoComparacao(
+    typeof vinculo === "object"
+      ? vinculo.nome || ""
+      : vinculo || ""
+  );
+
+  const vinculoIdNormalizado = normalizarIdComparacao(vinculoId);
+
+  if (subclasseId && vinculoId && subclasseId === vinculoId) return true;
+  if (subclasseNome && vinculoNome && subclasseNome === vinculoNome) return true;
+  if (subclasseNomeComoId && vinculoIdNormalizado && subclasseNomeComoId === vinculoIdNormalizado) return true;
+
+  return false;
 }
 
 function classeEstaRestrita(raca, classe) {
@@ -818,8 +838,11 @@ function preencherSelectSubclassesPersonagem() {
   let subclassesPermitidas = subclassesDisponiveisPersonagem;
 
   if (Array.isArray(classe.subclassesDisponiveis) && classe.subclassesDisponiveis.length > 0) {
-    const idsPermitidos = classe.subclassesDisponiveis.map((item) => item.id);
-    subclassesPermitidas = subclassesDisponiveisPersonagem.filter((subclasse) => idsPermitidos.includes(subclasse.id));
+    subclassesPermitidas = subclassesDisponiveisPersonagem.filter((subclasse) => {
+      return classe.subclassesDisponiveis.some((vinculo) => {
+        return subclasseCorrespondeAoVinculo(subclasse, vinculo);
+      });
+    });
   }
 
   if (subclassesPermitidas.length === 0) {
@@ -842,7 +865,6 @@ function preencherSelectSubclassesPersonagem() {
     select.value = subclasseSelecionadaAntes;
   }
 }
-
 function preencherSelectElementosPersonagem() {
   const select = document.getElementById("personagemElemento");
 
@@ -872,13 +894,13 @@ function preencherSelectElementosPersonagem() {
 }
 
 function preencherSelectPetsPersonagem() {
-  const select = document.getElementById("selectPetsPersonagem");
+  const select = document.getElementById("personagemPet");
 
   if (!select) return;
 
   const valorAtual = select.value;
 
-  select.innerHTML = `<option value="">Selecione um pet</option>`;
+  select.innerHTML = `<option value="">Nenhum pet</option>`;
 
   petsDisponiveisPersonagem.forEach((pet) => {
     const option = document.createElement("option");
@@ -1013,78 +1035,6 @@ function renderizarItensIniciais() {
   );
 }
 
-function renderizarPetsSelecionados() {
-  renderizarListaSelecionada(
-    "listaPetsPersonagemSelecionados",
-    petsSelecionados,
-    "Nenhum pet selecionado.",
-    (id) => removerSelecionado(petsSelecionados, id, () => {
-      renderizarPetsSelecionados();
-      atualizarPreviewPersonagem();
-    })
-  );
-}
-
-async function adicionarPetSelecionado() {
-  const select = document.getElementById("selectPetsPersonagem");
-
-  if (!select || !select.value) {
-    await mostrarModal("Selecione um pet primeiro.", "Campo obrigatório");
-    return;
-  }
-
-  const limite = Number(document.getElementById("personagemLimitePets")?.value) || 0;
-
-  if (limite <= 0) {
-    await mostrarModal("Defina um limite de pets maior que zero antes de adicionar.", "Limite inválido", "danger");
-    return;
-  }
-
-  if (petsSelecionados.length >= limite) {
-    await mostrarModal(`Este personagem só pode ter ${limite} pet(s).`, "Limite de pets atingido", "danger");
-    return;
-  }
-
-  const pet = buscarPetPorId(select.value);
-
-  if (!pet) {
-    await mostrarModal("Pet não encontrado.", "Erro", "danger");
-    return;
-  }
-
-  if (petsSelecionados.some((item) => item.id === pet.id)) {
-    await mostrarModal("Esse pet já foi adicionado.", "Opção repetida");
-    return;
-  }
-
-  petsSelecionados.push(criarPetDoPersonagem(pet));
-  renderizarPetsSelecionados();
-  atualizarPreviewPersonagem();
-}
-
-function obterPetsPersonagem(personagem) {
-  if (Array.isArray(personagem?.pets)) return personagem.pets;
-  if (personagem?.pet) return [personagem.pet];
-  return [];
-}
-
-function criarPetDoPersonagem(pet) {
-  const hpMax = Number(pet.hpMax || pet.hp || 0);
-  const manaMax = Number(pet.manaMax || pet.mana || 0);
-
-  return {
-    ...pet,
-    id: pet.id,
-    nome: pet.nome || "Pet sem nome",
-    hpMax,
-    hpAtual: Number(pet.hpAtual ?? hpMax),
-    manaMax,
-    manaAtual: Number(pet.manaAtual ?? manaMax),
-    cooldownsHabilidades: pet.cooldownsHabilidades || {},
-    condicoes: Array.isArray(pet.condicoes) ? pet.condicoes : []
-  };
-}
-
 function atualizarPreviewPersonagem() {
   const previewHpFinal = document.getElementById("previewHpFinal");
 
@@ -1095,7 +1045,7 @@ function atualizarPreviewPersonagem() {
   const classe = buscarClassePorId(valorCampo("personagemClasse"));
   const subclasse = buscarSubclassePorId(valorCampo("personagemSubclasse"));
   const elemento = buscarElementoPorId(valorCampo("personagemElemento"));
-  const pets = petsSelecionados;
+  const pet = buscarPetPorId(valorCampo("personagemPet"));
 
   document.getElementById("previewHpFinal").textContent = calcularHpInicial(raca, classe, nivel);
   document.getElementById("previewManaFinal").textContent = calcularManaInicial(raca, classe, nivel);
@@ -1111,7 +1061,7 @@ function atualizarPreviewPersonagem() {
   document.getElementById("previewClasseNome").textContent = classe?.nome || "Nenhuma classe selecionada.";
   document.getElementById("previewSubclasseNome").textContent = subclasse?.nome || "Nenhuma subclasse selecionada.";
   document.getElementById("previewElementoNome").textContent = elemento?.nome || "Nenhum elemento selecionado.";
-  document.getElementById("previewPetNome").textContent = pets.length ? formatarListaObjetos(pets) : "Nenhum pet selecionado.";
+  document.getElementById("previewPetNome").textContent = pet?.nome || "Nenhum pet selecionado.";
 
   document.getElementById("previewCarismaBonus").textContent = raca?.carismaBonus || "Nenhuma raça selecionada.";
   document.getElementById("previewFatorMedoBonus").textContent = raca?.fatorMedoBonus || "Nenhuma raça selecionada.";
@@ -1191,7 +1141,7 @@ function montarDadosPersonagem(personagemExistente = null) {
   const classeId = valorCampo("personagemClasse");
   const subclasseId = valorCampo("personagemSubclasse");
   const elementoId = valorCampo("personagemElemento");
-  const limitePets = Math.max(0, numeroCampo("personagemLimitePets", 1));
+  const petId = valorCampo("personagemPet");
   const historia = textoCampo("personagemHistoria");
 
   if (!nome) {
@@ -1214,13 +1164,7 @@ function montarDadosPersonagem(personagemExistente = null) {
   const classe = buscarClassePorId(classeId);
   const subclasse = buscarSubclassePorId(subclasseId);
   const elemento = buscarElementoPorId(elementoId);
-  if (petsSelecionados.length > limitePets) {
-    mostrarModal(`Este personagem só pode ter ${limitePets} pet(s).`, "Limite de pets atingido", "danger");
-    return null;
-  }
-
-  const petsNormalizados = petsSelecionados.map((pet) => criarPetDoPersonagem(pet));
-  const pet = petsNormalizados[0] || null;
+  const pet = buscarPetPorId(petId);
 
   if (!raca || !classe) {
     mostrarModal("Raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
@@ -1273,9 +1217,6 @@ function montarDadosPersonagem(personagemExistente = null) {
     subclasse: objetoCompleto(subclasse),
     elemento: objetoCompleto(elemento),
     pet: objetoCompleto(pet),
-    pets: petsNormalizados,
-    limitePets,
-    petLimite: limitePets,
 
     racaId: raca.id,
     racaNome: raca.nome,
@@ -1322,7 +1263,6 @@ function montarDadosPersonagem(personagemExistente = null) {
     restricoesClasse: raca.restricoesClasse || []
   };
 }
-
 async function excluirPersonagem(personagem) {
   const confirmar = await confirmarModal({
     titulo: "Excluir personagem",
@@ -1495,7 +1435,6 @@ export function renderizarPersonagens() {
         <span><b>Classe</b>${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Não informada")}</span>
         <span><b>Subclasse</b>${escapeHtml(personagem.subclasse?.nome || personagem.subclasseNome || "Não informada")}</span>
         <span><b>Elemento</b>${escapeHtml(personagem.elemento?.nome || personagem.elementoNome || "Não informado")}</span>
-        <span><b>Pets</b>${obterPetsPersonagem(personagem).length}/${personagem.limitePets || personagem.petLimite || 1}</span>
       </div>
 
       <div class="personagem-status-grid">
@@ -1673,7 +1612,7 @@ function aplicarEstilosCardsPersonagem() {
 
     .personagem-info-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 20px;
     }
