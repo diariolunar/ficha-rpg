@@ -24,6 +24,11 @@ export function criarCadastroCrud(config) {
   let multiselectsCadastro = {};
   let multiselectsEdicao = {};
   let cadastroModalAberto = false;
+  let detalheEmEdicao = false;
+  let importacaoModalAberta = false;
+  let formularioCadastroSujo = false;
+  let formularioEdicaoSujo = false;
+  let formularioImportacaoSujo = false;
   let importacaoPendentes = [];
 
   const abrirCadastroId = config.abrirCadastroId || `abrirCadastro${capitalizar(config.colecao)}`;
