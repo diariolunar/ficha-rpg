@@ -607,6 +607,8 @@ async function criarCampanha() {
       personagemTurnoNome: "",
       personagemTurnoDonoId: "",
       ultimoResultadoD20: null,
+      bossesHistoricosMortos: [],
+      bossesFarmCooldown: {},
       historicoSessao: [
         criarEventoSessaoTexto("Campanha criada. Aguardando o Mestre iniciar a sessão.")
       ],
@@ -738,6 +740,7 @@ async function iniciarSessaoCampanha(campanha) {
       entidadeTurnoTipo: primeiro?.tipo || "",
       personagemTurnoNome: primeiro?.nome || "",
       personagemTurnoDonoId: primeiro?.donoId || "",
+      bossesFarmCooldown,
       mensagemSessao: primeiro
         ? `Sessão iniciada. Turno de ${primeiro.nome}.`
         : "Sessão iniciada pelo Mestre.",
@@ -844,6 +847,7 @@ async function avancarTurnoCampanha(campanha) {
   }
 
   const proximoTurno = ordemAtual[proximoIndice];
+  const bossesFarmCooldown = reduzirCooldownsBossesFarmCampanha(campanha);
 
   try {
     await updateDoc(doc(db, "campanhas", campanha.id), {
@@ -855,6 +859,7 @@ async function avancarTurnoCampanha(campanha) {
       entidadeTurnoTipo: proximoTurno?.tipo || "",
       personagemTurnoNome: proximoTurno?.nome || "",
       personagemTurnoDonoId: proximoTurno?.donoId || "",
+      bossesFarmCooldown,
       mensagemSessao: `Turno de ${proximoTurno?.nome || "personagem não definido"}.`,
       historicoSessao: adicionarEventoHistorico(
         campanha,
@@ -879,6 +884,7 @@ async function avancarRodadaCampanha(campanha) {
   const proximaRodada = Number(campanha.rodadaAtual || 0) + 1;
   const ordemTurnos = Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos : [];
   const primeiro = ordemTurnos[0] || null;
+  const bossesFarmCooldown = reduzirCooldownsBossesFarmCampanha(campanha);
 
   for (const personagem of obterPersonagensDaCampanha(campanha)) {
     await reduzirCooldownsDoPersonagem(personagem.id);
@@ -915,6 +921,7 @@ async function avancarRodadaCampanha(campanha) {
 
 function criarOrdemTurnos(personagens, campanha = null) {
   return obterEntidadesCombate(campanha, personagens)
+    .filter((entidade) => Number(entidade.hpAtual ?? entidade.hp ?? 1) > 0)
     .map((entidade) => ({
       entidadeId: entidade.entidadeId,
       tipo: entidade.tipo,
@@ -2178,12 +2185,16 @@ function montarInimigosCampanha(campanha) {
         const manaAtual = Number(entidade.manaAtual ?? entidade.mana ?? 0);
         const manaMax = Number(entidade.manaMax ?? entidade.mana ?? 0);
         const tipo = entidade.tipoEntidade || (entidade.categoriaBoss ? "boss" : "monstro");
+        const categoriaBoss = tipo === "boss" ? normalizarCategoriaBoss(entidade.categoriaBoss) : "";
+        const subtituloBoss = tipo === "boss"
+          ? `${categoriaBoss === "farm" ? "Boss de Farm" : "Boss de História"} • ${escapeHtml(entidade.rankNivelAmeaca || "Sem rank")}`
+          : `Monstro • ${escapeHtml(entidade.rankNivelAmeaca || "Sem rank")}`;
 
         return `
           <div class="campaign-character-card enemy-card">
             <div>
               <strong>${escapeHtml(entidade.nome || "Criatura sem nome")}</strong>
-              <span>${tipo === "boss" ? "Boss" : "Monstro"} • ${escapeHtml(entidade.rankNivelAmeaca || "Sem rank")}</span>
+              <span>${subtituloBoss}</span>
             </div>
 
             <div class="campaign-character-stats">
@@ -2378,8 +2389,11 @@ async function aplicarAtualizacaoHpAlvo(campanha, alvo, modo, valor) {
       return { ...boss, hpAtual: novoHp, hpMax };
     });
 
+    const atualizacoesBoss = montarAtualizacoesBossDerrotado(campanha, alvo, novoHp, bossesSessao);
+
     await updateDoc(doc(db, "campanhas", campanha.id), {
       bossesSessao,
+      ...atualizacoesBoss,
       atualizadaEm: serverTimestamp()
     });
   }
@@ -2409,6 +2423,8 @@ function abrirModalAdicionarCriaturaCampanha(campanha, tipo) {
 
       <div class="crud-form-body">
         <div class="crud-form-content">
+          ${tipo === "boss" ? montarAvisoRegrasBossCampanha(campanha) : ""}
+
           <label>
             ${tipo === "boss" ? "Boss" : "Monstro"}
             <select id="criaturaCatalogoSessao">
@@ -2461,6 +2477,15 @@ async function adicionarCriaturaCampanha(tipo) {
     return;
   }
 
+  if (tipo === "boss") {
+    const validacaoBoss = validarAdicaoBossNaCampanha(campanhaSelecionadaAcao, base);
+
+    if (!validacaoBoss.ok) {
+      await mostrarModal(validacaoBoss.mensagem, validacaoBoss.titulo || "Boss indisponível", "danger");
+      return;
+    }
+  }
+
   const novos = [];
 
   for (let i = 0; i < quantidade; i++) {
@@ -2476,6 +2501,8 @@ async function adicionarCriaturaCampanha(tipo) {
       hpAtual: hpMax,
       manaMax,
       manaAtual: manaMax,
+      categoriaBoss: base.categoriaBoss || (tipo === "boss" ? "historia" : ""),
+      turnosReaparecimentoFarm: Number(base.turnosReaparecimentoFarm || 0),
       condicoes: [],
       criadoEmTexto: new Date().toLocaleString("pt-BR")
     });
@@ -2948,6 +2975,13 @@ async function criarBossDiretoNaCampanha() {
     return;
   }
 
+  const validacaoBossManual = validarBossHistoriaManualNaCampanha(campanhaSelecionadaAcao, nome);
+
+  if (!validacaoBossManual.ok) {
+    await mostrarModal(validacaoBossManual.mensagem, validacaoBossManual.titulo || "Boss indisponível", "danger");
+    return;
+  }
+
   const hpMax = Math.max(1, numeroCampo("bossSessaoHp"));
   const manaMax = Math.max(0, numeroCampo("bossSessaoMana"));
 
@@ -3409,6 +3443,196 @@ async function exportarHistoricoSessao(campanha) {
   URL.revokeObjectURL(url);
 
   await mostrarModal("Histórico exportado e registro final salvo na campanha.", "Exportação concluída", "success");
+}
+
+
+function normalizarCategoriaBoss(valor) {
+  const texto = normalizarTexto(valor);
+
+  if (texto.includes("farm")) return "farm";
+  if (texto.includes("historia") || texto.includes("história")) return "historia";
+
+  return valor === "farm" ? "farm" : "historia";
+}
+
+function obterChaveBossCatalogo(boss) {
+  return String(boss?.catalogoId || boss?.id || boss?.nome || "");
+}
+
+function obterNomeNormalizadoBoss(boss) {
+  return normalizarTexto(boss?.nome || "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function obterTurnosReaparecimentoBossFarm(boss) {
+  return Number(
+    boss?.turnosReaparecimentoFarm ??
+    boss?.turnosReaparecimento ??
+    boss?.turnosRespawn ??
+    boss?.cooldownFarm ??
+    0
+  ) || 0;
+}
+
+function obterBossesHistoricosMortos(campanha) {
+  return Array.isArray(campanha?.bossesHistoricosMortos) ? campanha.bossesHistoricosMortos : [];
+}
+
+function obterBossesFarmCooldown(campanha) {
+  return campanha?.bossesFarmCooldown && typeof campanha.bossesFarmCooldown === "object"
+    ? campanha.bossesFarmCooldown
+    : {};
+}
+
+function bossHistoriaJaUsadoNaCampanha(campanha, bossBase) {
+  const chave = obterChaveBossCatalogo(bossBase);
+  const nomeNormalizado = obterNomeNormalizadoBoss(bossBase);
+
+  const ativo = obterBossesSessaoCampanha(campanha).some((boss) => {
+    return normalizarCategoriaBoss(boss.categoriaBoss) === "historia" && (
+      obterChaveBossCatalogo(boss) === chave ||
+      obterNomeNormalizadoBoss(boss) === nomeNormalizado
+    );
+  });
+
+  if (ativo) return true;
+
+  return obterBossesHistoricosMortos(campanha).some((boss) => {
+    return String(boss.bossId || boss.catalogoId || "") === chave ||
+      normalizarTexto(boss.bossNome || "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === nomeNormalizado;
+  });
+}
+
+function validarAdicaoBossNaCampanha(campanha, bossBase) {
+  const categoria = normalizarCategoriaBoss(bossBase.categoriaBoss);
+  const nome = bossBase.nome || "Boss";
+  const chave = obterChaveBossCatalogo(bossBase);
+
+  if (categoria === "historia") {
+    if (bossHistoriaJaUsadoNaCampanha(campanha, bossBase)) {
+      return {
+        ok: false,
+        titulo: "Boss de História bloqueado",
+        mensagem: `O boss de história “${nome}” já existe ou já foi derrotado nesta campanha. Bosses de História só podem ser usados uma vez por campanha.`
+      };
+    }
+  }
+
+  if (categoria === "farm") {
+    const cooldown = obterBossesFarmCooldown(campanha)[chave];
+    const turnosRestantes = Number(cooldown?.turnosRestantes || 0);
+
+    if (turnosRestantes > 0) {
+      return {
+        ok: false,
+        titulo: "Boss de Farm em recarga",
+        mensagem: `O boss de farm “${nome}” ainda precisa aguardar ${turnosRestantes} turno(s) para ser adicionado novamente nesta campanha.`
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+function validarBossHistoriaManualNaCampanha(campanha, nome) {
+  const nomeNormalizado = normalizarTexto(nome).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const bossBase = { id: `manual:${nomeNormalizado}`, catalogoId: `manual:${nomeNormalizado}`, nome, categoriaBoss: "historia" };
+
+  if (bossHistoriaJaUsadoNaCampanha(campanha, bossBase)) {
+    return {
+      ok: false,
+      titulo: "Boss de História bloqueado",
+      mensagem: `Já existe ou já foi derrotado um boss de história chamado “${nome}” nesta campanha.`
+    };
+  }
+
+  return { ok: true };
+}
+
+function montarAtualizacoesBossDerrotado(campanha, alvo, novoHp, bossesSessaoAtualizados) {
+  if (novoHp > 0) return {};
+
+  const categoria = normalizarCategoriaBoss(alvo.categoriaBoss);
+  const bossId = obterChaveBossCatalogo(alvo);
+  const bossNome = alvo.nome || "Boss";
+  const atualizacoes = {
+    ordemTurnos: criarOrdemTurnos(obterPersonagensDaCampanha(campanha), {
+      ...campanha,
+      bossesSessao: bossesSessaoAtualizados
+    })
+  };
+
+  if (categoria === "historia") {
+    const mortos = obterBossesHistoricosMortos(campanha);
+    const jaRegistrado = mortos.some((boss) => String(boss.bossId || boss.catalogoId || "") === bossId);
+
+    if (!jaRegistrado) {
+      atualizacoes.bossesHistoricosMortos = [
+        {
+          bossId,
+          bossNome,
+          instanciaId: alvo.instanciaId || "",
+          derrotadoNaRodada: Number(campanha.rodadaAtual || 0),
+          derrotadoNoTurno: Number(campanha.turnoAtual || 0),
+          derrotadoEmTexto: new Date().toLocaleString("pt-BR")
+        },
+        ...mortos
+      ];
+    }
+  }
+
+  if (categoria === "farm") {
+    const turnos = obterTurnosReaparecimentoBossFarm(alvo);
+
+    if (turnos > 0) {
+      atualizacoes.bossesFarmCooldown = {
+        ...obterBossesFarmCooldown(campanha),
+        [bossId]: {
+          bossId,
+          bossNome,
+          turnosRestantes: turnos,
+          turnosOriginais: turnos,
+          iniciadoNaRodada: Number(campanha.rodadaAtual || 0),
+          iniciadoNoTurno: Number(campanha.turnoAtual || 0),
+          iniciadoEmTexto: new Date().toLocaleString("pt-BR")
+        }
+      };
+    }
+  }
+
+  return atualizacoes;
+}
+
+function reduzirCooldownsBossesFarmCampanha(campanha) {
+  const cooldowns = obterBossesFarmCooldown(campanha);
+  const atualizados = {};
+
+  Object.entries(cooldowns).forEach(([bossId, dados]) => {
+    const restante = Math.max(0, Number(dados?.turnosRestantes || 0) - 1);
+
+    if (restante > 0) {
+      atualizados[bossId] = {
+        ...dados,
+        turnosRestantes: restante
+      };
+    }
+  });
+
+  return atualizados;
+}
+
+function montarAvisoRegrasBossCampanha(campanha) {
+  const cooldowns = Object.values(obterBossesFarmCooldown(campanha)).filter((item) => Number(item.turnosRestantes || 0) > 0);
+  const mortos = obterBossesHistoricosMortos(campanha);
+
+  return `
+    <div class="campaign-summary-box boss-campaign-rule-box">
+      <h4>Regras de Boss nesta campanha</h4>
+      <p><strong>Boss de História:</strong> só pode ser usado uma vez por campanha. Depois de derrotado, fica bloqueado nesta campanha.</p>
+      <p><strong>Boss de Farm:</strong> pode voltar, mas apenas depois do número de turnos definido no cadastro.</p>
+      ${mortos.length ? `<p><strong>História derrotados:</strong> ${mortos.map((boss) => escapeHtml(boss.bossNome || "Boss")).join(", ")}</p>` : ""}
+      ${cooldowns.length ? `<p><strong>Farm em recarga:</strong> ${cooldowns.map((boss) => `${escapeHtml(boss.bossNome || "Boss")} (${Number(boss.turnosRestantes || 0)} turno(s))`).join(", ")}</p>` : ""}
+    </div>
+  `;
 }
 
 function aplicarEstilosCampanhas() {

@@ -17,6 +17,7 @@ const crud = criarCadastroCrud({
 
   camposPrincipais: [
     "categoriaBoss",
+    "turnosReaparecimentoFarm",
     "titulo",
     "tipo",
     "rankNivelAmeaca",
@@ -27,6 +28,7 @@ const crud = criarCadastroCrud({
 
   camposResumo: [
     "categoriaBoss",
+    "turnosReaparecimentoFarm",
     "titulo",
     "rankNivelAmeaca",
     "hp",
@@ -54,6 +56,12 @@ const crud = criarCadastroCrud({
         { valor: "historia", nome: "Boss de História" },
         { valor: "farm", nome: "Boss de Farm" }
       ]
+    },
+    {
+      nome: "turnosReaparecimentoFarm",
+      label: "Turnos para reaparecer",
+      tipo: "number",
+      placeholder: "Ex: 5. Usado apenas para Boss de Farm."
     },
     {
       nome: "titulo",
@@ -360,6 +368,36 @@ function aplicarEstilosAbasBosses() {
   style.id = "bossTabsStyles";
 
   style.textContent = `
+    .boss-rule-info {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .boss-rule-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    .boss-rule-card strong {
+      display: block;
+      color: #fff;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .boss-rule-card p {
+      margin: 0;
+      color: rgba(255,255,255,0.64);
+      line-height: 1.45;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
     .boss-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -397,6 +435,10 @@ function aplicarEstilosAbasBosses() {
     }
 
     @media (max-width: 640px) {
+      .boss-rule-info {
+        grid-template-columns: 1fr;
+      }
+
       .boss-tabs {
         display: grid;
         grid-template-columns: 1fr;
