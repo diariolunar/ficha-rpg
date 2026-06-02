@@ -1,16 +1,14 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
+import { onPageLoaded } from "./navigation.js";
 
-const tiposHabilidade = [
-  { valor: "area", nome: "Área" },
-  { valor: "turno", nome: "Turno" },
-  { valor: "buff", nome: "Buff" },
-  { valor: "debuff", nome: "Debuff" },
-  { valor: "dano", nome: "Dano" },
-  { valor: "defesa", nome: "Defesa" },
-  { valor: "invocacao", nome: "Invocação" },
-  { valor: "cura", nome: "Cura" },
+let intervaloCondicionalHabilidades = null;
+
+const categoriasHabilidade = [
+  { valor: "ativa", nome: "Ativa" },
   { valor: "passiva", nome: "Passiva" },
-  { valor: "personalizada", nome: "Personalizada" }
+  { valor: "raca_classe_subclasse", nome: "Exclusiva de Raça/Classe/Subclasse" },
+  { valor: "monstro", nome: "Exclusiva de Monstros" },
+  { valor: "ultimate", nome: "Ultimate" }
 ];
 
 const ranks = [
@@ -19,6 +17,11 @@ const ranks = [
   { valor: "alto", nome: "Alto" },
   { valor: "especial", nome: "Especial" },
   { valor: "lendario", nome: "Lendário" }
+];
+
+const simNao = [
+  { valor: "nao", nome: "Não" },
+  { valor: "sim", nome: "Sim" }
 ];
 
 const crud = criarCadastroCrud({
@@ -31,9 +34,26 @@ const crud = criarCadastroCrud({
   listaId: "listaHabilidades",
   detalheContainerId: "habilidadeDetalheContainer",
   botaoSalvarId: "salvarHabilidade",
-  camposPrincipais: ["tipo", "rankNivel", "custoManaEnergia", "cooldown"],
-  camposResumo: ["tipo", "rankNivel", "custoManaEnergia", "danoBase"],
-  camposCard: ["tipoDano", "efeitoSecundario"],
+
+  camposPrincipais: [
+    "categoria",
+    "rankNivel",
+    "custoManaEnergia",
+    "cooldown"
+  ],
+
+  camposResumo: [
+    "categoria",
+    "rankNivel",
+    "custoManaEnergia",
+    "danoBase"
+  ],
+
+  camposCard: [
+    "descricao",
+    "efeitoSecundario"
+  ],
+
   campos: [
     {
       nome: "nome",
@@ -42,10 +62,10 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: Crítico, Invisibilidade, Bola de Fogo..."
     },
     {
-      nome: "tipo",
-      label: "Tipo",
+      nome: "categoria",
+      label: "Categoria",
       tipo: "select",
-      opcoes: tiposHabilidade
+      opcoes: categoriasHabilidade
     },
     {
       nome: "rankNivel",
@@ -61,9 +81,9 @@ const crud = criarCadastroCrud({
     },
     {
       nome: "cooldown",
-      label: "Cooldown",
-      tipo: "text",
-      placeholder: "Ex: 2 turnos, 1 rodada..."
+      label: "Cooldown (Turnos)",
+      tipo: "number",
+      placeholder: "Ex: 2"
     },
     {
       nome: "alcance",
@@ -84,16 +104,10 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: 20"
     },
     {
-      nome: "escalamento",
-      label: "Escalamento",
+      nome: "descricao",
+      label: "Descrição",
       tipo: "textarea",
-      placeholder: "Ex: Soma Força Mágica, dobra em crítico..."
-    },
-    {
-      nome: "tipoDano",
-      label: "Tipo de Dano",
-      tipo: "text",
-      placeholder: "Ex: Físico, Mágico, Fogo, Veneno..."
+      placeholder: "Descreva o funcionamento da habilidade, escalamento, uso narrativo e regras especiais."
     },
     {
       nome: "efeitoSecundario",
@@ -114,16 +128,10 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: Só pode usar com arma equipada, exige D20 acima de 15..."
     },
     {
-      nome: "vantagem",
-      label: "Vantagem",
-      tipo: "textarea",
-      placeholder: "Explique o benefício da habilidade..."
-    },
-    {
-      nome: "penalidade",
-      label: "Penalidade",
-      tipo: "textarea",
-      placeholder: "Explique o custo, risco ou consequência..."
+      nome: "podeEvoluir",
+      label: "Pode Evoluir?",
+      tipo: "select",
+      opcoes: simNao
     },
     {
       nome: "evolucao",
@@ -140,8 +148,77 @@ export function iniciarHabilidades() {
 
 export function pararHabilidades() {
   crud.parar();
+  pararControleCondicionalHabilidades();
 }
 
 export function initHabilidades() {
   crud.init();
+
+  onPageLoaded((pagina) => {
+    if (pagina === "cadastrosHabilidades" || pagina === "cadastrosHabilidadeDetalhe") {
+      iniciarControleCondicionalHabilidades();
+    }
+  });
+}
+
+function iniciarControleCondicionalHabilidades() {
+  pararControleCondicionalHabilidades();
+
+  aplicarCondicionalEvolucao();
+
+  intervaloCondicionalHabilidades = setInterval(() => {
+    aplicarCondicionalEvolucao();
+  }, 300);
+}
+
+function pararControleCondicionalHabilidades() {
+  if (intervaloCondicionalHabilidades) {
+    clearInterval(intervaloCondicionalHabilidades);
+    intervaloCondicionalHabilidades = null;
+  }
+}
+
+function aplicarCondicionalEvolucao() {
+  aplicarCondicionalCampo({
+    selectId: "podeEvoluir",
+    campoId: "evolucao",
+    valorEsperado: "sim"
+  });
+
+  aplicarCondicionalCampo({
+    selectId: "editpodeEvoluir",
+    campoId: "editevolucao",
+    valorEsperado: "sim"
+  });
+}
+
+function aplicarCondicionalCampo({ selectId, campoId, valorEsperado }) {
+  const select = document.getElementById(selectId);
+  const campo = document.getElementById(campoId);
+
+  if (!select || !campo) return;
+
+  const container = campo.closest("label") || campo.parentElement;
+
+  if (!container) return;
+
+  const deveMostrar = select.value === valorEsperado;
+
+  container.style.display = deveMostrar ? "" : "none";
+
+  if (!deveMostrar) {
+    campo.value = "";
+  }
+
+  if (!select.dataset.condicionalVinculado) {
+    select.dataset.condicionalVinculado = "true";
+
+    select.addEventListener("change", () => {
+      aplicarCondicionalCampo({
+        selectId,
+        campoId,
+        valorEsperado
+      });
+    });
+  }
 }
