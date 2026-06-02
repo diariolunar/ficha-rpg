@@ -1,4 +1,38 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
+import { onPageLoaded } from "./navigation.js";
+
+let intervaloCondicionalPets = null;
+
+const ranksPet = [
+  { valor: "comum", nome: "Comum" },
+  { valor: "incomum", nome: "Incomum" },
+  { valor: "raro", nome: "Raro" },
+  { valor: "epico", nome: "Épico" },
+  { valor: "lendario", nome: "Lendário" },
+  { valor: "mitico", nome: "Mítico" }
+];
+
+const niveisLealdade = [
+  { valor: "baixa", nome: "Baixa" },
+  { valor: "media", nome: "Média" },
+  { valor: "alta", nome: "Alta" },
+  { valor: "absoluta", nome: "Absoluta" }
+];
+
+const tiposSuporte = [
+  { valor: "ataque", nome: "Ataque" },
+  { valor: "defesa", nome: "Defesa" },
+  { valor: "cura", nome: "Cura" },
+  { valor: "rastreio", nome: "Rastreio" },
+  { valor: "montaria", nome: "Montaria" },
+  { valor: "suporte", nome: "Suporte" },
+  { valor: "utilidade", nome: "Utilidade" }
+];
+
+const simNao = [
+  { valor: "nao", nome: "Não" },
+  { valor: "sim", nome: "Sim" }
+];
 
 const crud = criarCadastroCrud({
   colecao: "pets",
@@ -10,9 +44,28 @@ const crud = criarCadastroCrud({
   listaId: "listaPets",
   detalheContainerId: "petDetalheContainer",
   botaoSalvarId: "salvarPet",
-  camposPrincipais: ["especie", "rank", "hp", "mana", "lealdade", "inteligencia"],
-  camposResumo: ["especie", "rank", "hp", "mana"],
-  camposCard: ["tipoSuporte", "elementoAfim"],
+
+  camposPrincipais: [
+    "especie",
+    "rank",
+    "hp",
+    "mana",
+    "lealdade",
+    "inteligencia"
+  ],
+
+  camposResumo: [
+    "especie",
+    "rank",
+    "hp",
+    "mana"
+  ],
+
+  camposCard: [
+    "tipoSuporte",
+    "elementoAfim"
+  ],
+
   campos: [
     {
       nome: "nome",
@@ -29,8 +82,8 @@ const crud = criarCadastroCrud({
     {
       nome: "rank",
       label: "Rank",
-      tipo: "text",
-      placeholder: "Ex: Comum, Raro, Rank C, Rank A..."
+      tipo: "select",
+      opcoes: ranksPet
     },
     {
       nome: "hp",
@@ -45,28 +98,22 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: 20"
     },
     {
-      nome: "forcaFisica",
-      label: "Força Física",
+      nome: "forca",
+      label: "Força",
       tipo: "number",
       placeholder: "Ex: 5"
     },
     {
-      nome: "forcaMagica",
-      label: "Força Mágica",
+      nome: "magia",
+      label: "Magia",
       tipo: "number",
       placeholder: "Ex: 3"
     },
     {
-      nome: "defesaFisica",
-      label: "Defesa Física",
+      nome: "defesa",
+      label: "Defesa",
       tipo: "number",
       placeholder: "Ex: 4"
-    },
-    {
-      nome: "defesaMagica",
-      label: "Defesa Mágica",
-      tipo: "number",
-      placeholder: "Ex: 2"
     },
     {
       nome: "velocidade",
@@ -83,8 +130,8 @@ const crud = criarCadastroCrud({
     {
       nome: "lealdade",
       label: "Lealdade",
-      tipo: "text",
-      placeholder: "Ex: Baixa, Média, Alta, Absoluta..."
+      tipo: "select",
+      opcoes: niveisLealdade
     },
     {
       nome: "inteligencia",
@@ -95,8 +142,8 @@ const crud = criarCadastroCrud({
     {
       nome: "tipoSuporte",
       label: "Tipo de Suporte",
-      tipo: "text",
-      placeholder: "Ex: Ataque, defesa, cura, rastreio, montaria..."
+      tipo: "select",
+      opcoes: tiposSuporte
     },
     {
       nome: "habilidades",
@@ -112,16 +159,16 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: +2 em percepção, +1 em defesa, bônus elemental..."
     },
     {
+      nome: "podeEvoluir",
+      label: "Pode Evoluir?",
+      tipo: "select",
+      opcoes: simNao
+    },
+    {
       nome: "evolucao",
       label: "Evolução",
       tipo: "textarea",
       placeholder: "Explique como o pet evolui..."
-    },
-    {
-      nome: "metodoObtencao",
-      label: "Método de Obtenção",
-      tipo: "textarea",
-      placeholder: "Ex: Domado, invocado, comprado, recompensa de missão..."
     },
     {
       nome: "elementoAfim",
@@ -139,8 +186,77 @@ export function iniciarPets() {
 
 export function pararPets() {
   crud.parar();
+  pararControleCondicionalPets();
 }
 
 export function initPets() {
   crud.init();
+
+  onPageLoaded((pagina) => {
+    if (pagina === "cadastrosPets" || pagina === "cadastrosPetDetalhe") {
+      iniciarControleCondicionalPets();
+    }
+  });
+}
+
+function iniciarControleCondicionalPets() {
+  pararControleCondicionalPets();
+
+  aplicarCondicionalEvolucaoPet();
+
+  intervaloCondicionalPets = setInterval(() => {
+    aplicarCondicionalEvolucaoPet();
+  }, 300);
+}
+
+function pararControleCondicionalPets() {
+  if (intervaloCondicionalPets) {
+    clearInterval(intervaloCondicionalPets);
+    intervaloCondicionalPets = null;
+  }
+}
+
+function aplicarCondicionalEvolucaoPet() {
+  aplicarCondicionalCampo({
+    selectId: "podeEvoluir",
+    campoId: "evolucao",
+    valorEsperado: "sim"
+  });
+
+  aplicarCondicionalCampo({
+    selectId: "editpodeEvoluir",
+    campoId: "editevolucao",
+    valorEsperado: "sim"
+  });
+}
+
+function aplicarCondicionalCampo({ selectId, campoId, valorEsperado }) {
+  const select = document.getElementById(selectId);
+  const campo = document.getElementById(campoId);
+
+  if (!select || !campo) return;
+
+  const container = campo.closest("label") || campo.parentElement;
+
+  if (!container) return;
+
+  const deveMostrar = select.value === valorEsperado;
+
+  container.style.display = deveMostrar ? "" : "none";
+
+  if (!deveMostrar) {
+    campo.value = "";
+  }
+
+  if (!select.dataset.condicionalVinculado) {
+    select.dataset.condicionalVinculado = "true";
+
+    select.addEventListener("change", () => {
+      aplicarCondicionalCampo({
+        selectId,
+        campoId,
+        valorEsperado
+      });
+    });
+  }
 }

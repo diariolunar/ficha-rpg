@@ -1,5 +1,21 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
 
+const categoriasMonstro = [
+  { valor: "minion", nome: "Minion" },
+  { valor: "comum", nome: "Monstro Comum" }
+];
+
+const ranksMonstro = [
+  { valor: "baixo", nome: "Baixo" },
+  { valor: "medio", nome: "Médio" },
+  { valor: "alto", nome: "Alto" },
+  { valor: "elite", nome: "Elite" },
+  { valor: "rank_c", nome: "Rank C" },
+  { valor: "rank_b", nome: "Rank B" },
+  { valor: "rank_a", nome: "Rank A" },
+  { valor: "rank_s", nome: "Rank S" }
+];
+
 const crud = criarCadastroCrud({
   colecao: "monstros",
   nomeSingular: "Monstro",
@@ -10,15 +26,42 @@ const crud = criarCadastroCrud({
   listaId: "listaMonstros",
   detalheContainerId: "monstroDetalheContainer",
   botaoSalvarId: "salvarMonstro",
-  camposPrincipais: ["tipo", "rankNivelAmeaca", "hp", "mana", "fatorMedo", "inteligencia"],
-  camposResumo: ["tipo", "rankNivelAmeaca", "hp", "mana"],
-  camposCard: ["habitat", "xpRecompensa"],
+
+  camposPrincipais: [
+    "categoriaMonstro",
+    "tipo",
+    "rankNivelAmeaca",
+    "hp",
+    "mana",
+    "fatorMedo",
+    "inteligencia"
+  ],
+
+  camposResumo: [
+    "categoriaMonstro",
+    "tipo",
+    "rankNivelAmeaca",
+    "hp",
+    "mana"
+  ],
+
+  camposCard: [
+    "descricao",
+    "xpRecompensa"
+  ],
+
   campos: [
     {
       nome: "nome",
       label: "Nome do Monstro",
       tipo: "text",
       placeholder: "Ex: Devorador de Ossos, Lobo Sombrio..."
+    },
+    {
+      nome: "categoriaMonstro",
+      label: "Categoria do Monstro",
+      tipo: "select",
+      opcoes: categoriasMonstro
     },
     {
       nome: "tipo",
@@ -29,8 +72,8 @@ const crud = criarCadastroCrud({
     {
       nome: "rankNivelAmeaca",
       label: "Rank / Nível de Ameaça",
-      tipo: "text",
-      placeholder: "Ex: Baixo, Médio, Alto, Rank A, Nível 5..."
+      tipo: "select",
+      opcoes: ranksMonstro
     },
     {
       nome: "hp",
@@ -45,28 +88,22 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: 40"
     },
     {
-      nome: "forcaFisica",
-      label: "Força Física",
+      nome: "forca",
+      label: "Força",
       tipo: "number",
       placeholder: "Ex: 10"
     },
     {
-      nome: "forcaMagica",
-      label: "Força Mágica",
+      nome: "magia",
+      label: "Magia",
       tipo: "number",
       placeholder: "Ex: 4"
     },
     {
-      nome: "defesaFisica",
-      label: "Defesa Física",
+      nome: "defesa",
+      label: "Defesa",
       tipo: "number",
       placeholder: "Ex: 8"
-    },
-    {
-      nome: "defesaMagica",
-      label: "Defesa Mágica",
-      tipo: "number",
-      placeholder: "Ex: 3"
     },
     {
       nome: "velocidade",
@@ -103,7 +140,11 @@ const crud = criarCadastroCrud({
       label: "Habilidades",
       tipo: "multi",
       colecao: "habilidades",
-      mensagemVazia: "Nenhuma habilidade cadastrada"
+      filtro: {
+        campo: "categoria",
+        valor: "monstro"
+      },
+      mensagemVazia: "Nenhuma habilidade exclusiva de monstros cadastrada"
     },
     {
       nome: "fraquezas",
@@ -124,10 +165,10 @@ const crud = criarCadastroCrud({
       placeholder: "Explique como o monstro age em combate..."
     },
     {
-      nome: "habitat",
-      label: "Habitat",
+      nome: "descricao",
+      label: "Descrição",
       tipo: "textarea",
-      placeholder: "Ex: Florestas, cavernas, ruínas, pântanos..."
+      placeholder: "Descreva aparência, origem, ambiente, comportamento fora de combate e detalhes narrativos..."
     },
     {
       nome: "drops",

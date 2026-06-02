@@ -3,6 +3,25 @@ import { onPageLoaded } from "./navigation.js";
 
 let abaBossAtiva = "todos";
 let intervaloFiltroBosses = null;
+let intervaloCondicionalBosses = null;
+
+const ranksBoss = [
+  { valor: "baixo", nome: "Baixo" },
+  { valor: "medio", nome: "Médio" },
+  { valor: "alto", nome: "Alto" },
+  { valor: "elite", nome: "Elite" },
+  { valor: "rank_c", nome: "Rank C" },
+  { valor: "rank_b", nome: "Rank B" },
+  { valor: "rank_a", nome: "Rank A" },
+  { valor: "rank_s", nome: "Rank S" },
+  { valor: "mundial", nome: "Ameaça Mundial" },
+  { valor: "divino", nome: "Divino" }
+];
+
+const divisoesBoss = [
+  { valor: "historia", nome: "Boss de História" },
+  { valor: "farm", nome: "Boss de Farm" }
+];
 
 const crud = criarCadastroCrud({
   colecao: "bosses",
@@ -36,6 +55,7 @@ const crud = criarCadastroCrud({
   ],
 
   camposCard: [
+    "historia",
     "ultimate",
     "condicaoVitoria",
     "xpRecompensa"
@@ -52,10 +72,7 @@ const crud = criarCadastroCrud({
       nome: "categoriaBoss",
       label: "Divisão do Boss",
       tipo: "select",
-      opcoes: [
-        { valor: "historia", nome: "Boss de História" },
-        { valor: "farm", nome: "Boss de Farm" }
-      ]
+      opcoes: divisoesBoss
     },
     {
       nome: "turnosReaparecimentoFarm",
@@ -78,8 +95,14 @@ const crud = criarCadastroCrud({
     {
       nome: "rankNivelAmeaca",
       label: "Rank / Nível de Ameaça",
-      tipo: "text",
-      placeholder: "Ex: Rank S, Nível 20, Ameaça Mundial..."
+      tipo: "select",
+      opcoes: ranksBoss
+    },
+    {
+      nome: "historia",
+      label: "História",
+      tipo: "textarea",
+      placeholder: "Conte a origem, importância narrativa e papel desse boss na campanha..."
     },
     {
       nome: "hp",
@@ -94,28 +117,22 @@ const crud = criarCadastroCrud({
       placeholder: "Ex: 300"
     },
     {
-      nome: "forcaFisica",
-      label: "Força Física",
+      nome: "forca",
+      label: "Força",
       tipo: "number",
       placeholder: "Ex: 30"
     },
     {
-      nome: "forcaMagica",
-      label: "Força Mágica",
+      nome: "magia",
+      label: "Magia",
       tipo: "number",
       placeholder: "Ex: 40"
     },
     {
-      nome: "defesaFisica",
-      label: "Defesa Física",
+      nome: "defesa",
+      label: "Defesa",
       tipo: "number",
       placeholder: "Ex: 25"
-    },
-    {
-      nome: "defesaMagica",
-      label: "Defesa Mágica",
-      tipo: "number",
-      placeholder: "Ex: 35"
     },
     {
       nome: "velocidade",
@@ -158,20 +175,33 @@ const crud = criarCadastroCrud({
       label: "Habilidades Especiais",
       tipo: "multi",
       colecao: "habilidades",
-      mensagemVazia: "Nenhuma habilidade cadastrada"
+      filtro: {
+        campo: "categoria",
+        valor: "monstro"
+      },
+      mensagemVazia: "Nenhuma habilidade exclusiva de monstros cadastrada"
     },
     {
       nome: "ultimate",
       label: "Ultimate",
-      tipo: "textarea",
-      placeholder: "Descreva a habilidade suprema do boss..."
+      tipo: "select",
+      colecao: "habilidades",
+      filtro: {
+        campo: "categoria",
+        valor: "ultimate"
+      },
+      mensagemVazia: "Nenhuma habilidade ultimate cadastrada"
     },
     {
       nome: "invocacoes",
       label: "Invocações",
       tipo: "multi",
       colecao: "monstros",
-      mensagemVazia: "Nenhum monstro cadastrado"
+      filtro: {
+        campo: "categoriaMonstro",
+        valor: "minion"
+      },
+      mensagemVazia: "Nenhum monstro Minion cadastrado"
     },
     {
       nome: "fraquezas",
@@ -217,19 +247,84 @@ export function pararBosses() {
     clearInterval(intervaloFiltroBosses);
     intervaloFiltroBosses = null;
   }
+
+  pararControleCondicionalBosses();
 }
 
 export function initBosses() {
   crud.init();
 
   onPageLoaded((pagina) => {
-    if (pagina === "cadastrosBosses") {
+    if (pagina === "cadastrosBosses" || pagina === "cadastrosBossDetalhe") {
       aplicarEstilosAbasBosses();
       vincularAbasBosses();
       iniciarFiltroSeguroBosses();
+      iniciarControleCondicionalBosses();
       aplicarFiltroAbaBosses();
     }
   });
+}
+
+function iniciarControleCondicionalBosses() {
+  pararControleCondicionalBosses();
+
+  aplicarCondicionalRespawnBoss();
+
+  intervaloCondicionalBosses = setInterval(() => {
+    aplicarCondicionalRespawnBoss();
+  }, 300);
+}
+
+function pararControleCondicionalBosses() {
+  if (intervaloCondicionalBosses) {
+    clearInterval(intervaloCondicionalBosses);
+    intervaloCondicionalBosses = null;
+  }
+}
+
+function aplicarCondicionalRespawnBoss() {
+  aplicarCondicionalCampo({
+    selectId: "categoriaBoss",
+    campoId: "turnosReaparecimentoFarm",
+    valorEsperado: "farm"
+  });
+
+  aplicarCondicionalCampo({
+    selectId: "editcategoriaBoss",
+    campoId: "editturnosReaparecimentoFarm",
+    valorEsperado: "farm"
+  });
+}
+
+function aplicarCondicionalCampo({ selectId, campoId, valorEsperado }) {
+  const select = document.getElementById(selectId);
+  const campo = document.getElementById(campoId);
+
+  if (!select || !campo) return;
+
+  const container = campo.closest("label") || campo.parentElement;
+
+  if (!container) return;
+
+  const deveMostrar = select.value === valorEsperado;
+
+  container.style.display = deveMostrar ? "" : "none";
+
+  if (!deveMostrar) {
+    campo.value = "";
+  }
+
+  if (!select.dataset.condicionalVinculado) {
+    select.dataset.condicionalVinculado = "true";
+
+    select.addEventListener("change", () => {
+      aplicarCondicionalCampo({
+        selectId,
+        campoId,
+        valorEsperado
+      });
+    });
+  }
 }
 
 function vincularAbasBosses() {

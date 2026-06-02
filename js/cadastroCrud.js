@@ -19,16 +19,21 @@ export function criarCadastroCrud(config) {
   let registros = [];
   let registroSelecionado = null;
   let unsubscribePrincipal = null;
+
   const unsubscribesRelacionados = [];
   const opcoesRelacionadas = {};
+
   let multiselectsCadastro = {};
   let multiselectsEdicao = {};
+
   let cadastroModalAberto = false;
   let detalheEmEdicao = false;
   let importacaoModalAberta = false;
+
   let formularioCadastroSujo = false;
   let formularioEdicaoSujo = false;
   let formularioImportacaoSujo = false;
+
   let importacaoPendentes = [];
 
   const abrirCadastroId = config.abrirCadastroId || `abrirCadastro${capitalizar(config.colecao)}`;
@@ -44,17 +49,21 @@ export function criarCadastroCrud(config) {
     unsubscribePrincipal = onSnapshot(
       consulta,
       (snapshot) => {
-        registros = [];
-
-        snapshot.forEach((documento) => {
-          registros.push({
-            id: documento.id,
-            ...documento.data()
-          });
-        });
+        registros = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data()
+        }));
 
         sincronizarSelecionado();
         renderizarLista();
+
+        if (
+          registroSelecionado &&
+          document.getElementById(config.detalheContainerId) &&
+          !detalheEmEdicao
+        ) {
+          renderizarDetalhe(false);
+        }
       },
       (erro) => {
         console.error(`Erro ao carregar ${config.colecao}:`, erro);
@@ -86,32 +95,34 @@ export function criarCadastroCrud(config) {
     colecoes.forEach((nomeColecao) => {
       const consulta = query(collection(db, nomeColecao), orderBy("nome", "asc"));
 
-      const unsubscribe = onSnapshot(consulta, (snapshot) => {
-        opcoesRelacionadas[nomeColecao] = [];
-
-        snapshot.forEach((documento) => {
-          opcoesRelacionadas[nomeColecao].push({
+      const unsubscribe = onSnapshot(
+        consulta,
+        (snapshot) => {
+          opcoesRelacionadas[nomeColecao] = snapshot.docs.map((documento) => ({
             id: documento.id,
             ...documento.data()
-          });
-        });
+          }));
 
-        if (
-          cadastroModalAberto &&
-          document.getElementById(formContainerId) &&
-          !formularioCadastroSujo
-        ) {
-          renderizarFormularioCadastro();
-        }
+          if (
+            cadastroModalAberto &&
+            document.getElementById(formContainerId) &&
+            !formularioCadastroSujo
+          ) {
+            renderizarFormularioCadastro();
+          }
 
-        if (
-          registroSelecionado &&
-          document.getElementById(config.detalheContainerId) &&
-          !detalheEmEdicao
-        ) {
-          renderizarDetalhe(false);
+          if (
+            registroSelecionado &&
+            document.getElementById(config.detalheContainerId) &&
+            !detalheEmEdicao
+          ) {
+            renderizarDetalhe(false);
+          }
+        },
+        (erro) => {
+          console.error(`Erro ao carregar opções de ${nomeColecao}:`, erro);
         }
-      });
+      );
 
       unsubscribesRelacionados.push(unsubscribe);
     });
@@ -137,6 +148,7 @@ export function criarCadastroCrud(config) {
         formularioEdicaoSujo = false;
         formularioImportacaoSujo = false;
         multiselectsCadastro = criarEstadoMultiselect();
+
         vincularBotaoAbrirCadastro();
         vincularBotaoAbrirImportacao();
         renderizarLista();
@@ -153,7 +165,7 @@ export function criarCadastroCrud(config) {
 
     if (!botao) return;
 
-    botao.addEventListener("click", abrirModalCadastro);
+    botao.onclick = abrirModalCadastro;
   }
 
   function vincularBotaoAbrirImportacao() {
@@ -161,13 +173,14 @@ export function criarCadastroCrud(config) {
 
     if (!botao) return;
 
-    botao.addEventListener("click", abrirModalImportacao);
+    botao.onclick = abrirModalImportacao;
   }
 
   function abrirModalCadastro() {
     fecharModalCadastro();
 
     cadastroModalAberto = true;
+    formularioCadastroSujo = false;
     multiselectsCadastro = criarEstadoMultiselect();
 
     const overlay = document.createElement("div");
@@ -178,7 +191,7 @@ export function criarCadastroCrud(config) {
       <div class="crud-form-modal">
         <div class="crud-form-header">
           <div>
-            <h3>Cadastrar ${config.nomeSingular}</h3>
+            <h3>Cadastrar ${escapeHtml(config.nomeSingular)}</h3>
             <p>Preencha as informações abaixo e salve para adicionar este registro à lista.</p>
           </div>
 
@@ -264,8 +277,11 @@ export function criarCadastroCrud(config) {
   }
 
   function montarFormulario({ prefixo, titulo, botaoId, botaoTexto, valores, multiselects, modoEdicao }) {
-    const camposHtml = config.campos.map((campo) => montarCampo(campo, prefixo, valores, multiselects)).join("");
-    const tituloHtml = titulo ? `<h3>${titulo}</h3>` : "";
+    const camposHtml = config.campos
+      .map((campo) => montarCampo(campo, prefixo, valores, multiselects))
+      .join("");
+
+    const tituloHtml = titulo ? `<h3>${escapeHtml(titulo)}</h3>` : "";
 
     const botoes = modoEdicao
       ? `
@@ -297,8 +313,8 @@ export function criarCadastroCrud(config) {
     if (campo.tipo === "textarea") {
       return `
         <label>
-          ${campo.label}
-          <textarea id="${id}" placeholder="${campo.placeholder || ""}">${escapeHtml(valor)}</textarea>
+          ${escapeHtml(campo.label)}
+          <textarea id="${id}" placeholder="${escapeHtml(campo.placeholder || "")}">${escapeHtml(valor)}</textarea>
         </label>
       `;
     }
@@ -306,8 +322,8 @@ export function criarCadastroCrud(config) {
     if (campo.tipo === "number") {
       return `
         <label>
-          ${campo.label}
-          <input type="number" id="${id}" value="${valor || ""}" placeholder="${campo.placeholder || ""}" />
+          ${escapeHtml(campo.label)}
+          <input type="number" id="${id}" value="${valor || ""}" placeholder="${escapeHtml(campo.placeholder || "")}" />
         </label>
       `;
     }
@@ -315,7 +331,7 @@ export function criarCadastroCrud(config) {
     if (campo.tipo === "select") {
       return `
         <label>
-          ${campo.label}
+          ${escapeHtml(campo.label)}
           <select id="${id}">
             ${montarOptions(campo, valor?.id || valor || "")}
           </select>
@@ -331,7 +347,7 @@ export function criarCadastroCrud(config) {
       return `
         <div class="multi-select-box">
           <label>
-            ${campo.label}
+            ${escapeHtml(campo.label)}
             <select id="${selectId}">
               ${montarOptions(campo, "")}
             </select>
@@ -348,10 +364,28 @@ export function criarCadastroCrud(config) {
 
     return `
       <label>
-        ${campo.label}
-        <input type="text" id="${id}" value="${escapeHtml(valor)}" placeholder="${campo.placeholder || ""}" />
+        ${escapeHtml(campo.label)}
+        <input type="text" id="${id}" value="${escapeHtml(valor)}" placeholder="${escapeHtml(campo.placeholder || "")}" />
       </label>
     `;
+  }
+
+  function aplicarFiltroOpcoesRelacionadas(campo, lista) {
+    if (!campo.filtro) return lista;
+
+    const filtros = Array.isArray(campo.filtro) ? campo.filtro : [campo.filtro];
+
+    return lista.filter((item) => {
+      return filtros.every((filtro) => {
+        const valorItem = item[filtro.campo];
+
+        if (Array.isArray(filtro.valor)) {
+          return filtro.valor.includes(valorItem);
+        }
+
+        return valorItem === filtro.valor;
+      });
+    });
   }
 
   function montarOptions(campo, valorSelecionado) {
@@ -370,21 +404,22 @@ export function criarCadastroCrud(config) {
     if (campo.opcoes && campo.opcoes.length > 0) {
       campo.opcoes.forEach((opcao) => {
         const selected = opcao.valor === valorSelecionado ? "selected" : "";
-        opcoes.push(`<option value="${opcao.valor}" ${selected}>${opcao.nome}</option>`);
+        opcoes.push(`<option value="${escapeHtml(opcao.valor)}" ${selected}>${escapeHtml(opcao.nome)}</option>`);
       });
 
       return opcoes.join("");
     }
 
-    const lista = opcoesRelacionadas[campo.colecao] || [];
+    const listaOriginal = opcoesRelacionadas[campo.colecao] || [];
+    const lista = aplicarFiltroOpcoesRelacionadas(campo, listaOriginal);
 
     if (!lista.length && !campo.permitirTodas && !campo.permitirNenhuma) {
-      return `<option value="">${campo.mensagemVazia || "Nenhuma opção cadastrada"}</option>`;
+      return `<option value="">${escapeHtml(campo.mensagemVazia || "Nenhuma opção cadastrada")}</option>`;
     }
 
     lista.forEach((item) => {
       const selected = item.id === valorSelecionado ? "selected" : "";
-      opcoes.push(`<option value="${item.id}" ${selected}>${escapeHtml(item.nome || "Sem nome")}</option>`);
+      opcoes.push(`<option value="${escapeHtml(item.id)}" ${selected}>${escapeHtml(item.nome || "Sem nome")}</option>`);
     });
 
     return opcoes.join("");
@@ -392,13 +427,13 @@ export function criarCadastroCrud(config) {
 
   function montarChips(lista, mensagemVazia) {
     if (!lista || !lista.length) {
-      return `<span class="empty-selection">${mensagemVazia}</span>`;
+      return `<span class="empty-selection">${escapeHtml(mensagemVazia)}</span>`;
     }
 
     return lista
       .map((item) => {
         return `
-          <span class="selected-chip" data-id="${item.id}">
+          <span class="selected-chip" data-id="${escapeHtml(item.id)}">
             ${escapeHtml(item.nome)}
             <button type="button" title="Remover">×</button>
           </span>
@@ -638,6 +673,7 @@ export function criarCadastroCrud(config) {
       });
 
       multiselectsCadastro = criarEstadoMultiselect();
+      formularioCadastroSujo = false;
 
       await mostrarModal(`${config.nomeSingular} salvo com sucesso.`, "Cadastro realizado", "success");
 
@@ -685,7 +721,10 @@ export function criarCadastroCrud(config) {
         ...dados
       };
 
+      formularioEdicaoSujo = false;
+
       await mostrarModal(`${config.nomeSingular} atualizado com sucesso.`, "Alterações salvas", "success");
+
       renderizarDetalhe(false);
     } catch (erro) {
       console.error(`Erro ao editar ${config.nomeSingular}:`, erro);
@@ -715,6 +754,7 @@ export function criarCadastroCrud(config) {
       registroSelecionado = null;
 
       await mostrarModal(`${config.nomeSingular} excluído com sucesso.`, "Exclusão concluída", "success");
+
       navegarPara(config.paginaLista);
     } catch (erro) {
       console.error(`Erro ao excluir ${config.nomeSingular}:`, erro);
@@ -735,7 +775,7 @@ export function criarCadastroCrud(config) {
       <div class="crud-form-modal">
         <div class="crud-form-header">
           <div>
-            <h3>Importar ${config.nomePlural} em Massa</h3>
+            <h3>Importar ${escapeHtml(config.nomePlural)} em Massa</h3>
             <p>Cole vários registros seguindo o modelo. Separe um cadastro do outro usando uma linha com três traços: ---</p>
           </div>
 
@@ -839,6 +879,7 @@ export function criarCadastroCrud(config) {
 
     importacaoPendentes = resultado.registros;
     formularioImportacaoSujo = true;
+
     renderizarPreviewImportacao(resultado.erros);
   }
 
@@ -978,7 +1019,8 @@ export function criarCadastroCrud(config) {
     }
 
     if (campo.colecao) {
-      const lista = opcoesRelacionadas[campo.colecao] || [];
+      const listaOriginal = opcoesRelacionadas[campo.colecao] || [];
+      const lista = aplicarFiltroOpcoesRelacionadas(campo, listaOriginal);
       const encontrado = encontrarPorNome(lista, valor);
 
       if (encontrado) {
@@ -1030,7 +1072,8 @@ export function criarCadastroCrud(config) {
         }
 
         if (campo.colecao) {
-          const lista = opcoesRelacionadas[campo.colecao] || [];
+          const listaOriginal = opcoesRelacionadas[campo.colecao] || [];
+          const lista = aplicarFiltroOpcoesRelacionadas(campo, listaOriginal);
           const encontrado = encontrarPorNome(lista, nome);
 
           if (encontrado) {
@@ -1088,7 +1131,7 @@ export function criarCadastroCrud(config) {
       card.innerHTML = `
         <div class="resource-card-header">
           <h4>${escapeHtml(registro.nome || "Sem nome")}</h4>
-          <span>${config.nomeSingular}</span>
+          <span>${escapeHtml(config.nomeSingular)}</span>
         </div>
 
         <div class="resource-card-stats">
@@ -1177,6 +1220,7 @@ export function criarCadastroCrud(config) {
       );
 
       formularioImportacaoSujo = false;
+
       fecharModalImportacao();
       renderizarLista();
     } catch (erro) {
@@ -1187,16 +1231,15 @@ export function criarCadastroCrud(config) {
 
   function montarModeloImportacaoHtml() {
     const linhas = config.campos.map((campo) => {
-      let exemplo = exemploCampo(campo);
-      return `${campo.label}: ${exemplo}`;
+      return `${campo.label}: ${exemploCampo(campo)}`;
     });
 
     linhas.push("---");
 
-    const segundaLinha = config.campos.find((campo) => campo.nome === "nome");
+    const campoNome = config.campos.find((campo) => campo.nome === "nome");
 
-    if (segundaLinha) {
-      linhas.push(`${segundaLinha.label}: Outro exemplo`);
+    if (campoNome) {
+      linhas.push(`${campoNome.label}: Outro exemplo`);
     }
 
     return linhas.map((linha) => escapeHtml(linha)).join("<br>");
@@ -1244,7 +1287,7 @@ export function criarCadastroCrud(config) {
       card.innerHTML = `
         <div class="resource-card-header">
           <h4>${escapeHtml(registro.nome || "Sem nome")}</h4>
-          <span>${config.nomeSingular}</span>
+          <span>${escapeHtml(config.nomeSingular)}</span>
         </div>
 
         <div class="resource-card-stats">
@@ -1268,6 +1311,7 @@ export function criarCadastroCrud(config) {
       card.querySelector(".editar-item").addEventListener("click", () => {
         registroSelecionado = registro;
         navegarPara(config.paginaDetalhe);
+
         setTimeout(() => {
           renderizarDetalhe(true);
         }, 300);
@@ -1286,14 +1330,15 @@ export function criarCadastroCrud(config) {
     const camposResumo = config.camposResumo || [];
 
     if (!camposResumo.length) {
-      return `<span>Tipo: <b>${config.nomeSingular}</b></span>`;
+      return `<span>Tipo: <b>${escapeHtml(config.nomeSingular)}</b></span>`;
     }
 
     return camposResumo
       .map((campoNome) => {
         const campo = config.campos.find((item) => item.nome === campoNome);
         const valor = formatarValor(registro[campoNome]);
-        return `<span>${campo?.label || campoNome}: <b>${valor}</b></span>`;
+
+        return `<span>${escapeHtml(campo?.label || campoNome)}: <b>${valor}</b></span>`;
       })
       .join("");
   }
@@ -1304,7 +1349,8 @@ export function criarCadastroCrud(config) {
     return campos
       .map((campoNome) => {
         const campo = config.campos.find((item) => item.nome === campoNome);
-        return `<p><b>${campo?.label || campoNome}:</b> ${formatarValor(registro[campoNome])}</p>`;
+
+        return `<p><b>${escapeHtml(campo?.label || campoNome)}:</b> ${formatarValor(registro[campoNome])}</p>`;
       })
       .join("");
   }
@@ -1315,6 +1361,7 @@ export function criarCadastroCrud(config) {
     if (!container) return;
 
     detalheEmEdicao = Boolean(modoEdicao);
+
     if (!modoEdicao) {
       formularioEdicaoSujo = false;
     }
@@ -1328,7 +1375,7 @@ export function criarCadastroCrud(config) {
         </div>
       `;
 
-      document.getElementById("voltarLista").addEventListener("click", () => {
+      document.getElementById("voltarLista")?.addEventListener("click", () => {
         navegarPara(config.paginaLista);
       });
 
@@ -1343,7 +1390,7 @@ export function criarCadastroCrud(config) {
     container.innerHTML = `
       <div class="detail-card">
         <h3>${escapeHtml(registroSelecionado.nome || "Sem nome")}</h3>
-        <p class="detail-subtitle">${config.nomeSingular} cadastrado pelo Mestre</p>
+        <p class="detail-subtitle">${escapeHtml(config.nomeSingular)} cadastrado pelo Mestre</p>
 
         <div class="detail-grid">
           ${montarItensDetalhe(registroSelecionado)}
@@ -1359,15 +1406,15 @@ export function criarCadastroCrud(config) {
       </div>
     `;
 
-    document.getElementById("voltarLista").addEventListener("click", () => {
+    document.getElementById("voltarLista")?.addEventListener("click", () => {
       navegarPara(config.paginaLista);
     });
 
-    document.getElementById("abrirEdicao").addEventListener("click", () => {
+    document.getElementById("abrirEdicao")?.addEventListener("click", () => {
       renderizarDetalhe(true);
     });
 
-    document.getElementById("excluirItem").addEventListener("click", excluir);
+    document.getElementById("excluirItem")?.addEventListener("click", excluir);
   }
 
   function montarItensDetalhe(registro) {
@@ -1376,9 +1423,10 @@ export function criarCadastroCrud(config) {
     return camposPrincipais
       .map((campoNome) => {
         const campo = config.campos.find((item) => item.nome === campoNome);
+
         return `
           <div class="detail-item">
-            <span>${campo?.label || campoNome}</span>
+            <span>${escapeHtml(campo?.label || campoNome)}</span>
             <strong>${formatarValor(registro[campoNome])}</strong>
           </div>
         `;
@@ -1395,7 +1443,7 @@ export function criarCadastroCrud(config) {
       .map((campo) => {
         return `
           <div class="detail-section">
-            <h4>${campo.label}</h4>
+            <h4>${escapeHtml(campo.label)}</h4>
             <p>${formatarValor(registro[campo.nome])}</p>
           </div>
         `;
@@ -1429,6 +1477,10 @@ export function criarCadastroCrud(config) {
       botaoSalvarId: "salvarEdicaoCrud",
       multiselects: multiselectsEdicao,
       onSalvar: salvarEdicao
+    });
+
+    observarAlteracoesFormulario(container, () => {
+      formularioEdicaoSujo = true;
     });
   }
 
@@ -1485,7 +1537,7 @@ export function criarCadastroCrud(config) {
   }
 
   function escapeHtml(texto) {
-    return String(texto)
+    return String(texto ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll('"', "&quot;")
       .replaceAll("<", "&lt;")
