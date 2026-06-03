@@ -22,11 +22,52 @@ let unsubscribeSubclasses = null;
 let habilidadesDisponiveis = [];
 let subclassesDisponiveis = [];
 
+let armasPermitidasSelecionadas = [];
+let armadurasPermitidasSelecionadas = [];
 let subclassesSelecionadas = [];
+
+let editArmasPermitidasSelecionadas = [];
+let editArmadurasPermitidasSelecionadas = [];
 let editSubclassesSelecionadas = [];
 
 let importacaoClassesPendentes = [];
 let buscaClassesAtual = "";
+
+let formularioClasseSujo = false;
+let formularioEdicaoClasseSujo = false;
+let formularioImportacaoClassesSujo = false;
+
+const atributos = [
+  { valor: "forca", nome: "Força" },
+  { valor: "magia", nome: "Magia" },
+  { valor: "defesa", nome: "Defesa" },
+  { valor: "velocidade", nome: "Velocidade" },
+  { valor: "resistencia", nome: "Resistência" }
+];
+
+const categoriasArmas = [
+  { valor: "espada", nome: "Espada" },
+  { valor: "arco", nome: "Arco" },
+  { valor: "adaga", nome: "Adaga" },
+  { valor: "machado", nome: "Machado" },
+  { valor: "lanca", nome: "Lança" },
+  { valor: "cajado", nome: "Cajado" },
+  { valor: "varinha", nome: "Varinha" },
+  { valor: "martelo", nome: "Martelo" },
+  { valor: "arma_de_fogo", nome: "Arma de Fogo" },
+  { valor: "escudo", nome: "Escudo" }
+];
+
+const categoriasArmaduras = [
+  { valor: "leve", nome: "Armadura Leve" },
+  { valor: "media", nome: "Armadura Média" },
+  { valor: "pesada", nome: "Armadura Pesada" },
+  { valor: "manto", nome: "Manto" },
+  { valor: "elmo", nome: "Elmo" },
+  { valor: "luvas", nome: "Luvas" },
+  { valor: "botas", nome: "Botas" },
+  { valor: "escudo_defensivo", nome: "Escudo Defensivo" }
+];
 
 export function iniciarClasses() {
   pararClasses();
@@ -49,6 +90,10 @@ export function iniciarClasses() {
       setClasses(classes);
       sincronizarClasseSelecionada();
       renderizarClasses();
+
+      if (document.getElementById("classeDetalheContainer") && !formularioEdicaoClasseSujo) {
+        renderizarClasseDetalhe(false);
+      }
     },
     (erro) => {
       console.error("Erro ao carregar classes:", erro);
@@ -161,6 +206,9 @@ function normalizarTexto(texto) {
 function abrirModalCadastroClasse() {
   fecharModalCadastroClasse();
 
+  formularioClasseSujo = false;
+  armasPermitidasSelecionadas = [];
+  armadurasPermitidasSelecionadas = [];
   subclassesSelecionadas = [];
 
   const overlay = document.createElement("div");
@@ -186,9 +234,29 @@ function abrirModalCadastroClasse() {
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalCadastroClasse")?.addEventListener("click", fecharModalCadastroClasse);
-  document.getElementById("cancelarCadastroClasse")?.addEventListener("click", fecharModalCadastroClasse);
+  document.getElementById("fecharModalCadastroClasse")?.addEventListener("click", tentarFecharModalCadastroClasse);
+  document.getElementById("cancelarCadastroClasse")?.addEventListener("click", tentarFecharModalCadastroClasse);
   document.getElementById("salvarClasse")?.addEventListener("click", salvarClasse);
+
+  document.getElementById("adicionarArmaPermitida")?.addEventListener("click", () => {
+    adicionarSelecionado(
+      "selectArmasPermitidas",
+      armasPermitidasSelecionadas,
+      renderizarArmasPermitidasClasse
+    );
+
+    formularioClasseSujo = true;
+  });
+
+  document.getElementById("adicionarArmaduraPermitida")?.addEventListener("click", () => {
+    adicionarSelecionado(
+      "selectArmadurasPermitidas",
+      armadurasPermitidasSelecionadas,
+      renderizarArmadurasPermitidasClasse
+    );
+
+    formularioClasseSujo = true;
+  });
 
   document.getElementById("adicionarSubclasseDisponivel")?.addEventListener("click", () => {
     adicionarSelecionado(
@@ -196,17 +264,36 @@ function abrirModalCadastroClasse() {
       subclassesSelecionadas,
       renderizarSubclassesSelecionadasClasse
     );
+
+    formularioClasseSujo = true;
   });
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
-      fecharModalCadastroClasse();
+      tentarFecharModalCadastroClasse();
     }
+  });
+
+  observarMudancasFormulario(overlay, () => {
+    formularioClasseSujo = true;
   });
 
   preencherSelectHabilidadesClasse();
   preencherSelectSubclassesClasse();
+
+  renderizarArmasPermitidasClasse();
+  renderizarArmadurasPermitidasClasse();
   renderizarSubclassesSelecionadasClasse();
+}
+
+async function tentarFecharModalCadastroClasse() {
+  if (formularioClasseSujo) {
+    const confirmar = await confirmarSaidaSemSalvar("Sair do cadastro");
+
+    if (!confirmar) return;
+  }
+
+  fecharModalCadastroClasse();
 }
 
 function fecharModalCadastroClasse() {
@@ -215,6 +302,11 @@ function fecharModalCadastroClasse() {
   if (overlay) {
     overlay.remove();
   }
+
+  formularioClasseSujo = false;
+  armasPermitidasSelecionadas = [];
+  armadurasPermitidasSelecionadas = [];
+  subclassesSelecionadas = [];
 }
 
 function montarFormularioCadastroClasse() {
@@ -249,27 +341,37 @@ function montarFormularioCadastroClasse() {
             ${opcoesAtributos("")}
           </select>
         </label>
-
-        <label>
-          Tipo de Dano
-          <input type="text" id="classeTipoDano" placeholder="Ex: Físico, Mágico, Misto, Elemental..." />
-        </label>
-
-        <label>
-          Tipo de Defesa
-          <input type="text" id="classeTipoDefesa" placeholder="Ex: Defesa física, defesa mágica, evasão..." />
-        </label>
       </div>
 
-      <label>
-        Armas Permitidas
-        <textarea id="classeArmasPermitidas" placeholder="Ex: Espadas leves, cajados, arcos, adagas..."></textarea>
-      </label>
+      <div class="multi-select-box">
+        <label>
+          Armas Permitidas
+          <select id="selectArmasPermitidas">
+            ${opcoesCategorias(categoriasArmas)}
+          </select>
+        </label>
 
-      <label>
-        Armaduras Permitidas
-        <textarea id="classeArmadurasPermitidas" placeholder="Ex: Armaduras leves, mantos mágicos, couro, placas..."></textarea>
-      </label>
+        <button class="secondary-btn" type="button" id="adicionarArmaPermitida">Adicionar arma</button>
+
+        <div id="listaArmasPermitidasSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma arma selecionada.</span>
+        </div>
+      </div>
+
+      <div class="multi-select-box">
+        <label>
+          Armaduras Permitidas
+          <select id="selectArmadurasPermitidas">
+            ${opcoesCategorias(categoriasArmaduras)}
+          </select>
+        </label>
+
+        <button class="secondary-btn" type="button" id="adicionarArmaduraPermitida">Adicionar armadura</button>
+
+        <div id="listaArmadurasPermitidasSelecionadas" class="selected-list">
+          <span class="empty-selection">Nenhuma armadura selecionada.</span>
+        </div>
+      </div>
 
       <label>
         Habilidade Exclusiva
@@ -285,7 +387,7 @@ function montarFormularioCadastroClasse() {
 
       <label>
         Desvantagens
-        <textarea id="classeDesvantagens" placeholder="Ex: Baixa defesa física, restrição de armas pesadas, alto custo de mana..."></textarea>
+        <textarea id="classeDesvantagens" placeholder="Ex: Baixa defesa, restrição de armas pesadas, alto custo de mana..."></textarea>
       </label>
 
       <div class="multi-select-box">
@@ -347,10 +449,8 @@ async function salvarClasse() {
     manaPorNivel: numeroCampo("classeManaPorNivel"),
     atributoPrincipal: valorCampo("classeAtributoPrincipal"),
     atributoSecundario: valorCampo("classeAtributoSecundario"),
-    tipoDano: textoCampo("classeTipoDano"),
-    tipoDefesa: textoCampo("classeTipoDefesa"),
-    armasPermitidas: textoCampo("classeArmasPermitidas"),
-    armadurasPermitidas: textoCampo("classeArmadurasPermitidas"),
+    armasPermitidas: armasPermitidasSelecionadas,
+    armadurasPermitidas: armadurasPermitidasSelecionadas,
     habilidadeExclusiva: habilidadeExclusivaId
       ? {
           id: habilidadeExclusivaId,
@@ -358,7 +458,7 @@ async function salvarClasse() {
         }
       : null,
     vantagens: textoCampo("classeVantagens"),
-        desvantagens: textoCampo("classeDesvantagens"),
+    desvantagens: textoCampo("classeDesvantagens"),
     subclassesDisponiveis: subclassesSelecionadas,
     criadoPor: state.usuarioAtual.uid,
     criadoEm: serverTimestamp()
@@ -366,6 +466,8 @@ async function salvarClasse() {
 
   try {
     await addDoc(collection(db, "classes"), classe);
+
+    formularioClasseSujo = false;
 
     await mostrarModal("Classe cadastrada com sucesso.", "Cadastro realizado", "success");
 
@@ -380,6 +482,7 @@ function abrirModalImportacaoClasses() {
   fecharModalImportacaoClasses();
 
   importacaoClassesPendentes = [];
+  formularioImportacaoClassesSujo = false;
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -403,12 +506,10 @@ function abrirModalImportacaoClasses() {
             <textarea id="textoImportacaoClasses" placeholder="Nome da Classe: Guerreiro
 HP por Nível: 15
 Mana por Nível: 5
-Atributo Principal: Força Física
+Atributo Principal: Força
 Atributo Secundário: Resistência
-Tipo de Dano: Físico
-Tipo de Defesa: Defesa Física
-Armas Permitidas: Espadas, machados
-Armaduras Permitidas: Armaduras médias e pesadas
+Armas Permitidas: Espada, Machado, Escudo
+Armaduras Permitidas: Armadura Média, Armadura Pesada
 Habilidade Exclusiva: Golpe Brutal
 Vantagens: Alta resistência
 Desvantagens: Baixa mana
@@ -431,16 +532,34 @@ Subclasses Disponíveis: Cavaleiro, Berserker"></textarea>
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalImportacaoClasses")?.addEventListener("click", fecharModalImportacaoClasses);
-  document.getElementById("cancelarImportacaoClasses")?.addEventListener("click", fecharModalImportacaoClasses);
+  document.getElementById("fecharModalImportacaoClasses")?.addEventListener("click", tentarFecharModalImportacaoClasses);
+  document.getElementById("cancelarImportacaoClasses")?.addEventListener("click", tentarFecharModalImportacaoClasses);
   document.getElementById("analisarImportacaoClasses")?.addEventListener("click", analisarImportacaoClasses);
   document.getElementById("salvarImportacaoClasses")?.addEventListener("click", salvarImportacaoClasses);
 
+  const textarea = document.getElementById("textoImportacaoClasses");
+
+  if (textarea) {
+    textarea.addEventListener("input", () => {
+      formularioImportacaoClassesSujo = true;
+    });
+  }
+
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
-      fecharModalImportacaoClasses();
+      tentarFecharModalImportacaoClasses();
     }
   });
+}
+
+async function tentarFecharModalImportacaoClasses() {
+  if (formularioImportacaoClassesSujo || importacaoClassesPendentes.length > 0) {
+    const confirmar = await confirmarSaidaSemSalvar("Sair da importação");
+
+    if (!confirmar) return;
+  }
+
+  fecharModalImportacaoClasses();
 }
 
 function fecharModalImportacaoClasses() {
@@ -450,6 +569,7 @@ function fecharModalImportacaoClasses() {
     overlay.remove();
   }
 
+  formularioImportacaoClassesSujo = false;
   importacaoClassesPendentes = [];
 }
 
@@ -460,6 +580,7 @@ function analisarImportacaoClasses() {
   if (!preview) return;
 
   importacaoClassesPendentes = extrairClassesDoTexto(texto);
+  formularioImportacaoClassesSujo = true;
 
   if (!importacaoClassesPendentes.length) {
     preview.innerHTML = `
@@ -479,9 +600,9 @@ function analisarImportacaoClasses() {
             <div class="import-preview-card">
               <strong>${index + 1}. ${escapeHtml(classe.nome || "Classe sem nome")}</strong>
               <p>
-                HP/Nível: ${classe.hpPorNivel || 0} •
-                Mana/Nível: ${classe.manaPorNivel || 0} •
-                Dano: ${escapeHtml(classe.tipoDano || "Não informado")}
+                HP/Nível: ${classe.hpPorNivel || 0}
+                • Mana/Nível: ${classe.manaPorNivel || 0}
+                • Armas: ${escapeHtml(formatarListaObjetos(classe.armasPermitidas))}
               </p>
             </div>
           `;
@@ -514,10 +635,8 @@ function extrairClasseDoBloco(bloco) {
     manaPorNivel: 0,
     atributoPrincipal: "",
     atributoSecundario: "",
-    tipoDano: "",
-    tipoDefesa: "",
-    armasPermitidas: "",
-    armadurasPermitidas: "",
+    armasPermitidas: [],
+    armadurasPermitidas: [],
     habilidadeExclusiva: null,
     vantagens: "",
     desvantagens: "",
@@ -563,28 +682,31 @@ function extrairClasseDoBloco(bloco) {
       return;
     }
 
-    if (["tipo de dano", "dano"].includes(chave)) {
-      classe.tipoDano = valor;
-      return;
-    }
-
-    if (["tipo de defesa", "defesa"].includes(chave)) {
-      classe.tipoDefesa = valor;
-      return;
-    }
-
     if (["armas permitidas", "armas"].includes(chave)) {
-      classe.armasPermitidas = valor;
+      classe.armasPermitidas = converterListaCategorias(valor, categoriasArmas);
       return;
     }
 
     if (["armaduras permitidas", "armaduras"].includes(chave)) {
-      classe.armadurasPermitidas = valor;
+      classe.armadurasPermitidas = converterListaCategorias(valor, categoriasArmaduras);
       return;
     }
 
     if (["habilidade exclusiva", "habilidade"].includes(chave)) {
-      classe.habilidadeExclusiva = valor ? { id: gerarIdTemporario(valor), nome: valor } : null;
+      const habilidade = encontrarHabilidadePorNome(valor);
+
+      classe.habilidadeExclusiva = habilidade
+        ? {
+            id: habilidade.id,
+            nome: habilidade.nome
+          }
+        : valor
+          ? {
+              id: gerarIdTemporario(valor),
+              nome: valor
+            }
+          : null;
+
       return;
     }
 
@@ -603,7 +725,19 @@ function extrairClasseDoBloco(bloco) {
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean)
-        .map((nome) => ({ id: gerarIdTemporario(nome), nome }));
+        .map((nome) => {
+          const subclasse = encontrarSubclassePorNome(nome);
+
+          return subclasse
+            ? {
+                id: subclasse.id,
+                nome: subclasse.nome
+              }
+            : {
+                id: gerarIdTemporario(nome),
+                nome
+              };
+        });
     }
   });
 
@@ -639,6 +773,8 @@ async function salvarImportacaoClasses() {
       salvas += 1;
     }
 
+    formularioImportacaoClassesSujo = false;
+
     await mostrarModal(
       `Importação concluída. Classes salvas: ${salvas}. Ignoradas por já existirem: ${ignoradas}.`,
       "Importação salva",
@@ -658,10 +794,16 @@ function preencherSelectHabilidadesClasse() {
   if (!select) return;
 
   const valorAtual = select.value;
+  const habilidadesExclusivas = obterHabilidadesExclusivasClasse();
 
   select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
 
-  habilidadesDisponiveis.forEach((habilidade) => {
+  if (!habilidadesExclusivas.length) {
+    select.innerHTML = `<option value="">Nenhuma habilidade exclusiva cadastrada</option>`;
+    return;
+  }
+
+  habilidadesExclusivas.forEach((habilidade) => {
     const option = document.createElement("option");
     option.value = habilidade.id;
     option.textContent = habilidade.nome || "Sem nome";
@@ -679,10 +821,16 @@ function preencherSelectHabilidadesClasseEdicao() {
   if (!select) return;
 
   const valorAtual = select.value;
+  const habilidadesExclusivas = obterHabilidadesExclusivasClasse();
 
   select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
 
-  habilidadesDisponiveis.forEach((habilidade) => {
+  if (!habilidadesExclusivas.length) {
+    select.innerHTML = `<option value="">Nenhuma habilidade exclusiva cadastrada</option>`;
+    return;
+  }
+
+  habilidadesExclusivas.forEach((habilidade) => {
     const option = document.createElement("option");
     option.value = habilidade.id;
     option.textContent = habilidade.nome || "Sem nome";
@@ -692,6 +840,12 @@ function preencherSelectHabilidadesClasseEdicao() {
   if (valorAtual) {
     select.value = valorAtual;
   }
+}
+
+function obterHabilidadesExclusivasClasse() {
+  return habilidadesDisponiveis.filter((habilidade) => {
+    return habilidade.categoria === "raca_classe_subclasse";
+  });
 }
 
 function preencherSelectSubclassesClasse() {
@@ -737,6 +891,7 @@ function preencherSelectSubclassesClasseEdicao() {
     select.appendChild(option);
   });
 }
+
 function adicionarSelecionado(selectId, lista, renderCallback) {
   const select = document.getElementById(selectId);
 
@@ -796,12 +951,63 @@ function renderizarListaSelecionada(containerId, lista, mensagemVazia, callbackR
   });
 }
 
+function renderizarArmasPermitidasClasse() {
+  renderizarListaSelecionada(
+    "listaArmasPermitidasSelecionadas",
+    armasPermitidasSelecionadas,
+    "Nenhuma arma selecionada.",
+    (id) => {
+      removerSelecionado(armasPermitidasSelecionadas, id, renderizarArmasPermitidasClasse);
+      formularioClasseSujo = true;
+    }
+  );
+}
+
+function renderizarArmadurasPermitidasClasse() {
+  renderizarListaSelecionada(
+    "listaArmadurasPermitidasSelecionadas",
+    armadurasPermitidasSelecionadas,
+    "Nenhuma armadura selecionada.",
+    (id) => {
+      removerSelecionado(armadurasPermitidasSelecionadas, id, renderizarArmadurasPermitidasClasse);
+      formularioClasseSujo = true;
+    }
+  );
+}
+
 function renderizarSubclassesSelecionadasClasse() {
   renderizarListaSelecionada(
     "listaSubclassesDisponiveisSelecionadas",
     subclassesSelecionadas,
     "Nenhuma subclasse selecionada.",
-    (id) => removerSelecionado(subclassesSelecionadas, id, renderizarSubclassesSelecionadasClasse)
+    (id) => {
+      removerSelecionado(subclassesSelecionadas, id, renderizarSubclassesSelecionadasClasse);
+      formularioClasseSujo = true;
+    }
+  );
+}
+
+function renderizarEditArmasPermitidasClasse() {
+  renderizarListaSelecionada(
+    "editListaArmasPermitidasSelecionadas",
+    editArmasPermitidasSelecionadas,
+    "Nenhuma arma selecionada.",
+    (id) => {
+      removerSelecionado(editArmasPermitidasSelecionadas, id, renderizarEditArmasPermitidasClasse);
+      formularioEdicaoClasseSujo = true;
+    }
+  );
+}
+
+function renderizarEditArmadurasPermitidasClasse() {
+  renderizarListaSelecionada(
+    "editListaArmadurasPermitidasSelecionadas",
+    editArmadurasPermitidasSelecionadas,
+    "Nenhuma armadura selecionada.",
+    (id) => {
+      removerSelecionado(editArmadurasPermitidasSelecionadas, id, renderizarEditArmadurasPermitidasClasse);
+      formularioEdicaoClasseSujo = true;
+    }
   );
 }
 
@@ -810,7 +1016,10 @@ function renderizarEditSubclassesSelecionadasClasse() {
     "editListaSubclassesDisponiveisSelecionadas",
     editSubclassesSelecionadas,
     "Nenhuma subclasse selecionada.",
-    (id) => removerSelecionado(editSubclassesSelecionadas, id, renderizarEditSubclassesSelecionadasClasse)
+    (id) => {
+      removerSelecionado(editSubclassesSelecionadas, id, renderizarEditSubclassesSelecionadasClasse);
+      formularioEdicaoClasseSujo = true;
+    }
   );
 }
 
@@ -839,7 +1048,7 @@ function renderizarClasses() {
     lista.innerHTML = `
       <div class="empty-state">
         <h3>Nenhuma classe encontrada.</h3>
-        <p>Tente buscar por outro nome, dano, defesa, atributo, habilidade ou subclasse.</p>
+        <p>Tente buscar por outro nome, atributo, arma, armadura, habilidade ou subclasse.</p>
       </div>
     `;
     return;
@@ -857,7 +1066,6 @@ function renderizarClasses() {
           <p>
             HP/Nível: ${classe.hpPorNivel || 0}
             • Mana/Nível: ${classe.manaPorNivel || 0}
-            • Dano: ${escapeHtml(classe.tipoDano || "Não informado")}
           </p>
         </div>
 
@@ -878,6 +1086,11 @@ function renderizarClasses() {
         <div class="resource-card-line">
           <strong>Habilidade Exclusiva</strong>
           <span>${escapeHtml(classe.habilidadeExclusiva?.nome || "Não informado")}</span>
+        </div>
+
+        <div class="resource-card-line">
+          <strong>Armas Permitidas</strong>
+          <span>${escapeHtml(formatarListaObjetos(classe.armasPermitidas))}</span>
         </div>
       </div>
 
@@ -926,10 +1139,8 @@ function montarTextoBuscaClasse(classe) {
     classe.atributoSecundario,
     formatarAtributo(classe.atributoPrincipal),
     formatarAtributo(classe.atributoSecundario),
-    classe.tipoDano,
-    classe.tipoDefesa,
-    classe.armasPermitidas,
-    classe.armadurasPermitidas,
+    formatarListaObjetos(classe.armasPermitidas),
+    formatarListaObjetos(classe.armadurasPermitidas),
     classe.habilidadeExclusiva?.nome,
     classe.vantagens,
     classe.desvantagens,
@@ -955,6 +1166,10 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
   }
 
   if (modoEdicao) {
+    formularioEdicaoClasseSujo = false;
+
+    editArmasPermitidasSelecionadas = normalizarListaSelecionada(classe.armasPermitidas, categoriasArmas);
+    editArmadurasPermitidasSelecionadas = normalizarListaSelecionada(classe.armadurasPermitidas, categoriasArmaduras);
     editSubclassesSelecionadas = Array.isArray(classe.subclassesDisponiveis)
       ? [...classe.subclassesDisponiveis]
       : [];
@@ -993,27 +1208,37 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
                 ${opcoesAtributos(classe.atributoSecundario || "")}
               </select>
             </label>
-
-            <label>
-              Tipo de Dano
-              <input type="text" id="editClasseTipoDano" value="${escapeHtml(classe.tipoDano || "")}" />
-            </label>
-
-            <label>
-              Tipo de Defesa
-              <input type="text" id="editClasseTipoDefesa" value="${escapeHtml(classe.tipoDefesa || "")}" />
-            </label>
           </div>
 
-          <label>
-            Armas Permitidas
-            <textarea id="editClasseArmasPermitidas">${escapeHtml(classe.armasPermitidas || "")}</textarea>
-          </label>
+          <div class="multi-select-box">
+            <label>
+              Armas Permitidas
+              <select id="editSelectArmasPermitidas">
+                ${opcoesCategorias(categoriasArmas)}
+              </select>
+            </label>
 
-          <label>
-            Armaduras Permitidas
-            <textarea id="editClasseArmadurasPermitidas">${escapeHtml(classe.armadurasPermitidas || "")}</textarea>
-          </label>
+            <button class="secondary-btn" type="button" id="editAdicionarArmaPermitida">Adicionar arma</button>
+
+            <div id="editListaArmasPermitidasSelecionadas" class="selected-list">
+              <span class="empty-selection">Nenhuma arma selecionada.</span>
+            </div>
+          </div>
+
+          <div class="multi-select-box">
+            <label>
+              Armaduras Permitidas
+              <select id="editSelectArmadurasPermitidas">
+                ${opcoesCategorias(categoriasArmaduras)}
+              </select>
+            </label>
+
+            <button class="secondary-btn" type="button" id="editAdicionarArmaduraPermitida">Adicionar armadura</button>
+
+            <div id="editListaArmadurasPermitidasSelecionadas" class="selected-list">
+              <span class="empty-selection">Nenhuma armadura selecionada.</span>
+            </div>
+          </div>
 
           <label>
             Habilidade Exclusiva
@@ -1064,7 +1289,29 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
       selectHabilidade.value = classe.habilidadeExclusiva.id;
     }
 
+    renderizarEditArmasPermitidasClasse();
+    renderizarEditArmadurasPermitidasClasse();
     renderizarEditSubclassesSelecionadasClasse();
+
+    document.getElementById("editAdicionarArmaPermitida")?.addEventListener("click", () => {
+      adicionarSelecionado(
+        "editSelectArmasPermitidas",
+        editArmasPermitidasSelecionadas,
+        renderizarEditArmasPermitidasClasse
+      );
+
+      formularioEdicaoClasseSujo = true;
+    });
+
+    document.getElementById("editAdicionarArmaduraPermitida")?.addEventListener("click", () => {
+      adicionarSelecionado(
+        "editSelectArmadurasPermitidas",
+        editArmadurasPermitidasSelecionadas,
+        renderizarEditArmadurasPermitidasClasse
+      );
+
+      formularioEdicaoClasseSujo = true;
+    });
 
     document.getElementById("editAdicionarSubclasseDisponivel")?.addEventListener("click", () => {
       adicionarSelecionado(
@@ -1072,17 +1319,21 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
         editSubclassesSelecionadas,
         renderizarEditSubclassesSelecionadasClasse
       );
+
+      formularioEdicaoClasseSujo = true;
     });
 
-    document.getElementById("cancelarEdicaoClasse")?.addEventListener("click", () => {
-      renderizarClasseDetalhe(false);
-    });
-
+    document.getElementById("cancelarEdicaoClasse")?.addEventListener("click", tentarCancelarEdicaoClasse);
     document.getElementById("salvarEdicaoClasse")?.addEventListener("click", salvarEdicaoClasse);
+
+    observarMudancasFormulario(container, () => {
+      formularioEdicaoClasseSujo = true;
+    });
 
     return;
   }
-    container.innerHTML = `
+
+  container.innerHTML = `
     <div class="detail-card">
       <div class="detail-header">
         <div>
@@ -1119,23 +1370,13 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
         </div>
 
         <div class="detail-field">
-          <span>Tipo de Dano</span>
-          <strong>${escapeHtml(classe.tipoDano || "Não informado")}</strong>
-        </div>
-
-        <div class="detail-field">
-          <span>Tipo de Defesa</span>
-          <strong>${escapeHtml(classe.tipoDefesa || "Não informado")}</strong>
-        </div>
-
-        <div class="detail-field">
           <span>Armas Permitidas</span>
-          <strong>${escapeHtml(classe.armasPermitidas || "Não informado")}</strong>
+          <strong>${escapeHtml(formatarListaObjetos(classe.armasPermitidas))}</strong>
         </div>
 
         <div class="detail-field">
           <span>Armaduras Permitidas</span>
-          <strong>${escapeHtml(classe.armadurasPermitidas || "Não informado")}</strong>
+          <strong>${escapeHtml(formatarListaObjetos(classe.armadurasPermitidas))}</strong>
         </div>
 
         <div class="detail-field">
@@ -1175,6 +1416,17 @@ export function renderizarClasseDetalhe(modoEdicao = false) {
   });
 }
 
+async function tentarCancelarEdicaoClasse() {
+  if (formularioEdicaoClasseSujo) {
+    const confirmar = await confirmarSaidaSemSalvar("Cancelar edição");
+
+    if (!confirmar) return;
+  }
+
+  formularioEdicaoClasseSujo = false;
+  renderizarClasseDetalhe(false);
+}
+
 async function salvarEdicaoClasse() {
   const classe = state.classeSelecionada;
 
@@ -1208,10 +1460,8 @@ async function salvarEdicaoClasse() {
     manaPorNivel: numeroCampo("editClasseManaPorNivel"),
     atributoPrincipal: valorCampo("editClasseAtributoPrincipal"),
     atributoSecundario: valorCampo("editClasseAtributoSecundario"),
-    tipoDano: textoCampo("editClasseTipoDano"),
-    tipoDefesa: textoCampo("editClasseTipoDefesa"),
-    armasPermitidas: textoCampo("editClasseArmasPermitidas"),
-    armadurasPermitidas: textoCampo("editClasseArmadurasPermitidas"),
+    armasPermitidas: editArmasPermitidasSelecionadas,
+    armadurasPermitidas: editArmadurasPermitidasSelecionadas,
     habilidadeExclusiva: habilidadeExclusivaId
       ? {
           id: habilidadeExclusivaId,
@@ -1231,6 +1481,8 @@ async function salvarEdicaoClasse() {
       ...classe,
       ...dadosAtualizados
     });
+
+    formularioEdicaoClasseSujo = false;
 
     await mostrarModal("Classe atualizada com sucesso.", "Alterações salvas", "success");
 
@@ -1369,39 +1621,51 @@ function aplicarEstilosBuscaClasses() {
 function opcoesAtributos(valorSelecionado) {
   const opcoes = [
     { valor: "", nome: "Selecione" },
-    { valor: "forcaFisica", nome: "Força Física" },
-    { valor: "forcaMagica", nome: "Força Mágica" },
-    { valor: "defesaFisica", nome: "Defesa Física" },
-    { valor: "defesaMagica", nome: "Defesa Mágica" },
-    { valor: "velocidade", nome: "Velocidade" },
-    { valor: "resistencia", nome: "Resistência" }
+    ...atributos
   ];
 
   return opcoes
     .map((opcao) => {
-      const selected = opcao.valor === valorSelecionado ? "selected" : "";
+      const selected = opcao.valor === converterAtributoLegado(valorSelecionado) ? "selected" : "";
       return `<option value="${opcao.valor}" ${selected}>${opcao.nome}</option>`;
     })
     .join("");
+}
+
+function opcoesCategorias(lista) {
+  return [
+    `<option value="">Selecione</option>`,
+    ...lista.map((opcao) => {
+      return `<option value="${opcao.valor}">${opcao.nome}</option>`;
+    })
+  ].join("");
 }
 
 function converterAtributoTexto(texto) {
   const normalizado = normalizarTexto(texto);
 
   const mapa = {
-    "forca fisica": "forcaFisica",
-    "força fisica": "forcaFisica",
-    "forca física": "forcaFisica",
-    "força física": "forcaFisica",
-    "forca magica": "forcaMagica",
-    "força magica": "forcaMagica",
-    "forca mágica": "forcaMagica",
-    "força mágica": "forcaMagica",
-    "defesa fisica": "defesaFisica",
-    "defesa física": "defesaFisica",
-    "defesa magica": "defesaMagica",
-    "defesa mágica": "defesaMagica",
+    "forca": "forca",
+    "força": "forca",
+    "forca fisica": "forca",
+    "força fisica": "forca",
+    "forca física": "forca",
+    "força física": "forca",
+
+    "magia": "magia",
+    "forca magica": "magia",
+    "força magica": "magia",
+    "forca mágica": "magia",
+    "força mágica": "magia",
+
+    "defesa": "defesa",
+    "defesa fisica": "defesa",
+    "defesa física": "defesa",
+    "defesa magica": "defesa",
+    "defesa mágica": "defesa",
+
     "velocidade": "velocidade",
+
     "resistencia": "resistencia",
     "resistência": "resistencia"
   };
@@ -1409,20 +1673,96 @@ function converterAtributoTexto(texto) {
   return mapa[normalizado] || "";
 }
 
+function converterAtributoLegado(valor) {
+  const mapa = {
+    forcaFisica: "forca",
+    forcaMagica: "magia",
+    defesaFisica: "defesa",
+    defesaMagica: "defesa"
+  };
+
+  return mapa[valor] || valor || "";
+}
+
 function formatarAtributo(valor) {
   const mapa = {
-    forcaFisica: "Força Física",
-    forcaMagica: "Força Mágica",
-    defesaFisica: "Defesa Física",
-    defesaMagica: "Defesa Mágica",
+    forca: "Força",
+    magia: "Magia",
+    defesa: "Defesa",
     velocidade: "Velocidade",
-    resistencia: "Resistência"
+    resistencia: "Resistência",
+
+    forcaFisica: "Força",
+    forcaMagica: "Magia",
+    defesaFisica: "Defesa",
+    defesaMagica: "Defesa"
   };
 
   return mapa[valor] || "Não informado";
 }
 
+function converterListaCategorias(valor, opcoes) {
+  if (!valor) return [];
+
+  return valor
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((nome) => {
+      const encontrado = opcoes.find((opcao) => {
+        return normalizarTexto(opcao.nome) === normalizarTexto(nome) ||
+          normalizarTexto(opcao.valor) === normalizarTexto(nome);
+      });
+
+      if (encontrado) {
+        return {
+          id: encontrado.valor,
+          nome: encontrado.nome
+        };
+      }
+
+      return {
+        id: gerarIdTemporario(nome),
+        nome
+      };
+    });
+}
+
+function normalizarListaSelecionada(valor, opcoesFixas = []) {
+  if (!valor) return [];
+
+  if (Array.isArray(valor)) {
+    return valor.map((item) => {
+      if (typeof item === "string") {
+        return {
+          id: gerarIdTemporario(item),
+          nome: item
+        };
+      }
+
+      return {
+        id: item.id || item.valor || gerarIdTemporario(item.nome || ""),
+        nome: item.nome || item.label || item.id || "Sem nome"
+      };
+    });
+  }
+
+  if (typeof valor === "string") {
+    return converterListaCategorias(valor, opcoesFixas);
+  }
+
+  return [];
+}
+
 function formatarListaObjetos(lista) {
+  if (!lista) {
+    return "Não informado";
+  }
+
+  if (typeof lista === "string") {
+    return lista || "Não informado";
+  }
+
   if (!Array.isArray(lista) || !lista.length) {
     return "Não informado";
   }
@@ -1430,10 +1770,47 @@ function formatarListaObjetos(lista) {
   return lista.map((item) => item.nome || item.id || item).join(", ");
 }
 
+function encontrarHabilidadePorNome(nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return obterHabilidadesExclusivasClasse().find((habilidade) => {
+    return normalizarTexto(habilidade.nome || "") === nomeNormalizado;
+  }) || null;
+}
+
+function encontrarSubclassePorNome(nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return subclassesDisponiveis.find((subclasse) => {
+    return normalizarTexto(subclasse.nome || "") === nomeNormalizado;
+  }) || null;
+}
+
 function gerarIdTemporario(nome) {
   return normalizarTexto(nome)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || `temp-${Date.now()}`;
+}
+
+function observarMudancasFormulario(container, callback) {
+  if (!container) return;
+
+  const marcar = () => callback();
+
+  container.querySelectorAll("input, textarea, select").forEach((campo) => {
+    campo.addEventListener("input", marcar);
+    campo.addEventListener("change", marcar);
+  });
+}
+
+async function confirmarSaidaSemSalvar(titulo) {
+  return confirmarModal({
+    titulo,
+    mensagem: "Existem alterações não salvas. Tem certeza que deseja sair e perder o que foi preenchido?",
+    confirmarTexto: "Sair sem salvar",
+    cancelarTexto: "Continuar editando",
+    tipo: "danger"
+  });
 }
 
 function escapeHtml(texto) {

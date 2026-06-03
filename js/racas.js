@@ -35,6 +35,10 @@ let editRestricoesClasseSelecionadas = [];
 let importacaoRacasPendentes = [];
 let buscaRacasAtual = "";
 
+let formularioRacaSujo = false;
+let formularioEdicaoRacaSujo = false;
+let formularioImportacaoRacasSujo = false;
+
 export function iniciarRacas() {
   pararRacas();
 
@@ -56,6 +60,10 @@ export function iniciarRacas() {
       setRacas(racas);
       sincronizarRacaSelecionada();
       renderizarRacas();
+
+      if (document.getElementById("racaDetalheContainer") && !formularioEdicaoRacaSujo) {
+        renderizarRacaDetalhe(false);
+      }
     },
     (erro) => {
       console.error("Erro ao carregar raças:", erro);
@@ -196,6 +204,7 @@ function normalizarTexto(texto) {
 function abrirModalCadastroRaca() {
   fecharModalCadastroRaca();
 
+  formularioRacaSujo = false;
   classesSugeridasSelecionadas = [];
   elementosAfinsSelecionados = [];
   restricoesClasseSelecionadas = [];
@@ -223,8 +232,8 @@ function abrirModalCadastroRaca() {
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalCadastroRaca")?.addEventListener("click", fecharModalCadastroRaca);
-  document.getElementById("cancelarCadastroRaca")?.addEventListener("click", fecharModalCadastroRaca);
+  document.getElementById("fecharModalCadastroRaca")?.addEventListener("click", tentarFecharModalCadastroRaca);
+  document.getElementById("cancelarCadastroRaca")?.addEventListener("click", tentarFecharModalCadastroRaca);
   document.getElementById("salvarRaca")?.addEventListener("click", salvarRaca);
 
   document.getElementById("adicionarClasseSugerida")?.addEventListener("click", () => {
@@ -233,6 +242,8 @@ function abrirModalCadastroRaca() {
       classesSugeridasSelecionadas,
       renderizarClassesSugeridasSelecionadas
     );
+
+    formularioRacaSujo = true;
   });
 
   document.getElementById("adicionarElementoAfim")?.addEventListener("click", () => {
@@ -241,6 +252,8 @@ function abrirModalCadastroRaca() {
       elementosAfinsSelecionados,
       renderizarElementosAfinsSelecionados
     );
+
+    formularioRacaSujo = true;
   });
 
   document.getElementById("adicionarRestricaoClasse")?.addEventListener("click", () => {
@@ -249,12 +262,18 @@ function abrirModalCadastroRaca() {
       restricoesClasseSelecionadas,
       renderizarRestricoesClasseSelecionadas
     );
+
+    formularioRacaSujo = true;
   });
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
-      fecharModalCadastroRaca();
+      tentarFecharModalCadastroRaca();
     }
+  });
+
+  observarMudancasFormulario(overlay, () => {
+    formularioRacaSujo = true;
   });
 
   preencherSelectClassesSugeridas();
@@ -267,12 +286,27 @@ function abrirModalCadastroRaca() {
   renderizarRestricoesClasseSelecionadas();
 }
 
+async function tentarFecharModalCadastroRaca() {
+  if (formularioRacaSujo) {
+    const confirmar = await confirmarSaidaSemSalvar("Sair do cadastro");
+
+    if (!confirmar) return;
+  }
+
+  fecharModalCadastroRaca();
+}
+
 function fecharModalCadastroRaca() {
   const overlay = document.getElementById("modalCadastroRaca");
 
   if (overlay) {
     overlay.remove();
   }
+
+  formularioRacaSujo = false;
+  classesSugeridasSelecionadas = [];
+  elementosAfinsSelecionados = [];
+  restricoesClasseSelecionadas = [];
 }
 
 function montarFormularioCadastroRaca() {
@@ -295,23 +329,18 @@ function montarFormularioCadastroRaca() {
         </label>
 
         <label>
-          Força Física
-          <input type="number" id="racaForcaFisica" placeholder="Ex: 10" />
+          Força
+          <input type="number" id="racaForca" placeholder="Ex: 10" />
         </label>
 
         <label>
-          Força Mágica
-          <input type="number" id="racaForcaMagica" placeholder="Ex: 10" />
+          Magia
+          <input type="number" id="racaMagia" placeholder="Ex: 10" />
         </label>
 
         <label>
-          Defesa Física
-          <input type="number" id="racaDefesaFisica" placeholder="Ex: 10" />
-        </label>
-
-        <label>
-          Defesa Mágica
-          <input type="number" id="racaDefesaMagica" placeholder="Ex: 10" />
+          Defesa
+          <input type="number" id="racaDefesa" placeholder="Ex: 10" />
         </label>
 
         <label>
@@ -349,7 +378,7 @@ function montarFormularioCadastroRaca() {
 
       <label>
         Desvantagens
-        <textarea id="racaDesvantagens" placeholder="Ex: Fraqueza contra luz, baixa resistência física..."></textarea>
+        <textarea id="racaDesvantagens" placeholder="Ex: Fraqueza contra luz, baixa resistência..."></textarea>
       </label>
 
       <div class="multi-select-box">
@@ -404,6 +433,7 @@ function montarFormularioCadastroRaca() {
     </div>
   `;
 }
+
 async function salvarRaca() {
   if (!state.usuarioAtual) {
     await mostrarModal("Você precisa estar logado.", "Acesso necessário");
@@ -434,14 +464,24 @@ async function salvarRaca() {
   const habilidadeExclusivaId = valorCampo("racaHabilidadeExclusiva");
   const habilidadeExclusivaNome = textoSelectSelecionado("racaHabilidadeExclusiva");
 
+  const forca = numeroCampo("racaForca");
+  const magia = numeroCampo("racaMagia");
+  const defesa = numeroCampo("racaDefesa");
+
   const raca = {
     nome,
     hpBase: numeroCampo("racaHpBase"),
     manaBase: numeroCampo("racaManaBase"),
-    forcaFisica: numeroCampo("racaForcaFisica"),
-    forcaMagica: numeroCampo("racaForcaMagica"),
-    defesaFisica: numeroCampo("racaDefesaFisica"),
-    defesaMagica: numeroCampo("racaDefesaMagica"),
+
+    forca,
+    magia,
+    defesa,
+
+    // Compatibilidade temporária com ficha/personagem antigos.
+    forcaFisica: forca,
+    forcaMagica: magia,
+    defesaFisica: defesa,
+
     velocidade: numeroCampo("racaVelocidade"),
     resistencia: numeroCampo("racaResistencia"),
     carismaBonus: textoCampo("racaCarismaBonus"),
@@ -464,6 +504,8 @@ async function salvarRaca() {
   try {
     await addDoc(collection(db, "racas"), raca);
 
+    formularioRacaSujo = false;
+
     await mostrarModal("Raça cadastrada com sucesso.", "Cadastro realizado", "success");
 
     fecharModalCadastroRaca();
@@ -472,11 +514,11 @@ async function salvarRaca() {
     await mostrarModal("Erro ao cadastrar raça.", "Erro", "danger");
   }
 }
-
 function abrirModalImportacaoRacas() {
   fecharModalImportacaoRacas();
 
   importacaoRacasPendentes = [];
+  formularioImportacaoRacasSujo = false;
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -500,17 +542,16 @@ function abrirModalImportacaoRacas() {
             <textarea id="textoImportacaoRacas" placeholder="Nome da Raça: Elfo
 HP Base: 80
 Mana Base: 120
-Força Física: 6
-Força Mágica: 14
-Defesa Física: 7
-Defesa Mágica: 12
+Força: 6
+Magia: 14
+Defesa: 7
 Velocidade: 13
 Resistência: 8
 Bônus de Carisma: +2 em diplomacia
 Fator Medo: Baixo
 Habilidade Exclusiva: Visão Etérea
 Vantagens: Afinidade mágica e sentidos aguçados
-Desvantagens: Baixa resistência física
+Desvantagens: Baixa resistência
 Classes Sugeridas: Mago, Arqueiro
 Elementos Afins: Luz, Vento
 Restrições de Classes: Ladino"></textarea>
@@ -532,16 +573,34 @@ Restrições de Classes: Ladino"></textarea>
 
   document.body.appendChild(overlay);
 
-  document.getElementById("fecharModalImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
-  document.getElementById("cancelarImportacaoRacas")?.addEventListener("click", fecharModalImportacaoRacas);
+  document.getElementById("fecharModalImportacaoRacas")?.addEventListener("click", tentarFecharModalImportacaoRacas);
+  document.getElementById("cancelarImportacaoRacas")?.addEventListener("click", tentarFecharModalImportacaoRacas);
   document.getElementById("analisarImportacaoRacas")?.addEventListener("click", analisarImportacaoRacas);
   document.getElementById("salvarImportacaoRacas")?.addEventListener("click", salvarImportacaoRacas);
 
+  const textarea = document.getElementById("textoImportacaoRacas");
+
+  if (textarea) {
+    textarea.addEventListener("input", () => {
+      formularioImportacaoRacasSujo = true;
+    });
+  }
+
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
-      fecharModalImportacaoRacas();
+      tentarFecharModalImportacaoRacas();
     }
   });
+}
+
+async function tentarFecharModalImportacaoRacas() {
+  if (formularioImportacaoRacasSujo || importacaoRacasPendentes.length > 0) {
+    const confirmar = await confirmarSaidaSemSalvar("Sair da importação");
+
+    if (!confirmar) return;
+  }
+
+  fecharModalImportacaoRacas();
 }
 
 function fecharModalImportacaoRacas() {
@@ -551,6 +610,7 @@ function fecharModalImportacaoRacas() {
     overlay.remove();
   }
 
+  formularioImportacaoRacasSujo = false;
   importacaoRacasPendentes = [];
 }
 
@@ -561,6 +621,7 @@ function analisarImportacaoRacas() {
   if (!preview) return;
 
   importacaoRacasPendentes = extrairRacasDoTexto(texto);
+  formularioImportacaoRacasSujo = true;
 
   if (!importacaoRacasPendentes.length) {
     preview.innerHTML = `
@@ -580,9 +641,11 @@ function analisarImportacaoRacas() {
             <div class="import-preview-card">
               <strong>${index + 1}. ${escapeHtml(raca.nome || "Raça sem nome")}</strong>
               <p>
-                HP: ${raca.hpBase || 0} •
-                Mana: ${raca.manaBase || 0} •
-                Velocidade: ${raca.velocidade || 0}
+                HP: ${raca.hpBase || 0}
+                • Mana: ${raca.manaBase || 0}
+                • Força: ${raca.forca || 0}
+                • Magia: ${raca.magia || 0}
+                • Defesa: ${raca.defesa || 0}
               </p>
             </div>
           `;
@@ -613,10 +676,16 @@ function extrairRacaDoBloco(bloco) {
     nome: "",
     hpBase: 0,
     manaBase: 0,
+
+    forca: 0,
+    magia: 0,
+    defesa: 0,
+
+    // Compatibilidade temporária.
     forcaFisica: 0,
     forcaMagica: 0,
     defesaFisica: 0,
-    defesaMagica: 0,
+
     velocidade: 0,
     resistencia: 0,
     carismaBonus: "",
@@ -658,23 +727,27 @@ function extrairRacaDoBloco(bloco) {
       return;
     }
 
-    if (["forca fisica", "força física", "forca física", "força fisica"].includes(chave)) {
-      raca.forcaFisica = Number(valor.replace(",", ".")) || 0;
+    if (["forca", "força", "forca fisica", "força física", "forca física", "força fisica"].includes(chave)) {
+      const numero = Number(valor.replace(",", ".")) || 0;
+
+      raca.forca = numero;
+      raca.forcaFisica = numero;
       return;
     }
 
-    if (["forca magica", "força mágica", "forca mágica", "força magica"].includes(chave)) {
-      raca.forcaMagica = Number(valor.replace(",", ".")) || 0;
+    if (["magia", "forca magica", "força mágica", "forca mágica", "força magica"].includes(chave)) {
+      const numero = Number(valor.replace(",", ".")) || 0;
+
+      raca.magia = numero;
+      raca.forcaMagica = numero;
       return;
     }
 
-    if (["defesa fisica", "defesa física"].includes(chave)) {
-      raca.defesaFisica = Number(valor.replace(",", ".")) || 0;
-      return;
-    }
+    if (["defesa", "defesa fisica", "defesa física", "defesa magica", "defesa mágica"].includes(chave)) {
+      const numero = Number(valor.replace(",", ".")) || 0;
 
-    if (["defesa magica", "defesa mágica"].includes(chave)) {
-      raca.defesaMagica = Number(valor.replace(",", ".")) || 0;
+      raca.defesa = numero;
+      raca.defesaFisica = numero;
       return;
     }
 
@@ -699,7 +772,20 @@ function extrairRacaDoBloco(bloco) {
     }
 
     if (["habilidade exclusiva", "habilidade"].includes(chave)) {
-      raca.habilidadeExclusiva = valor ? { id: gerarIdTemporario(valor), nome: valor } : null;
+      const habilidade = encontrarHabilidadePorNome(valor);
+
+      raca.habilidadeExclusiva = habilidade
+        ? {
+            id: habilidade.id,
+            nome: habilidade.nome
+          }
+        : valor
+          ? {
+              id: gerarIdTemporario(valor),
+              nome: valor
+            }
+          : null;
+
       return;
     }
 
@@ -714,30 +800,56 @@ function extrairRacaDoBloco(bloco) {
     }
 
     if (["classes sugeridas", "classes"].includes(chave)) {
-      raca.classesSugeridas = extrairListaTexto(valor);
+      raca.classesSugeridas = extrairListaRelacionada(valor, classesDisponiveis);
       return;
     }
 
     if (["elementos afins", "elementos"].includes(chave)) {
-      raca.elementosAfins = extrairListaTexto(valor);
+      raca.elementosAfins = extrairListaRelacionada(valor, elementosDisponiveis);
       return;
     }
 
-    if (["restricoes de classes", "restrições de classes", "restricao de classe", "restrição de classe", "restricoes", "restrições"].includes(chave)) {
-      raca.restricoesClasse = extrairListaTexto(valor);
+    if (
+      [
+        "restricoes de classes",
+        "restrições de classes",
+        "restricao de classe",
+        "restrição de classe",
+        "restricoes",
+        "restrições"
+      ].includes(chave)
+    ) {
+      raca.restricoesClasse = extrairListaRelacionada(valor, classesDisponiveis);
     }
   });
 
   return raca;
 }
 
-function extrairListaTexto(valor) {
+function extrairListaRelacionada(valor, listaRelacionada) {
+  if (!valor) return [];
+
   return valor
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-    .map((nome) => ({ id: gerarIdTemporario(nome), nome }));
+    .map((nome) => {
+      const encontrado = encontrarPorNome(listaRelacionada, nome);
+
+      if (encontrado) {
+        return {
+          id: encontrado.id,
+          nome: encontrado.nome
+        };
+      }
+
+      return {
+        id: gerarIdTemporario(nome),
+        nome
+      };
+    });
 }
+
 async function salvarImportacaoRacas() {
   if (!importacaoRacasPendentes.length) {
     await mostrarModal("Analise o texto antes de salvar a importação.", "Importação vazia");
@@ -766,6 +878,8 @@ async function salvarImportacaoRacas() {
 
       salvas += 1;
     }
+
+    formularioImportacaoRacasSujo = false;
 
     await mostrarModal(
       `Importação concluída. Raças salvas: ${salvas}. Ignoradas por já existirem: ${ignoradas}.`,
@@ -832,13 +946,10 @@ function preencherSelectRestricoesClasse() {
   if (!select) return;
 
   select.innerHTML = "";
-
   select.innerHTML = `<option value="">Selecione uma restrição</option>`;
   select.innerHTML += `<option value="__NONE__">Nenhuma</option>`;
 
-  if (!classesDisponiveis.length) {
-    return;
-  }
+  if (!classesDisponiveis.length) return;
 
   classesDisponiveis.forEach((classe) => {
     const option = document.createElement("option");
@@ -854,10 +965,16 @@ function preencherSelectHabilidadeExclusivaRaca() {
   if (!select) return;
 
   const valorAtual = select.value;
+  const habilidadesExclusivas = obterHabilidadesExclusivasRaca();
 
   select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
 
-  habilidadesDisponiveis.forEach((habilidade) => {
+  if (!habilidadesExclusivas.length) {
+    select.innerHTML = `<option value="">Nenhuma habilidade exclusiva cadastrada</option>`;
+    return;
+  }
+
+  habilidadesExclusivas.forEach((habilidade) => {
     const option = document.createElement("option");
     option.value = habilidade.id;
     option.textContent = habilidade.nome || "Sem nome";
@@ -921,13 +1038,10 @@ function preencherSelectEditRestricoesClasse() {
   if (!select) return;
 
   select.innerHTML = "";
-
   select.innerHTML = `<option value="">Selecione uma restrição</option>`;
   select.innerHTML += `<option value="__NONE__">Nenhuma</option>`;
 
-  if (!classesDisponiveis.length) {
-    return;
-  }
+  if (!classesDisponiveis.length) return;
 
   classesDisponiveis.forEach((classe) => {
     const option = document.createElement("option");
@@ -943,10 +1057,16 @@ function preencherSelectEditHabilidadeExclusivaRaca() {
   if (!select) return;
 
   const valorAtual = select.value;
+  const habilidadesExclusivas = obterHabilidadesExclusivasRaca();
 
   select.innerHTML = `<option value="">Nenhuma habilidade</option>`;
 
-  habilidadesDisponiveis.forEach((habilidade) => {
+  if (!habilidadesExclusivas.length) {
+    select.innerHTML = `<option value="">Nenhuma habilidade exclusiva cadastrada</option>`;
+    return;
+  }
+
+  habilidadesExclusivas.forEach((habilidade) => {
     const option = document.createElement("option");
     option.value = habilidade.id;
     option.textContent = habilidade.nome || "Sem nome";
@@ -956,6 +1076,11 @@ function preencherSelectEditHabilidadeExclusivaRaca() {
   if (valorAtual) {
     select.value = valorAtual;
   }
+}
+function obterHabilidadesExclusivasRaca() {
+  return habilidadesDisponiveis.filter((habilidade) => {
+    return habilidade.categoria === "raca_classe_subclasse";
+  });
 }
 
 function adicionarSelecionado(selectId, lista, renderCallback) {
@@ -1064,7 +1189,10 @@ function renderizarClassesSugeridasSelecionadas() {
     "listaClassesSugeridasSelecionadas",
     classesSugeridasSelecionadas,
     "Nenhuma classe sugerida selecionada.",
-    (id) => removerSelecionado(classesSugeridasSelecionadas, id, renderizarClassesSugeridasSelecionadas)
+    (id) => {
+      removerSelecionado(classesSugeridasSelecionadas, id, renderizarClassesSugeridasSelecionadas);
+      formularioRacaSujo = true;
+    }
   );
 }
 
@@ -1073,7 +1201,10 @@ function renderizarElementosAfinsSelecionados() {
     "listaElementosAfinsSelecionados",
     elementosAfinsSelecionados,
     "Nenhum elemento afim selecionado.",
-    (id) => removerSelecionado(elementosAfinsSelecionados, id, renderizarElementosAfinsSelecionados)
+    (id) => {
+      removerSelecionado(elementosAfinsSelecionados, id, renderizarElementosAfinsSelecionados);
+      formularioRacaSujo = true;
+    }
   );
 }
 
@@ -1082,7 +1213,10 @@ function renderizarRestricoesClasseSelecionadas() {
     "listaRestricoesClasseSelecionadas",
     restricoesClasseSelecionadas,
     "Nenhuma restrição de classe selecionada.",
-    (id) => removerSelecionado(restricoesClasseSelecionadas, id, renderizarRestricoesClasseSelecionadas)
+    (id) => {
+      removerSelecionado(restricoesClasseSelecionadas, id, renderizarRestricoesClasseSelecionadas);
+      formularioRacaSujo = true;
+    }
   );
 }
 
@@ -1091,7 +1225,10 @@ function renderizarEditClassesSugeridasSelecionadas() {
     "editListaClassesSugeridasSelecionadas",
     editClassesSugeridasSelecionadas,
     "Nenhuma classe sugerida selecionada.",
-    (id) => removerSelecionado(editClassesSugeridasSelecionadas, id, renderizarEditClassesSugeridasSelecionadas)
+    (id) => {
+      removerSelecionado(editClassesSugeridasSelecionadas, id, renderizarEditClassesSugeridasSelecionadas);
+      formularioEdicaoRacaSujo = true;
+    }
   );
 }
 
@@ -1100,7 +1237,10 @@ function renderizarEditElementosAfinsSelecionados() {
     "editListaElementosAfinsSelecionados",
     editElementosAfinsSelecionados,
     "Nenhum elemento afim selecionado.",
-    (id) => removerSelecionado(editElementosAfinsSelecionados, id, renderizarEditElementosAfinsSelecionados)
+    (id) => {
+      removerSelecionado(editElementosAfinsSelecionados, id, renderizarEditElementosAfinsSelecionados);
+      formularioEdicaoRacaSujo = true;
+    }
   );
 }
 
@@ -1109,9 +1249,13 @@ function renderizarEditRestricoesClasseSelecionadas() {
     "editListaRestricoesClasseSelecionadas",
     editRestricoesClasseSelecionadas,
     "Nenhuma restrição de classe selecionada.",
-    (id) => removerSelecionado(editRestricoesClasseSelecionadas, id, renderizarEditRestricoesClasseSelecionadas)
+    (id) => {
+      removerSelecionado(editRestricoesClasseSelecionadas, id, renderizarEditRestricoesClasseSelecionadas);
+      formularioEdicaoRacaSujo = true;
+    }
   );
 }
+
 function renderizarRacas() {
   aplicarEstilosBuscaRacas();
 
@@ -1155,7 +1299,7 @@ function renderizarRacas() {
           <p>
             HP: ${raca.hpBase || 0}
             • Mana: ${raca.manaBase || 0}
-            • Velocidade: ${raca.velocidade || 0}
+            • Defesa: ${valorAtributoRaca(raca, "defesa")}
           </p>
         </div>
 
@@ -1220,10 +1364,12 @@ function montarTextoBuscaRaca(raca) {
     raca.nome,
     raca.hpBase,
     raca.manaBase,
+    raca.forca,
+    raca.magia,
+    raca.defesa,
     raca.forcaFisica,
     raca.forcaMagica,
     raca.defesaFisica,
-    raca.defesaMagica,
     raca.velocidade,
     raca.resistencia,
     raca.carismaBonus,
@@ -1255,6 +1401,8 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
   }
 
   if (modoEdicao) {
+    formularioEdicaoRacaSujo = false;
+
     editClassesSugeridasSelecionadas = Array.isArray(raca.classesSugeridas)
       ? [...raca.classesSugeridas]
       : [];
@@ -1289,23 +1437,18 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
             </label>
 
             <label>
-              Força Física
-              <input type="number" id="editRacaForcaFisica" value="${raca.forcaFisica || 0}" />
+              Força
+              <input type="number" id="editRacaForca" value="${valorAtributoRaca(raca, "forca")}" />
             </label>
 
             <label>
-              Força Mágica
-              <input type="number" id="editRacaForcaMagica" value="${raca.forcaMagica || 0}" />
+              Magia
+              <input type="number" id="editRacaMagia" value="${valorAtributoRaca(raca, "magia")}" />
             </label>
 
             <label>
-              Defesa Física
-              <input type="number" id="editRacaDefesaFisica" value="${raca.defesaFisica || 0}" />
-            </label>
-
-            <label>
-              Defesa Mágica
-              <input type="number" id="editRacaDefesaMagica" value="${raca.defesaMagica || 0}" />
+              Defesa
+              <input type="number" id="editRacaDefesa" value="${valorAtributoRaca(raca, "defesa")}" />
             </label>
 
             <label>
@@ -1420,6 +1563,8 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
         editClassesSugeridasSelecionadas,
         renderizarEditClassesSugeridasSelecionadas
       );
+
+      formularioEdicaoRacaSujo = true;
     });
 
     document.getElementById("editAdicionarElementoAfim")?.addEventListener("click", () => {
@@ -1428,6 +1573,8 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
         editElementosAfinsSelecionados,
         renderizarEditElementosAfinsSelecionados
       );
+
+      formularioEdicaoRacaSujo = true;
     });
 
     document.getElementById("editAdicionarRestricaoClasse")?.addEventListener("click", () => {
@@ -1436,17 +1583,21 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
         editRestricoesClasseSelecionadas,
         renderizarEditRestricoesClasseSelecionadas
       );
+
+      formularioEdicaoRacaSujo = true;
     });
 
-    document.getElementById("cancelarEdicaoRaca")?.addEventListener("click", () => {
-      renderizarRacaDetalhe(false);
-    });
-
+    document.getElementById("cancelarEdicaoRaca")?.addEventListener("click", tentarCancelarEdicaoRaca);
     document.getElementById("salvarEdicaoRaca")?.addEventListener("click", salvarEdicaoRaca);
+
+    observarMudancasFormulario(container, () => {
+      formularioEdicaoRacaSujo = true;
+    });
 
     return;
   }
-    container.innerHTML = `
+
+  container.innerHTML = `
     <div class="detail-card">
       <div class="detail-header">
         <div>
@@ -1473,23 +1624,18 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
         </div>
 
         <div class="detail-field">
-          <span>Força Física</span>
-          <strong>${raca.forcaFisica || 0}</strong>
+          <span>Força</span>
+          <strong>${valorAtributoRaca(raca, "forca")}</strong>
         </div>
 
         <div class="detail-field">
-          <span>Força Mágica</span>
-          <strong>${raca.forcaMagica || 0}</strong>
+          <span>Magia</span>
+          <strong>${valorAtributoRaca(raca, "magia")}</strong>
         </div>
 
         <div class="detail-field">
-          <span>Defesa Física</span>
-          <strong>${raca.defesaFisica || 0}</strong>
-        </div>
-
-        <div class="detail-field">
-          <span>Defesa Mágica</span>
-          <strong>${raca.defesaMagica || 0}</strong>
+          <span>Defesa</span>
+          <strong>${valorAtributoRaca(raca, "defesa")}</strong>
         </div>
 
         <div class="detail-field">
@@ -1559,6 +1705,17 @@ export function renderizarRacaDetalhe(modoEdicao = false) {
   });
 }
 
+async function tentarCancelarEdicaoRaca() {
+  if (formularioEdicaoRacaSujo) {
+    const confirmar = await confirmarSaidaSemSalvar("Cancelar edição");
+
+    if (!confirmar) return;
+  }
+
+  formularioEdicaoRacaSujo = false;
+  renderizarRacaDetalhe(false);
+}
+
 async function salvarEdicaoRaca() {
   const raca = state.racaSelecionada;
 
@@ -1586,14 +1743,24 @@ async function salvarEdicaoRaca() {
   const habilidadeExclusivaId = valorCampo("editRacaHabilidadeExclusiva");
   const habilidadeExclusivaNome = textoSelectSelecionado("editRacaHabilidadeExclusiva");
 
+  const forca = numeroCampo("editRacaForca");
+  const magia = numeroCampo("editRacaMagia");
+  const defesa = numeroCampo("editRacaDefesa");
+
   const dadosAtualizados = {
     nome,
     hpBase: numeroCampo("editRacaHpBase"),
     manaBase: numeroCampo("editRacaManaBase"),
-    forcaFisica: numeroCampo("editRacaForcaFisica"),
-    forcaMagica: numeroCampo("editRacaForcaMagica"),
-    defesaFisica: numeroCampo("editRacaDefesaFisica"),
-    defesaMagica: numeroCampo("editRacaDefesaMagica"),
+
+    forca,
+    magia,
+    defesa,
+
+    // Compatibilidade temporária com ficha/personagem antigos.
+    forcaFisica: forca,
+    forcaMagica: magia,
+    defesaFisica: defesa,
+
     velocidade: numeroCampo("editRacaVelocidade"),
     resistencia: numeroCampo("editRacaResistencia"),
     carismaBonus: textoCampo("editRacaCarismaBonus"),
@@ -1619,6 +1786,8 @@ async function salvarEdicaoRaca() {
       ...raca,
       ...dadosAtualizados
     });
+
+    formularioEdicaoRacaSujo = false;
 
     await mostrarModal("Raça atualizada com sucesso.", "Alterações salvas", "success");
 
@@ -1754,6 +1923,24 @@ function aplicarEstilosBuscaRacas() {
   document.head.appendChild(style);
 }
 
+function valorAtributoRaca(raca, atributo) {
+  if (!raca) return 0;
+
+  if (atributo === "forca") {
+    return Number(raca.forca ?? raca.forcaFisica ?? 0) || 0;
+  }
+
+  if (atributo === "magia") {
+    return Number(raca.magia ?? raca.forcaMagica ?? 0) || 0;
+  }
+
+  if (atributo === "defesa") {
+    return Number(raca.defesa ?? raca.defesaFisica ?? raca.defesaMagica ?? 0) || 0;
+  }
+
+  return 0;
+}
+
 function formatarListaObjetos(lista) {
   if (!Array.isArray(lista) || !lista.length) {
     return "Não informado";
@@ -1762,10 +1949,47 @@ function formatarListaObjetos(lista) {
   return lista.map((item) => item.nome || item.id || item).join(", ");
 }
 
+function encontrarPorNome(lista, nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return lista.find((item) => {
+    return normalizarTexto(item.nome || "") === nomeNormalizado;
+  }) || null;
+}
+
+function encontrarHabilidadePorNome(nome) {
+  const nomeNormalizado = normalizarTexto(nome);
+
+  return obterHabilidadesExclusivasRaca().find((habilidade) => {
+    return normalizarTexto(habilidade.nome || "") === nomeNormalizado;
+  }) || null;
+}
+
 function gerarIdTemporario(nome) {
   return normalizarTexto(nome)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || `temp-${Date.now()}`;
+}
+
+function observarMudancasFormulario(container, callback) {
+  if (!container) return;
+
+  const marcar = () => callback();
+
+  container.querySelectorAll("input, textarea, select").forEach((campo) => {
+    campo.addEventListener("input", marcar);
+    campo.addEventListener("change", marcar);
+  });
+}
+
+async function confirmarSaidaSemSalvar(titulo) {
+  return confirmarModal({
+    titulo,
+    mensagem: "Existem alterações não salvas. Tem certeza que deseja sair e perder o que foi preenchido?",
+    confirmarTexto: "Sair sem salvar",
+    cancelarTexto: "Continuar editando",
+    tipo: "danger"
+  });
 }
 
 function escapeHtml(texto) {

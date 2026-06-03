@@ -1,12 +1,23 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
 
 const atributos = [
-  { valor: "forcaFisica", nome: "Força Física" },
-  { valor: "forcaMagica", nome: "Força Mágica" },
-  { valor: "defesaFisica", nome: "Defesa Física" },
-  { valor: "defesaMagica", nome: "Defesa Mágica" },
+  { valor: "forca", nome: "Força" },
+  { valor: "magia", nome: "Magia" },
+  { valor: "defesa", nome: "Defesa" },
   { valor: "velocidade", nome: "Velocidade" },
   { valor: "resistencia", nome: "Resistência" }
+];
+
+const estilosCombate = [
+  { valor: "corpo_a_corpo", nome: "Corpo a Corpo" },
+  { valor: "longa_distancia", nome: "Longa Distância" },
+  { valor: "magico", nome: "Mágico" },
+  { valor: "suporte", nome: "Suporte" },
+  { valor: "controle", nome: "Controle" },
+  { valor: "defensivo", nome: "Defensivo" },
+  { valor: "furtivo", nome: "Furtivo" },
+  { valor: "invocacao", nome: "Invocação" },
+  { valor: "hibrido", nome: "Híbrido" }
 ];
 
 const crud = criarCadastroCrud({
@@ -19,9 +30,25 @@ const crud = criarCadastroCrud({
   listaId: "listaSubclasses",
   detalheContainerId: "subclasseDetalheContainer",
   botaoSalvarId: "salvarSubclasse",
-  camposPrincipais: ["classeBase", "atributoFavorecido", "tipoDanoFavorecido", "estiloCombate"],
-  camposResumo: ["classeBase", "atributoFavorecido", "tipoDanoFavorecido"],
-  camposCard: ["funcaoEspecializada", "estiloCombate"],
+
+  camposPrincipais: [
+    "classeBase",
+    "atributoFavorecido",
+    "tipoDanoFavorecido",
+    "estiloCombate"
+  ],
+
+  camposResumo: [
+    "classeBase",
+    "atributoFavorecido",
+    "tipoDanoFavorecido"
+  ],
+
+  camposCard: [
+    "funcaoEspecializada",
+    "estiloCombate"
+  ],
+
   campos: [
     {
       nome: "nome",
@@ -58,26 +85,29 @@ const crud = criarCadastroCrud({
       nome: "bonusAtributo",
       label: "Bônus de Atributo",
       tipo: "textarea",
-      placeholder: "Ex: +2 em Força Mágica, +1 em Defesa Física por nível..."
+      placeholder: "Ex: +2 em Magia, +1 em Defesa por nível..."
     },
     {
-      nome: "penalidades",
-      label: "Penalidades",
-      tipo: "textarea",
-      placeholder: "Ex: Reduz velocidade, aumenta custo de mana..."
-    },
-    {
-      nome: "habilidadesExclusivas",
-      label: "Habilidades Exclusivas",
-      tipo: "multi",
+      nome: "habilidadeExclusiva",
+      label: "Habilidade Exclusiva",
+      tipo: "select",
       colecao: "habilidades",
-      mensagemVazia: "Nenhuma habilidade cadastrada"
+      filtro: {
+        campo: "categoria",
+        valor: "raca_classe_subclasse"
+      },
+      mensagemVazia: "Nenhuma habilidade exclusiva de raça/classe/subclasse cadastrada"
     },
     {
       nome: "passivasExclusivas",
       label: "Passivas Exclusivas",
-      tipo: "textarea",
-      placeholder: "Liste as passivas exclusivas dessa subclasse..."
+      tipo: "multi",
+      colecao: "habilidades",
+      filtro: {
+        campo: "categoria",
+        valor: "passiva"
+      },
+      mensagemVazia: "Nenhuma habilidade passiva cadastrada"
     },
     {
       nome: "tipoDanoFavorecido",
@@ -95,14 +125,8 @@ const crud = criarCadastroCrud({
     {
       nome: "estiloCombate",
       label: "Estilo de Combate",
-      tipo: "textarea",
-      placeholder: "Ex: Corpo a corpo, longa distância, controle, furtivo..."
-    },
-    {
-      nome: "evolucaoProgressao",
-      label: "Evolução / Progressão",
-      tipo: "textarea",
-      placeholder: "Explique como essa subclasse evolui..."
+      tipo: "select",
+      opcoes: estilosCombate
     }
   ]
 });
