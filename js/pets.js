@@ -89,42 +89,49 @@ const crud = criarCadastroCrud({
       nome: "hp",
       label: "HP",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 60"
     },
     {
       nome: "mana",
       label: "Mana",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 20"
     },
     {
       nome: "forca",
       label: "Força",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 5"
     },
     {
       nome: "magia",
       label: "Magia",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 3"
     },
     {
       nome: "defesa",
       label: "Defesa",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 4"
     },
     {
       nome: "velocidade",
       label: "Velocidade",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 8"
     },
     {
       nome: "resistencia",
       label: "Resistência",
       tipo: "number",
+      grupo: "atributos",
       placeholder: "Ex: 5"
     },
     {

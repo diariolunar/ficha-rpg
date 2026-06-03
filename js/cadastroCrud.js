@@ -43,6 +43,8 @@ export function criarCadastroCrud(config) {
   function iniciar() {
     parar();
 
+    aplicarEstilosCrudVisual();
+
     const ref = collection(db, config.colecao);
     const consulta = query(ref, orderBy(config.campoOrdenacao || "nome", "asc"));
 
@@ -139,6 +141,8 @@ export function criarCadastroCrud(config) {
   }
 
   function init() {
+    aplicarEstilosCrudVisual();
+
     onPageLoaded((pagina) => {
       if (pagina === config.paginaLista) {
         cadastroModalAberto = false;
@@ -277,10 +281,7 @@ export function criarCadastroCrud(config) {
   }
 
   function montarFormulario({ prefixo, titulo, botaoId, botaoTexto, valores, multiselects, modoEdicao }) {
-    const camposHtml = config.campos
-      .map((campo) => montarCampo(campo, prefixo, valores, multiselects))
-      .join("");
-
+    const camposHtml = montarCamposFormulario(prefixo, valores, multiselects);
     const tituloHtml = titulo ? `<h3>${escapeHtml(titulo)}</h3>` : "";
 
     const botoes = modoEdicao
@@ -304,6 +305,71 @@ export function criarCadastroCrud(config) {
         ${botoes}
       </div>
     `;
+  }
+
+  function montarCamposFormulario(prefixo, valores, multiselects) {
+    let html = "";
+    let grupoAtual = null;
+    let camposGrupo = [];
+
+    const fecharGrupo = () => {
+      if (!grupoAtual || camposGrupo.length === 0) return;
+
+      html += montarGrupoVisual(grupoAtual, camposGrupo.join(""));
+      grupoAtual = null;
+      camposGrupo = [];
+    };
+
+    config.campos.forEach((campo) => {
+      const grupo = campo.grupo || "";
+
+      if (!grupo) {
+        fecharGrupo();
+        html += montarCampo(campo, prefixo, valores, multiselects);
+        return;
+      }
+
+      if (grupoAtual && grupoAtual !== grupo) {
+        fecharGrupo();
+      }
+
+      grupoAtual = grupo;
+      camposGrupo.push(montarCampo(campo, prefixo, valores, multiselects));
+    });
+
+    fecharGrupo();
+
+    return html;
+  }
+
+  function montarGrupoVisual(nomeGrupo, conteudo) {
+    const titulo = obterTituloGrupoVisual(nomeGrupo);
+    const classe = obterClasseGrupoVisual(nomeGrupo);
+
+    return `
+      <div class="crud-field-group ${classe}">
+        ${titulo ? `<h4>${escapeHtml(titulo)}</h4>` : ""}
+        <div class="crud-field-grid">
+          ${conteudo}
+        </div>
+      </div>
+    `;
+  }
+
+  function obterTituloGrupoVisual(nomeGrupo) {
+    const titulos = {
+      atributos: "Atributos"
+    };
+
+    return titulos[nomeGrupo] || "";
+  }
+
+  function obterClasseGrupoVisual(nomeGrupo) {
+    const classes = {
+      atributos: "crud-attribute-group"
+    };
+
+    return classes[nomeGrupo] || "";
   }
 
   function montarCampo(campo, prefixo, valores, multiselects) {
@@ -544,8 +610,7 @@ export function criarCadastroCrud(config) {
 
     lista.innerHTML = montarChips(multiselects[campo.nome] || [], "Nenhuma opção selecionada.");
   }
-
-  function marcarFormularioComoSujo(prefixo) {
+    function marcarFormularioComoSujo(prefixo) {
     if (prefixo === "edit") {
       formularioEdicaoSujo = true;
       return;
@@ -1546,6 +1611,57 @@ export function criarCadastroCrud(config) {
 
   function capitalizar(texto) {
     return String(texto || "").charAt(0).toUpperCase() + String(texto || "").slice(1);
+  }
+
+  function aplicarEstilosCrudVisual() {
+    if (document.getElementById("crudVisualStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "crudVisualStyles";
+
+    style.textContent = `
+      .crud-field-group {
+        margin: 18px 0;
+        padding: 0;
+      }
+
+      .crud-field-group h4 {
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 900;
+        color: rgba(255,255,255,0.86);
+      }
+
+      .crud-field-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px 22px;
+      }
+
+      .crud-field-grid label,
+      .crud-field-grid .multi-select-box {
+        margin: 0;
+      }
+
+      .crud-attribute-group {
+        margin-top: 10px;
+        margin-bottom: 22px;
+      }
+
+      @media (max-width: 900px) {
+        .crud-field-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .crud-field-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
   }
 
   return {
