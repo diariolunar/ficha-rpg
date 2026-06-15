@@ -29,6 +29,7 @@ export function criarCadastroCrud(config) {
   let cadastroModalAberto = false;
   let detalheEmEdicao = false;
   let importacaoModalAberta = false;
+  let termoBusca = "";
 
   let formularioCadastroSujo = false;
   let formularioEdicaoSujo = false;
@@ -160,6 +161,7 @@ export function criarCadastroCrud(config) {
         formularioImportacaoSujo = false;
         multiselectsCadastro = criarEstadoMultiselect();
 
+        vincularBuscaLista();
         vincularBotaoAbrirCadastro();
         vincularBotaoAbrirImportacao();
         renderizarLista();
@@ -185,6 +187,23 @@ export function criarCadastroCrud(config) {
     if (!botao) return;
 
     botao.onclick = abrirModalImportacao;
+  }
+
+  function vincularBuscaLista() {
+    const lista = document.getElementById(config.listaId);
+    const inputBuscaId = config.buscaInputId || lista?.dataset.searchInput;
+    const inputBusca = inputBuscaId ? document.getElementById(inputBuscaId) : null;
+
+    if (!inputBusca) {
+      termoBusca = "";
+      return;
+    }
+
+    termoBusca = inputBusca.value || "";
+    inputBusca.oninput = () => {
+      termoBusca = inputBusca.value || "";
+      renderizarLista();
+    };
   }
 
   function abrirModalCadastro() {
@@ -1352,7 +1371,19 @@ export function criarCadastroCrud(config) {
       return;
     }
 
-    registros.forEach((registro) => {
+    const registrosFiltrados = filtrarRegistros();
+
+    if (!registrosFiltrados.length) {
+      lista.innerHTML = `
+        <div class="empty-state">
+          <h3>Nenhum registro encontrado.</h3>
+          <p>Tente buscar por outro nome, atributo, descrição ou relação cadastrada.</p>
+        </div>
+      `;
+      return;
+    }
+
+    registrosFiltrados.forEach((registro) => {
       const card = document.createElement("div");
       card.classList.add("resource-card");
 
@@ -1396,6 +1427,48 @@ export function criarCadastroCrud(config) {
 
       lista.appendChild(card);
     });
+  }
+
+  function filtrarRegistros() {
+    const busca = normalizarTexto(termoBusca);
+
+    if (!busca) return registros;
+
+    return registros.filter((registro) => {
+      return normalizarTexto(montarTextoBuscaRegistro(registro)).includes(busca);
+    });
+  }
+
+  function montarTextoBuscaRegistro(registro) {
+    const camposBusca = config.campos
+      .map((campo) => {
+        return `${campo.label} ${textoBuscaValor(registro[campo.nome])}`;
+      })
+      .join(" ");
+
+    return `${registro.nome || ""} ${config.nomeSingular} ${camposBusca}`;
+  }
+
+  function textoBuscaValor(valor, profundidade = 0) {
+    if (valor === null || valor === undefined) return "";
+
+    if (typeof valor === "string" || typeof valor === "number" || typeof valor === "boolean") {
+      return String(valor);
+    }
+
+    if (Array.isArray(valor)) {
+      return valor.map((item) => textoBuscaValor(item, profundidade + 1)).join(" ");
+    }
+
+    if (typeof valor === "object") {
+      if (profundidade > 2) return "";
+
+      return Object.values(valor)
+        .map((item) => textoBuscaValor(item, profundidade + 1))
+        .join(" ");
+    }
+
+    return "";
   }
 
   function montarResumoCard(registro) {

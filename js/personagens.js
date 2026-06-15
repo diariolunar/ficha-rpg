@@ -1446,10 +1446,10 @@ export function renderizarPersonagens() {
       </div>
 
       <div class="personagem-actions">
-        <button class="primary-btn abrir-ficha-personagem">Abrir ficha</button>
-        <button class="secondary-btn editar-personagem">Editar</button>
-        <button class="secondary-btn vincular-campanha">Vincular campanha</button>
-        <button class="small-btn danger excluir-personagem">Excluir</button>
+        <button class="primary-btn abrir-ficha-personagem" type="button">Abrir ficha</button>
+        <button class="secondary-btn editar-personagem" type="button">Editar</button>
+        <button class="secondary-btn vincular-campanha" type="button">Vincular campanha</button>
+        <button class="small-btn danger excluir-personagem" type="button">Excluir</button>
       </div>
     `;
 

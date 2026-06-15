@@ -92,7 +92,14 @@ function iniciarCatalogosFicha() {
 }
 
 export function abrirFichaPersonagem(personagem) {
-  personagemFichaAtual = personagem;
+  const personagemAtualizado = resolverPersonagemAtualizado(personagem);
+
+  if (!personagemAtualizado) {
+    mostrarModal("Não foi possível encontrar este personagem para abrir a ficha.", "Ficha indisponível", "danger");
+    return;
+  }
+
+  personagemFichaAtual = personagemAtualizado;
 
   aplicarEstilosFicha();
   fecharFichaPersonagem();
@@ -101,22 +108,28 @@ export function abrirFichaPersonagem(personagem) {
   overlay.className = "crud-form-overlay";
   overlay.id = "modalFichaPersonagem";
 
-  overlay.innerHTML = `
-    <div class="crud-form-modal ficha-modal-restaurada">
-      <div class="crud-form-header">
-        <div>
-          <h3>${escapeHtml(personagem.nome || "Ficha do Personagem")}</h3>
-          <p>${escapeHtml(personagem.raca?.nome || personagem.racaNome || "Raça não informada")} • ${escapeHtml(personagem.classe?.nome || personagem.classeNome || "Classe não informada")} • Nível ${personagem.nivel || 1}</p>
+  try {
+    overlay.innerHTML = `
+      <div class="crud-form-modal ficha-modal-restaurada">
+        <div class="crud-form-header">
+          <div>
+            <h3>${escapeHtml(personagemAtualizado.nome || "Ficha do Personagem")}</h3>
+            <p>${escapeHtml(personagemAtualizado.raca?.nome || personagemAtualizado.racaNome || "Raça não informada")} • ${escapeHtml(personagemAtualizado.classe?.nome || personagemAtualizado.classeNome || "Classe não informada")} • Nível ${personagemAtualizado.nivel || 1}</p>
+          </div>
+
+          <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
         </div>
 
-        <button class="crud-form-close" type="button" id="fecharFichaPersonagem">×</button>
+        <div class="crud-form-body">
+          ${montarFichaModal(personagemAtualizado)}
+        </div>
       </div>
-
-      <div class="crud-form-body">
-        ${montarFichaModal(personagem)}
-      </div>
-    </div>
-  `;
+    `;
+  } catch (erro) {
+    console.error("Erro ao abrir ficha do personagem:", erro);
+    mostrarModal("Não foi possível montar a ficha deste personagem. Verifique se raça, classe, itens, habilidades e pet estão cadastrados corretamente.", "Erro na ficha", "danger");
+    return;
+  }
 
   document.body.appendChild(overlay);
 
@@ -1632,4 +1645,12 @@ function aplicarEstilosFicha() {
   `;
 
   document.head.appendChild(style);
+}
+
+function resolverPersonagemAtualizado(personagem) {
+  if (!personagem) return null;
+
+  if (!personagem.id) return personagem;
+
+  return state.personagens.find((item) => item.id === personagem.id) || personagem;
 }
