@@ -14,6 +14,7 @@ import {
 import { state, setRacas, setRacaSelecionada } from "./state.js";
 import { onPageLoaded, navegarPara } from "./navigation.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
+import { atualizarDashboard } from "./dashboard.js";
 
 let unsubscribeRacas = null;
 let unsubscribeClasses = null;
@@ -58,6 +59,7 @@ export function iniciarRacas() {
       });
 
       setRacas(racas);
+      atualizarDashboard();
       sincronizarRacaSelecionada();
       renderizarRacas();
 

@@ -92,6 +92,33 @@ function carregarPersonagensDaCampanha() {
   });
 }
 
+export function pararMestre() {
+  if (unsubscribePersonagens) {
+    unsubscribePersonagens();
+    unsubscribePersonagens = null;
+  }
+
+  if (unsubscribeMonstros) {
+    unsubscribeMonstros();
+    unsubscribeMonstros = null;
+  }
+
+  if (unsubscribeBosses) {
+    unsubscribeBosses();
+    unsubscribeBosses = null;
+  }
+
+  if (unsubscribeSessao) {
+    unsubscribeSessao();
+    unsubscribeSessao = null;
+  }
+
+  personagensMestre = [];
+  monstrosDisponiveis = [];
+  bossesDisponiveis = [];
+  sessaoAtual = null;
+}
+
 function carregarSessaoCampanha() {
   if (unsubscribeSessao) {
     unsubscribeSessao();
@@ -641,8 +668,12 @@ async function limparTodosDados() {
 
 export function initMestre() {
   onPageLoaded((pagina) => {
-    if (pagina !== "mestre") return;
+    if (pagina !== "mestre") {
+      pararMestre();
+      return;
+    }
 
+    pararMestre();
     preencherCampanhasMestre();
     carregarMonstrosEBosses();
 

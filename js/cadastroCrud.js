@@ -56,6 +56,7 @@ export function criarCadastroCrud(config) {
           ...documento.data()
         }));
 
+        notificarAlteracaoRegistros();
         sincronizarSelecionado();
         renderizarLista();
 
@@ -83,6 +84,12 @@ export function criarCadastroCrud(config) {
 
     unsubscribesRelacionados.forEach((unsubscribe) => unsubscribe());
     unsubscribesRelacionados.length = 0;
+  }
+
+  function notificarAlteracaoRegistros() {
+    if (typeof config.onRegistrosChange === "function") {
+      config.onRegistrosChange([...registros]);
+    }
   }
 
   function carregarRelacionados() {

@@ -16,10 +16,11 @@ import { initBosses, iniciarBosses, pararBosses } from "./bosses.js";
 
 import { initCampanhas, iniciarCampanhas, pararCampanhas } from "./campanhas.js";
 import { initPersonagens, iniciarPersonagens, pararPersonagens } from "./personagens.js";
-import { initFicha } from "./ficha.js";
+import { initFicha, iniciarFicha, pararFicha } from "./ficha.js";
 import { initDice } from "./dice.js";
-import { initMestre } from "./mestre.js";
-import { initSessao } from "./sessao.js";
+import { initMestre, pararMestre } from "./mestre.js";
+import { initSessao, pararSessao } from "./sessao.js";
+import { initDashboard, limparDashboard } from "./dashboard.js";
 
 function iniciarApp() {
   initNavigation();
@@ -41,6 +42,7 @@ function iniciarApp() {
   initDice();
   initMestre();
   initSessao();
+  initDashboard();
 
   onPageLoaded(() => {
     aplicarPermissoes();
@@ -60,6 +62,7 @@ function iniciarApp() {
 
     iniciarCampanhas();
     iniciarPersonagens();
+    iniciarFicha();
   });
 
   onLogout(() => {
@@ -76,6 +79,10 @@ function iniciarApp() {
 
     pararCampanhas();
     pararPersonagens();
+    pararFicha();
+    pararMestre();
+    pararSessao();
+    limparDashboard();
   });
 
   initAuth();

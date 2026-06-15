@@ -1,4 +1,5 @@
 import { criarCadastroCrud } from "./cadastroCrud.js";
+import { setTotalCatalogoDashboard } from "./dashboard.js";
 import { onPageLoaded } from "./navigation.js";
 
 let intervaloCondicionalItens = null;
@@ -137,6 +138,9 @@ const crud = criarCadastroCrud({
   listaId: "listaItens",
   detalheContainerId: "itemDetalheContainer",
   botaoSalvarId: "salvarItem",
+  onRegistrosChange: (registros) => {
+    setTotalCatalogoDashboard("itens", registros.length);
+  },
 
   camposPrincipais: [
     "categoria",

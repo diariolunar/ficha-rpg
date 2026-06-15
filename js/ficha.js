@@ -23,13 +23,32 @@ let unsubscribeItensFicha = null;
 
 export function initFicha() {
   aplicarEstilosFicha();
-  iniciarCatalogosFicha();
 
   onPageLoaded((pagina) => {
     if (pagina === "ficha") {
       renderizarTelaFicha();
     }
   });
+}
+
+export function iniciarFicha() {
+  iniciarCatalogosFicha();
+}
+
+export function pararFicha() {
+  if (unsubscribeHabilidadesFicha) {
+    unsubscribeHabilidadesFicha();
+    unsubscribeHabilidadesFicha = null;
+  }
+
+  if (unsubscribeItensFicha) {
+    unsubscribeItensFicha();
+    unsubscribeItensFicha = null;
+  }
+
+  habilidadesCatalogoFicha = [];
+  itensCatalogoFicha = [];
+  personagemFichaAtual = null;
 }
 
 function iniciarCatalogosFicha() {

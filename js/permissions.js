@@ -12,7 +12,7 @@ export function aplicarPermissoes() {
     });
 
     botoesMestre.forEach((botao) => {
-      botao.style.display = "block";
+      botao.style.display = "";
     });
   } else {
     elementosMestre.forEach((elemento) => {

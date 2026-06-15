@@ -69,6 +69,15 @@ function carregarRoteiroSessao() {
   });
 }
 
+export function pararSessao() {
+  if (unsubscribeSessao) {
+    unsubscribeSessao();
+    unsubscribeSessao = null;
+  }
+
+  sessaoAtual = null;
+}
+
 function limparCampos() {
   const campos = [
     "sessaoTitulo",
@@ -135,8 +144,12 @@ async function salvarRoteiroSessao() {
 
 export function initSessao() {
   onPageLoaded((pagina) => {
-    if (pagina !== "sessao") return;
+    if (pagina !== "sessao") {
+      pararSessao();
+      return;
+    }
 
+    pararSessao();
     preencherCampanhasSessao();
 
     document.getElementById("sessaoCampanhaSelect")?.addEventListener("change", carregarRoteiroSessao);

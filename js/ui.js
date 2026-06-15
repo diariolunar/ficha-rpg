@@ -3,6 +3,22 @@ const callbacksFechamentoModal = new WeakMap();
 
 ativarProtecaoGlobalModais();
 
+function normalizarTipoModal(tipo) {
+  return ["danger", "success", "info"].includes(tipo) ? tipo : "info";
+}
+
+function escapeHtml(texto) {
+  return String(texto ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatarMensagemModal(mensagem) {
+  return escapeHtml(mensagem).replaceAll("\n", "<br>");
+}
+
 export function mostrarModal(mensagem, titulo = "Aviso", tipo = "info") {
   return new Promise((resolve) => {
     const modalExistente = document.querySelector(".app-modal-overlay");
@@ -11,17 +27,18 @@ export function mostrarModal(mensagem, titulo = "Aviso", tipo = "info") {
       modalExistente.remove();
     }
 
+    const tipoVisual = normalizarTipoModal(tipo);
     const overlay = document.createElement("div");
     overlay.className = "app-modal-overlay";
 
     overlay.innerHTML = `
       <div class="app-modal">
-        <div class="app-modal-icon ${tipo}">
-          ${tipo === "danger" ? "!" : tipo === "success" ? "✓" : "i"}
+        <div class="app-modal-icon ${tipoVisual}">
+          ${tipoVisual === "danger" ? "!" : tipoVisual === "success" ? "✓" : "i"}
         </div>
 
-        <h3>${titulo}</h3>
-        <p>${mensagem}</p>
+        <h3>${escapeHtml(titulo)}</h3>
+        <p>${formatarMensagemModal(mensagem)}</p>
 
         <div class="app-modal-actions">
           <button class="primary-btn" id="modalOkButton">Entendi</button>
@@ -56,21 +73,22 @@ export function confirmarModal({
       modalExistente.remove();
     }
 
+    const tipoVisual = normalizarTipoModal(tipo);
     const overlay = document.createElement("div");
     overlay.className = "app-modal-overlay";
 
     overlay.innerHTML = `
       <div class="app-modal">
-        <div class="app-modal-icon ${tipo}">
-          ${tipo === "danger" ? "!" : tipo === "success" ? "✓" : "i"}
+        <div class="app-modal-icon ${tipoVisual}">
+          ${tipoVisual === "danger" ? "!" : tipoVisual === "success" ? "✓" : "i"}
         </div>
 
-        <h3>${titulo}</h3>
-        <p>${mensagem}</p>
+        <h3>${escapeHtml(titulo)}</h3>
+        <p>${formatarMensagemModal(mensagem)}</p>
 
         <div class="app-modal-actions">
-          <button class="secondary-btn" id="modalCancelButton">${cancelarTexto}</button>
-          <button class="small-btn danger" id="modalConfirmButton">${confirmarTexto}</button>
+          <button class="secondary-btn" id="modalCancelButton">${escapeHtml(cancelarTexto)}</button>
+          <button class="small-btn danger" id="modalConfirmButton">${escapeHtml(confirmarTexto)}</button>
         </div>
       </div>
     `;
@@ -114,6 +132,8 @@ function ativarProtecaoGlobalModais() {
       if (!(overlay instanceof HTMLElement)) return;
 
       if (!overlay.classList.contains("crud-form-overlay")) return;
+
+      if (overlay.dataset.protegerCliqueFora !== "true") return;
 
       if (event.target !== overlay) return;
 

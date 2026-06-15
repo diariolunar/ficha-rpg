@@ -18,6 +18,7 @@ import { buscarRacaPorId, preencherSelectRacas, atualizarPreviewRaca } from "./r
 import { buscarCampanhaPorId, preencherSelectCampanhas } from "./campanhas.js";
 import { abrirFichaPersonagem } from "./ficha.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
+import { atualizarDashboard } from "./dashboard.js";
 
 let unsubscribePersonagens = null;
 let unsubscribePersonagensCriadosPeloMestre = null;
@@ -1540,6 +1541,8 @@ function atualizarContadorPersonagens() {
   if (contador) {
     contador.textContent = state.personagens.length;
   }
+
+  atualizarDashboard();
 }
 
 function aplicarEstilosCardsPersonagem() {

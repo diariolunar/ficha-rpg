@@ -16,6 +16,7 @@ import {
 import { state, setCampanhas, setPersonagens } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
+import { atualizarDashboard } from "./dashboard.js";
 
 let unsubscribeCampanhas = null;
 let unsubscribeCampanhasCriadasPor = null;
@@ -2669,6 +2670,8 @@ function atualizarContadorCampanhas() {
   const contador = document.getElementById("contadorCampanhas");
 
   if (contador) contador.textContent = state.minhasCampanhas.length;
+
+  atualizarDashboard();
 }
 
 function obterHabilidadesDoPersonagem(personagem) {
