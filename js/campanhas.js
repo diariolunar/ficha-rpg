@@ -722,11 +722,22 @@ async function entrarCampanha() {
       jogadoresIds,
       jogadores
     };
+    const personagensVinculados = await vincularPersonagensDoJogadorCampanha(
+      campanhaAtualizada,
+      state.usuarioAtual.uid,
+      { somenteLivres: true }
+    );
 
     atualizarCampanhaLocal(campanhaAtualizada);
     preencherSelectCampanhas();
 
-    await mostrarModal("Você entrou na campanha com sucesso.", "Campanha vinculada", "success");
+    await mostrarModal(
+      personagensVinculados.length
+        ? `Você entrou na campanha com sucesso. ${personagensVinculados.length} personagem(ns) livre(s) também foram vinculados.`
+        : "Você entrou na campanha com sucesso. Agora vincule um personagem a esta campanha pela tela de Personagens.",
+      "Campanha vinculada",
+      "success"
+    );
 
     fecharModalEntradaCampanha();
   } catch (erro) {
@@ -771,6 +782,11 @@ function abrirModalVincularJogadorCampanha(campanha) {
           <label>
             E-mail do jogador
             <input type="email" id="emailJogadorVinculoCampanha" placeholder="jogador@email.com" />
+          </label>
+
+          <label class="campaign-checkbox-line">
+            <input type="checkbox" id="vincularPersonagensJogadorCampanha" checked />
+            Vincular personagens livres deste jogador à campanha
           </label>
 
           <div class="action-row">
@@ -831,21 +847,25 @@ async function salvarVinculoJogadorCampanha() {
       ? [...campanhaSelecionadaAcao.jogadores]
       : [];
 
-    if (jogadoresIds.includes(usuarioEncontrado.id)) {
-      await mostrarModal("Esse jogador já está vinculado à campanha.", "Jogador já vinculado");
-      return;
-    }
-
     const jogador = {
       id: usuarioEncontrado.id,
       nome: usuarioEncontrado.nome || usuarioEncontrado.email,
       email: usuarioEncontrado.email
     };
+    const jaEstavaVinculado = jogadoresIds.includes(usuarioEncontrado.id);
 
-    jogadoresIds.push(usuarioEncontrado.id);
-    jogadores.push(jogador);
+    if (!jaEstavaVinculado) {
+      jogadoresIds.push(usuarioEncontrado.id);
+      jogadores.push(jogador);
+    }
 
-    const texto = `${jogador.nome || jogador.email} foi vinculado à campanha pelo Mestre.`;
+    const deveVincularPersonagens = document.getElementById("vincularPersonagensJogadorCampanha")?.checked !== false;
+    const personagensVinculados = deveVincularPersonagens
+      ? await vincularPersonagensDoJogadorCampanha(campanhaSelecionadaAcao, usuarioEncontrado.id, { somenteLivres: true })
+      : [];
+    const texto = jaEstavaVinculado
+      ? `${jogador.nome || jogador.email} já estava vinculado. ${personagensVinculados.length} personagem(ns) foram associados à campanha.`
+      : `${jogador.nome || jogador.email} foi vinculado à campanha pelo Mestre. ${personagensVinculados.length} personagem(ns) foram associados à campanha.`;
 
     await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
       jogadoresIds,
@@ -863,7 +883,13 @@ async function salvarVinculoJogadorCampanha() {
       historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "jogador")
     });
 
-    await mostrarModal("Jogador vinculado com sucesso.", "Campanha atualizada", "success");
+    await mostrarModal(
+      personagensVinculados.length
+        ? `Jogador vinculado com sucesso. ${personagensVinculados.length} personagem(ns) agora aparecem na campanha.`
+        : "Jogador vinculado, mas nenhum personagem livre desse jogador foi encontrado. O jogador pode vincular um personagem pela tela Personagens.",
+      "Campanha atualizada",
+      "success"
+    );
     fecharModalAcaoPersonagem();
   } catch (erro) {
     console.error("Erro ao vincular jogador:", erro);
@@ -892,6 +918,70 @@ async function buscarUsuarioPorEmail(email) {
     id: usuarioDoc.id,
     ...usuarioDoc.data()
   };
+}
+
+async function vincularPersonagensDoJogadorCampanha(campanha, jogadorId, opcoes = {}) {
+  if (!campanha?.id || !jogadorId) return [];
+
+  const personagensRef = collection(db, "personagens");
+  const resultado = await getDocs(query(personagensRef, where("donoId", "==", jogadorId)));
+  const personagens = resultado.docs.map((personagemDoc) => ({
+    id: personagemDoc.id,
+    ...personagemDoc.data()
+  }));
+  const somenteLivres = opcoes.somenteLivres !== false;
+  const vinculaveis = personagens.filter((personagem) => {
+    if (personagem.campanhaId === campanha.id) return false;
+    if (!somenteLivres) return true;
+
+    return !personagem.campanhaId || personagem.campanhaNome === "Sem campanha";
+  });
+  const atualizados = [];
+
+  for (const personagem of vinculaveis) {
+    const personagemAtualizado = {
+      ...personagem,
+      campanhaId: campanha.id,
+      campanhaNome: campanha.nome || "Campanha",
+      mestreId: campanha.mestreId || campanha.criadoPor || state.usuarioAtual.uid,
+      atualizadoEmTexto: new Date().toLocaleString("pt-BR")
+    };
+
+    await updateDoc(doc(db, "personagens", personagem.id), {
+      campanhaId: personagemAtualizado.campanhaId,
+      campanhaNome: personagemAtualizado.campanhaNome,
+      mestreId: personagemAtualizado.mestreId,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizados.push(personagemAtualizado);
+  }
+
+  if (atualizados.length) {
+    atualizarPersonagensLocais(atualizados);
+  }
+
+  return atualizados;
+}
+
+function atualizarPersonagensLocais(personagensAtualizados) {
+  const mapa = new Map();
+
+  (state.personagens || []).forEach((personagem) => {
+    mapa.set(personagem.id, personagem);
+  });
+
+  personagensAtualizados.forEach((personagem) => {
+    mapa.set(personagem.id, {
+      ...(mapa.get(personagem.id) || {}),
+      ...personagem
+    });
+  });
+
+  const personagens = Array.from(mapa.values()).sort(ordenarPersonagens);
+
+  setPersonagens(personagens);
+  renderizarCampanhas();
 }
 
 async function iniciarSessaoCampanha(campanha) {
@@ -4885,6 +4975,20 @@ function aplicarEstilosCampanhas() {
       color: rgba(255,255,255,0.76);
       line-height: 1.45;
       font-weight: 700;
+    }
+
+    .campaign-checkbox-line {
+      display: flex !important;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.82);
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .campaign-checkbox-line input {
+      width: auto;
+      accent-color: #f5f5f5;
     }
 
     @media (max-width: 920px) {
