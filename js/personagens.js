@@ -1324,11 +1324,9 @@ function abrirModalVincularCampanha(personagem) {
 
   preencherSelectCampanhas();
 
-  const selectOriginal = document.getElementById("personagemCampanha");
   const selectVinculo = document.getElementById("vincularCampanhaSelect");
 
-  if (selectOriginal && selectVinculo) {
-    selectVinculo.innerHTML = selectOriginal.innerHTML;
+  if (selectVinculo) {
     selectVinculo.value = personagem.campanhaId || "";
   }
 

@@ -353,6 +353,25 @@ function atualizarListaCampanhasCombinada() {
   atualizarContadorCampanhas();
 }
 
+function atualizarCampanhaLocal(campanhaAtualizada) {
+  if (!campanhaAtualizada?.id) return;
+
+  const mapa = new Map();
+
+  (state.minhasCampanhas || []).forEach((campanha) => {
+    mapa.set(campanha.id, campanha);
+  });
+
+  mapa.set(campanhaAtualizada.id, campanhaAtualizada);
+
+  const campanhas = Array.from(mapa.values()).sort(ordenarCampanhas);
+
+  setCampanhas(campanhas);
+  renderizarCampanhas();
+  preencherSelectCampanhas();
+  atualizarContadorCampanhas();
+}
+
 function ordenarCampanhas(a, b) {
   const dataA = converterDataOrdenacao(a.criadoEm || a.atualizadoEm);
   const dataB = converterDataOrdenacao(b.criadoEm || b.atualizadoEm);
@@ -697,6 +716,16 @@ async function entrarCampanha() {
       atualizadoEm: serverTimestamp()
     });
 
+    const campanhaAtualizada = {
+      id: campanhaDoc.id,
+      ...campanha,
+      jogadoresIds,
+      jogadores
+    };
+
+    atualizarCampanhaLocal(campanhaAtualizada);
+    preencherSelectCampanhas();
+
     await mostrarModal("Você entrou na campanha com sucesso.", "Campanha vinculada", "success");
 
     fecharModalEntradaCampanha();
@@ -704,6 +733,165 @@ async function entrarCampanha() {
     console.error("Erro ao entrar na campanha:", erro);
     await mostrarModal("Erro ao entrar na campanha.", "Erro", "danger");
   }
+}
+
+function abrirModalVincularJogadorCampanha(campanha) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const jogadores = Array.isArray(campanha.jogadores) ? campanha.jogadores : [];
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Vincular jogador</h3>
+          <p>Adicione à campanha um jogador que já tenha conta cadastrada no sistema.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <div class="campaign-summary-box">
+            <h4>Jogadores vinculados</h4>
+            ${
+              jogadores.length
+                ? jogadores.map((jogador) => `<p>${escapeHtml(jogador.nome || jogador.email || "Jogador")}</p>`).join("")
+                : "<p>Nenhum jogador vinculado ainda.</p>"
+            }
+          </div>
+
+          <label>
+            E-mail do jogador
+            <input type="email" id="emailJogadorVinculoCampanha" placeholder="jogador@email.com" />
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarVinculoJogadorCampanha">Vincular jogador</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarVinculoJogadorCampanha")?.addEventListener("click", salvarVinculoJogadorCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function salvarVinculoJogadorCampanha() {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  if (!podeControlarCampanha(campanhaSelecionadaAcao)) {
+    await mostrarModal("Apenas o Mestre desta campanha pode vincular jogadores.", "Permissão negada", "danger");
+    return;
+  }
+
+  const email = textoCampo("emailJogadorVinculoCampanha").toLowerCase();
+
+  if (!email) {
+    await mostrarModal("Digite o e-mail do jogador.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  try {
+    const usuarioEncontrado = await buscarUsuarioPorEmail(email);
+
+    if (!usuarioEncontrado) {
+      await mostrarModal("Nenhuma conta foi encontrada com esse e-mail. O jogador precisa criar uma conta antes.", "Jogador não encontrado", "danger");
+      return;
+    }
+
+    if (usuarioEncontrado.id === state.usuarioAtual.uid) {
+      await mostrarModal("Você é o Mestre desta campanha.", "Vínculo não necessário");
+      return;
+    }
+
+    const jogadoresIds = Array.isArray(campanhaSelecionadaAcao.jogadoresIds)
+      ? [...campanhaSelecionadaAcao.jogadoresIds]
+      : [];
+    const jogadores = Array.isArray(campanhaSelecionadaAcao.jogadores)
+      ? [...campanhaSelecionadaAcao.jogadores]
+      : [];
+
+    if (jogadoresIds.includes(usuarioEncontrado.id)) {
+      await mostrarModal("Esse jogador já está vinculado à campanha.", "Jogador já vinculado");
+      return;
+    }
+
+    const jogador = {
+      id: usuarioEncontrado.id,
+      nome: usuarioEncontrado.nome || usuarioEncontrado.email,
+      email: usuarioEncontrado.email
+    };
+
+    jogadoresIds.push(usuarioEncontrado.id);
+    jogadores.push(jogador);
+
+    const texto = `${jogador.nome || jogador.email} foi vinculado à campanha pelo Mestre.`;
+
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      jogadoresIds,
+      jogadores,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "jogador"),
+      mensagemSessao: texto,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarCampanhaLocal({
+      ...campanhaSelecionadaAcao,
+      jogadoresIds,
+      jogadores,
+      mensagemSessao: texto,
+      historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "jogador")
+    });
+
+    await mostrarModal("Jogador vinculado com sucesso.", "Campanha atualizada", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao vincular jogador:", erro);
+    await mostrarModal("Erro ao vincular jogador. Verifique o e-mail e as permissões do Firestore.", "Erro", "danger");
+  }
+}
+
+async function buscarUsuarioPorEmail(email) {
+  const usuariosRef = collection(db, "usuarios");
+  const consulta = query(usuariosRef, where("email", "==", email));
+  let resultado = await getDocs(consulta);
+
+  if (resultado.empty) {
+    const emailOriginal = textoCampo("emailJogadorVinculoCampanha");
+
+    if (emailOriginal && emailOriginal !== email) {
+      resultado = await getDocs(query(usuariosRef, where("email", "==", emailOriginal)));
+    }
+  }
+
+  if (resultado.empty) return null;
+
+  const usuarioDoc = resultado.docs[0];
+
+  return {
+    id: usuarioDoc.id,
+    ...usuarioDoc.data()
+  };
 }
 
 async function iniciarSessaoCampanha(campanha) {
@@ -1737,6 +1925,7 @@ export function buscarCampanhaPorId(id) {
 export function preencherSelectCampanhas() {
   const selects = [
     document.getElementById("personagemCampanha"),
+    document.getElementById("vincularCampanhaSelect"),
     document.getElementById("mestreCampanhaSelect"),
     document.getElementById("sessaoCampanhaSelect")
   ];
@@ -1749,14 +1938,14 @@ export function preencherSelectCampanhas() {
 
     select.innerHTML = "";
 
-    if (idSelect === "personagemCampanha") {
+    if (idSelect === "personagemCampanha" || idSelect === "vincularCampanhaSelect") {
       select.innerHTML = `<option value="">Nenhuma campanha</option>`;
     } else {
       select.innerHTML = `<option value="">Selecione uma campanha</option>`;
     }
 
     if (!state.minhasCampanhas || state.minhasCampanhas.length === 0) {
-      if (idSelect !== "personagemCampanha") {
+      if (idSelect !== "personagemCampanha" && idSelect !== "vincularCampanhaSelect") {
         select.innerHTML = `<option value="">Nenhuma campanha disponível</option>`;
       }
 
@@ -1905,6 +2094,7 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
   const botaoEditar = card.querySelector(".editar-campanha");
   const botaoExcluir = card.querySelector(".excluir-campanha");
   const botaoRolar = card.querySelector(".rolar-d20-sessao");
+  const botaoVincularJogador = card.querySelector(".vincular-jogador-campanha");
 
   if (botaoIniciar) botaoIniciar.addEventListener("click", () => iniciarSessaoCampanha(campanha));
   if (botaoPausar) botaoPausar.addEventListener("click", () => pausarSessaoCampanha(campanha));
@@ -1914,6 +2104,7 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
   if (botaoEditar) botaoEditar.addEventListener("click", () => abrirEdicaoCampanha(campanha));
   if (botaoExcluir) botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
   if (botaoRolar) botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
+  if (botaoVincularJogador) botaoVincularJogador.addEventListener("click", () => abrirModalVincularJogadorCampanha(campanha));
 
   card.querySelectorAll(".ataque-alvo-campanha").forEach((botao) => {
     botao.addEventListener("click", () => abrirModalAcaoAlvo(campanha, "dano"));
@@ -2165,6 +2356,7 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
       <button class="secondary-btn adicionar-monstro-campanha">Adicionar monstro</button>
       <button class="secondary-btn adicionar-boss-campanha">Adicionar boss</button>
       <button class="secondary-btn criar-boss-campanha">Criar boss</button>
+      <button class="secondary-btn vincular-jogador-campanha">Vincular jogador</button>
       <button class="secondary-btn aplicar-recompensas-campanha">Aplicar recompensas</button>
       <button class="secondary-btn resumo-sessao-campanha">Resumo da sessão</button>
       <button class="secondary-btn exportar-historico-campanha">Exportar histórico</button>
@@ -2179,6 +2371,7 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
 
   return `
     <button class="primary-btn iniciar-sessao-campanha">Iniciar sessão</button>
+    <button class="secondary-btn vincular-jogador-campanha">Vincular jogador</button>
     <button class="secondary-btn editar-campanha">Editar</button>
     <button class="small-btn danger excluir-campanha">Excluir</button>
   `;
