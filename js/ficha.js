@@ -127,7 +127,7 @@ export function abrirFichaPersonagem(personagem) {
     `;
   } catch (erro) {
     console.error("Erro ao abrir ficha do personagem:", erro);
-    mostrarModal("Não foi possível montar a ficha deste personagem. Verifique se raça, classe, itens, habilidades e pet estão cadastrados corretamente.", "Erro na ficha", "danger");
+    mostrarModal("Não foi possível montar a ficha por um erro interno de renderização. Atualize a página e tente novamente.", "Erro na ficha", "danger");
     return;
   }
 
@@ -649,6 +649,26 @@ function montarPet(personagem) {
   `;
 }
 
+function montarCondicoes(personagem) {
+  const condicoes = Array.isArray(personagem?.condicoes)
+    ? personagem.condicoes.filter(Boolean)
+    : [];
+
+  if (!condicoes.length) {
+    return `<p>Sem condições ativas.</p>`;
+  }
+
+  return `
+    <div class="sheet-condition-list">
+      ${condicoes
+        .map((condicao) => {
+          return `<span class="sheet-condition-chip">${escapeHtml(formatarValor(condicao))}</span>`;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 async function usarHabilidadeFicha(habilidadeId, origem) {
   if (!personagemFichaAtual) {
     await mostrarModal("Nenhum personagem selecionado.", "Erro", "danger");
@@ -764,7 +784,7 @@ async function usarItemFicha(itemId, origem) {
 
 
 function obterPetsPersonagem(personagem) {
-  if (Array.isArray(personagem?.pets)) return personagem.pets;
+  if (Array.isArray(personagem?.pets)) return personagem.pets.filter(Boolean);
   if (personagem?.pet) return [personagem.pet];
   return [];
 }
@@ -1068,14 +1088,14 @@ function obterCooldownRestante(personagem, habilidadeId) {
 
 function obterInventarioPersonagem(personagem) {
   if (Array.isArray(personagem.inventario) && personagem.inventario.length > 0) {
-    return personagem.inventario.map((item) => completarItem(item));
+    return personagem.inventario.map((item) => completarItem(item)).filter(Boolean);
   }
 
   if (Array.isArray(personagem.itensIniciais)) {
     return personagem.itensIniciais.map((item) => completarItem({
       ...item,
       quantidade: item.quantidade || 1
-    }));
+    })).filter(Boolean);
   }
 
   return [];
