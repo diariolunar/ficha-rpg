@@ -71,6 +71,31 @@ const ATRIBUTOS_LEVEL_UP = [
   "resistencia"
 ];
 
+const STATUS_PERSONAGEM_CAMPANHA = {
+  pendente: "Pendente",
+  aprovado: "Aprovado",
+  recusado: "Recusado"
+};
+
+const TIPOS_HISTORICO_CAMPANHA = [
+  "sistema",
+  "jogador",
+  "personagem",
+  "batalha",
+  "turno",
+  "dado",
+  "dano",
+  "cura",
+  "ataque",
+  "habilidade",
+  "item",
+  "pet",
+  "condicao",
+  "recompensa",
+  "resumo",
+  "boss"
+];
+
 export function iniciarCampanhas() {
   pararCampanhas();
 
@@ -637,6 +662,11 @@ async function criarCampanha() {
       personagemTurnoNome: "",
       personagemTurnoDonoId: "",
       ultimoResultadoD20: null,
+      personagensAprovados: [],
+      personagensPendentes: [],
+      sessoesCampanha: [],
+      batalhasSessao: [],
+      batalhaAtivaId: "",
       bossesHistoricosMortos: [],
       bossesFarmCooldown: {},
       historicoSessao: [
@@ -725,7 +755,7 @@ async function entrarCampanha() {
     const personagensVinculados = await vincularPersonagensDoJogadorCampanha(
       campanhaAtualizada,
       state.usuarioAtual.uid,
-      { somenteLivres: true }
+      { somenteLivres: true, statusCampanha: "pendente" }
     );
 
     atualizarCampanhaLocal(campanhaAtualizada);
@@ -861,7 +891,7 @@ async function salvarVinculoJogadorCampanha() {
 
     const deveVincularPersonagens = document.getElementById("vincularPersonagensJogadorCampanha")?.checked !== false;
     const personagensVinculados = deveVincularPersonagens
-      ? await vincularPersonagensDoJogadorCampanha(campanhaSelecionadaAcao, usuarioEncontrado.id, { somenteLivres: true })
+      ? await vincularPersonagensDoJogadorCampanha(campanhaSelecionadaAcao, usuarioEncontrado.id, { somenteLivres: true, statusCampanha: "aprovado" })
       : [];
     const texto = jaEstavaVinculado
       ? `${jogador.nome || jogador.email} já estava vinculado. ${personagensVinculados.length} personagem(ns) foram associados à campanha.`
@@ -930,6 +960,7 @@ async function vincularPersonagensDoJogadorCampanha(campanha, jogadorId, opcoes 
     ...personagemDoc.data()
   }));
   const somenteLivres = opcoes.somenteLivres !== false;
+  const statusCampanha = opcoes.statusCampanha || "pendente";
   const vinculaveis = personagens.filter((personagem) => {
     if (personagem.campanhaId === campanha.id) return false;
     if (!somenteLivres) return true;
@@ -944,6 +975,9 @@ async function vincularPersonagensDoJogadorCampanha(campanha, jogadorId, opcoes 
       campanhaId: campanha.id,
       campanhaNome: campanha.nome || "Campanha",
       mestreId: campanha.mestreId || campanha.criadoPor || state.usuarioAtual.uid,
+      statusCampanha,
+      aprovadoCampanha: statusCampanha === "aprovado",
+      aprovadoCampanhaEmTexto: statusCampanha === "aprovado" ? new Date().toLocaleString("pt-BR") : "",
       atualizadoEmTexto: new Date().toLocaleString("pt-BR")
     };
 
@@ -951,6 +985,9 @@ async function vincularPersonagensDoJogadorCampanha(campanha, jogadorId, opcoes 
       campanhaId: personagemAtualizado.campanhaId,
       campanhaNome: personagemAtualizado.campanhaNome,
       mestreId: personagemAtualizado.mestreId,
+      statusCampanha: personagemAtualizado.statusCampanha,
+      aprovadoCampanha: personagemAtualizado.aprovadoCampanha,
+      aprovadoCampanhaEmTexto: personagemAtualizado.aprovadoCampanhaEmTexto,
       atualizadoEm: serverTimestamp()
     });
 
@@ -990,11 +1027,16 @@ async function iniciarSessaoCampanha(campanha) {
     return;
   }
 
+  const todosPersonagens = obterTodosPersonagensDaCampanha(campanha);
   const personagens = obterPersonagensDaCampanha(campanha);
 
   if (!personagens.length) {
+    const pendentes = todosPersonagens.filter((personagem) => obterStatusPersonagemCampanha(personagem, campanha) === "pendente");
+
     await mostrarModal(
-      "Nenhum personagem está vinculado a esta campanha. Vincule pelo menos um personagem antes de iniciar a sessão.",
+      pendentes.length
+        ? `Nenhum personagem aprovado para iniciar. Aprove pelo menos um dos ${pendentes.length} personagem(ns) pendente(s).`
+        : "Nenhum personagem está vinculado a esta campanha. Vincule pelo menos um personagem antes de iniciar a sessão.",
       "Sem personagens",
       "danger"
     );
@@ -1012,6 +1054,14 @@ async function iniciarSessaoCampanha(campanha) {
   if (!confirmar) return;
 
   const bossesFarmCooldown = obterBossesFarmCooldown(campanha);
+  const sessaoAtualId = `sessao-${Date.now()}`;
+  const sessaoRegistro = {
+    id: sessaoAtualId,
+    status: "ativa",
+    rodadaInicial: 1,
+    participantesIds: personagens.map((personagem) => personagem.id),
+    iniciadaEmTexto: new Date().toLocaleString("pt-BR")
+  };
   const ordemTurnos = criarOrdemTurnos(personagens, {
     ...campanha,
     bossesFarmCooldown
@@ -1031,6 +1081,8 @@ async function iniciarSessaoCampanha(campanha) {
       turnoAtual: 1,
       turnoIndice: 0,
       ordemTurnos,
+      sessaoAtualId,
+      sessoesCampanha: [sessaoRegistro, ...(Array.isArray(campanha.sessoesCampanha) ? campanha.sessoesCampanha : [])],
       personagemTurnoId: primeiro?.tipo === "personagem" ? primeiro.personagemId : "",
       entidadeTurnoId: primeiro?.entidadeId || "",
       entidadeTurnoTipo: primeiro?.tipo || "",
@@ -1096,9 +1148,23 @@ async function encerrarSessaoCampanha(campanha) {
   if (!confirmar) return;
 
   try {
+    const sessoesCampanha = Array.isArray(campanha.sessoesCampanha)
+      ? campanha.sessoesCampanha.map((sessao) => {
+          if (sessao.id !== campanha.sessaoAtualId) return sessao;
+
+          return {
+            ...sessao,
+            status: "encerrada",
+            encerradaEmTexto: new Date().toLocaleString("pt-BR")
+          };
+        })
+      : [];
+
     await updateDoc(doc(db, "campanhas", campanha.id), {
       status: "encerrada",
       sessaoAtiva: false,
+      sessaoAtualId: "",
+      sessoesCampanha,
       personagemTurnoId: "",
       entidadeTurnoId: "",
       entidadeTurnoTipo: "",
@@ -1174,6 +1240,7 @@ async function avancarRodadaCampanha(campanha) {
 
   for (const personagem of obterPersonagensDaCampanha(campanha)) {
     await reduzirCooldownsDoPersonagem(personagem.id);
+    await reduzirCondicoesDoPersonagem(personagem.id);
 
     for (const pet of obterPetsPersonagemCampanha(personagem)) {
       await reduzirCooldownsDoPet(personagem.id, pet.id);
@@ -1725,7 +1792,7 @@ function abrirModalCondicao(campanha, personagem, modo) {
   campanhaSelecionadaAcao = campanha;
   personagemSelecionadoAcao = personagem;
 
-  const condicoesAtuais = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
+  const condicoesAtuais = normalizarCondicoesPersonagem(personagem);
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -1753,11 +1820,32 @@ function abrirModalCondicao(campanha, personagem, modo) {
             <select id="condicaoSelecionada">
               ${
                 opcoes.length
-                  ? opcoes.map((condicao) => `<option value="${escapeHtml(condicao)}">${escapeHtml(condicao)}</option>`).join("")
+                  ? opcoes.map((condicao) => {
+                      const nomeCondicao = obterNomeCondicaoCampanha(condicao);
+                      return `<option value="${escapeHtml(nomeCondicao)}">${escapeHtml(rotuloCondicaoCampanha(condicao))}</option>`;
+                    }).join("")
                   : `<option value="">Nenhuma condição disponível</option>`
               }
             </select>
           </label>
+
+          ${
+            modo === "remover"
+              ? ""
+              : `
+                <div class="form-grid">
+                  <label>
+                    Duração em turnos
+                    <input type="number" id="condicaoDuracaoTurnos" value="0" min="0" />
+                  </label>
+
+                  <label>
+                    Origem
+                    <input type="text" id="condicaoOrigem" placeholder="Ex: Magia, veneno, item..." />
+                  </label>
+                </div>
+              `
+          }
 
           <div class="action-row">
             <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
@@ -1794,21 +1882,26 @@ async function salvarCondicaoPersonagem(modo) {
     return;
   }
 
-  const condicoesAtuais = Array.isArray(personagemSelecionadoAcao.condicoes)
-    ? [...personagemSelecionadoAcao.condicoes]
-    : [];
+  const condicoesAtuais = normalizarCondicoesPersonagem(personagemSelecionadoAcao);
+  const duracao = Math.max(0, numeroCampo("condicaoDuracaoTurnos"));
+  const origem = textoCampo("condicaoOrigem");
 
   let novasCondicoes = [...condicoesAtuais];
 
   if (modo === "remover") {
-    novasCondicoes = novasCondicoes.filter((item) => item !== condicao);
-  } else if (!novasCondicoes.includes(condicao)) {
-    novasCondicoes.push(condicao);
+    novasCondicoes = novasCondicoes.filter((item) => obterNomeCondicaoCampanha(item) !== condicao);
+  } else if (!novasCondicoes.some((item) => obterNomeCondicaoCampanha(item) === condicao)) {
+    novasCondicoes.push({
+      nome: condicao,
+      duracao,
+      origem,
+      aplicadoEmTexto: new Date().toLocaleString("pt-BR")
+    });
   }
 
   const texto = modo === "remover"
     ? `${condicao} foi removido de ${personagemSelecionadoAcao.nome || "Personagem"}.`
-    : `${personagemSelecionadoAcao.nome || "Personagem"} recebeu a condição ${condicao}.`;
+    : `${personagemSelecionadoAcao.nome || "Personagem"} recebeu a condição ${condicao}${duracao > 0 ? ` por ${duracao} turno(s)` : ""}.`;
 
   try {
     await updateDoc(doc(db, "personagens", personagemSelecionadoAcao.id), {
@@ -1830,6 +1923,79 @@ async function salvarCondicaoPersonagem(modo) {
   }
 }
 
+function normalizarCondicoesPersonagem(personagem) {
+  const condicoes = Array.isArray(personagem?.condicoes) ? personagem.condicoes : [];
+
+  return condicoes
+    .filter(Boolean)
+    .map((condicao) => {
+      if (typeof condicao === "object") {
+        return {
+          nome: condicao.nome || condicao.condicao || "Condição",
+          duracao: Number(condicao.duracao ?? condicao.turnos ?? 0) || 0,
+          origem: condicao.origem || "",
+          aplicadoEmTexto: condicao.aplicadoEmTexto || condicao.criadoEmTexto || ""
+        };
+      }
+
+      return {
+        nome: String(condicao),
+        duracao: 0,
+        origem: "",
+        aplicadoEmTexto: ""
+      };
+    });
+}
+
+function obterNomeCondicaoCampanha(condicao) {
+  if (typeof condicao === "object") return condicao.nome || condicao.condicao || "Condição";
+  return String(condicao || "");
+}
+
+function rotuloCondicaoCampanha(condicao) {
+  const normalizada = typeof condicao === "object"
+    ? condicao
+    : { nome: String(condicao || "") };
+  const partes = [normalizada.nome || "Condição"];
+  const duracao = Number(normalizada.duracao || 0);
+
+  if (duracao > 0) partes.push(`${duracao}t`);
+  if (normalizada.origem) partes.push(normalizada.origem);
+
+  return partes.join(" • ");
+}
+
+async function reduzirCondicoesDoPersonagem(personagemId) {
+  const personagem = state.personagens.find((item) => item.id === personagemId);
+
+  if (!personagem || !Array.isArray(personagem.condicoes)) return;
+
+  let alterou = false;
+  const condicoes = normalizarCondicoesPersonagem(personagem)
+    .map((condicao) => {
+      const duracao = Number(condicao.duracao || 0);
+
+      if (duracao <= 0) return condicao;
+
+      alterou = true;
+
+      return {
+        ...condicao,
+        duracao: Math.max(0, duracao - 1),
+        expirada: duracao - 1 <= 0
+      };
+    })
+    .filter((condicao) => !condicao.expirada)
+    .map(({ expirada, ...condicao }) => condicao);
+
+  if (!alterou) return;
+
+  await updateDoc(doc(db, "personagens", personagemId), {
+    condicoes,
+    atualizadoEm: serverTimestamp()
+  });
+}
+
 function fecharModalAcaoPersonagem() {
   const overlay = document.getElementById("modalAcaoPersonagem");
 
@@ -1847,12 +2013,37 @@ function obterPersonagensDisponiveisParaAcao(campanha) {
   return personagens.filter((personagem) => personagem.donoId === state.usuarioAtual.uid);
 }
 
-function obterPersonagensDaCampanha(campanha) {
+function obterTodosPersonagensDaCampanha(campanha) {
   if (!Array.isArray(state.personagens)) return [];
 
   return state.personagens
     .filter((personagem) => personagem.campanhaId === campanha.id)
     .sort(ordenarPersonagens);
+}
+
+function obterPersonagensDaCampanha(campanha) {
+  return obterTodosPersonagensDaCampanha(campanha)
+    .filter((personagem) => personagemAprovadoParaCampanha(personagem, campanha));
+}
+
+function obterStatusPersonagemCampanha(personagem, campanha = null) {
+  const status = String(personagem?.statusCampanha || "").toLowerCase();
+
+  if (STATUS_PERSONAGEM_CAMPANHA[status]) return status;
+
+  if (personagem?.aprovadoCampanha === true) return "aprovado";
+  if (campanha && Array.isArray(campanha.personagensPendentes) && campanha.personagensPendentes.includes(personagem?.id)) return "pendente";
+  if (campanha && Array.isArray(campanha.personagensAprovados) && campanha.personagensAprovados.includes(personagem?.id)) return "aprovado";
+
+  return personagem?.campanhaId ? "aprovado" : "pendente";
+}
+
+function personagemAprovadoParaCampanha(personagem, campanha = null) {
+  return obterStatusPersonagemCampanha(personagem, campanha) === "aprovado";
+}
+
+function rotuloStatusPersonagemCampanha(status) {
+  return STATUS_PERSONAGEM_CAMPANHA[status] || "Pendente";
 }
 
 function criarEventoSessaoTexto(texto, tipo = "sistema") {
@@ -2080,6 +2271,7 @@ export function renderizarCampanhas() {
     const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
     const statusTexto = obterTextoStatusCampanha(campanha);
     const statusClasse = obterClasseStatusCampanha(campanha);
+    const todosPersonagens = obterTodosPersonagensDaCampanha(campanha);
     const personagens = obterPersonagensDaCampanha(campanha);
     const ehMeuTurno = campanha.personagemTurnoDonoId === state.usuarioAtual?.uid;
 
@@ -2121,16 +2313,28 @@ export function renderizarCampanhas() {
       <div class="campaign-info-grid">
         <span><b>Mestre</b>${escapeHtml(campanha.mestreNome || "Não informado")}</span>
         <span><b>Jogadores</b>${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</span>
+        <span><b>Aprovados</b>${personagens.length}/${todosPersonagens.length}</span>
         <span><b>Código</b>${escapeHtml(campanha.codigo || "Sem código")}</span>
       </div>
+
+      ${montarLobbyCampanha(campanha, todosPersonagens, personagens)}
 
       <div class="campaign-characters-panel">
         <div class="campaign-section-title">
           <span>Personagens da campanha</span>
-          <strong>${personagens.length}</strong>
+          <strong>${personagens.length}/${todosPersonagens.length}</strong>
         </div>
 
-        ${montarPersonagensCampanha(personagens, campanha)}
+        ${montarPersonagensCampanha(todosPersonagens, campanha)}
+      </div>
+
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title">
+          <span>Batalhas e encontros</span>
+          <strong>${obterBatalhasCampanha(campanha).length}</strong>
+        </div>
+
+        ${montarBatalhasCampanha(campanha, personagens)}
       </div>
 
       <div class="campaign-characters-panel">
@@ -2169,7 +2373,7 @@ export function renderizarCampanhas() {
       </div>
     `;
 
-    vincularEventosCardCampanha(card, campanha, personagens);
+    vincularEventosCardCampanha(card, campanha, todosPersonagens);
 
     lista.appendChild(card);
   });
@@ -2185,6 +2389,7 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
   const botaoExcluir = card.querySelector(".excluir-campanha");
   const botaoRolar = card.querySelector(".rolar-d20-sessao");
   const botaoVincularJogador = card.querySelector(".vincular-jogador-campanha");
+  const botaoCopiarCodigo = card.querySelector(".copiar-codigo-campanha");
 
   if (botaoIniciar) botaoIniciar.addEventListener("click", () => iniciarSessaoCampanha(campanha));
   if (botaoPausar) botaoPausar.addEventListener("click", () => pausarSessaoCampanha(campanha));
@@ -2195,6 +2400,7 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
   if (botaoExcluir) botaoExcluir.addEventListener("click", () => excluirCampanha(campanha));
   if (botaoRolar) botaoRolar.addEventListener("click", () => abrirModalRolagemSessao(campanha));
   if (botaoVincularJogador) botaoVincularJogador.addEventListener("click", () => abrirModalVincularJogadorCampanha(campanha));
+  if (botaoCopiarCodigo) botaoCopiarCodigo.addEventListener("click", () => copiarCodigoCampanha(campanha));
 
   card.querySelectorAll(".ataque-alvo-campanha").forEach((botao) => {
     botao.addEventListener("click", () => abrirModalAcaoAlvo(campanha, "dano"));
@@ -2214,6 +2420,39 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
 
   card.querySelectorAll(".criar-boss-campanha").forEach((botao) => {
     botao.addEventListener("click", () => abrirModalCriarBossCampanha(campanha));
+  });
+
+  card.querySelectorAll(".criar-batalha-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => abrirModalCriarBatalhaCampanha(campanha));
+  });
+
+  card.querySelectorAll(".encerrar-batalha-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => encerrarBatalhaCampanha(campanha, botao.dataset.batalhaId));
+  });
+
+  card.querySelectorAll(".aprovar-personagem-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) atualizarStatusPersonagemCampanha(campanha, personagem, "aprovado");
+    });
+  });
+
+  card.querySelectorAll(".recusar-personagem-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) atualizarStatusPersonagemCampanha(campanha, personagem, "recusado");
+    });
+  });
+
+  card.querySelectorAll(".remover-personagem-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) removerPersonagemDaCampanha(campanha, personagem);
+    });
+  });
+
+  card.querySelectorAll(".remover-jogador-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => removerJogadorCampanha(campanha, botao.dataset.jogadorId));
   });
 
   card.querySelectorAll(".ataque-inimigo-campanha").forEach((botao) => {
@@ -2268,6 +2507,522 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
       if (personagem) abrirModalCondicao(campanha, personagem, "remover");
     });
   });
+
+  card.querySelectorAll(".history-filter-btn").forEach((botao) => {
+    botao.addEventListener("click", () => filtrarHistoricoCardCampanha(card, botao.dataset.historyFilter || "todos"));
+  });
+}
+
+function montarLobbyCampanha(campanha, todosPersonagens, personagensAprovados) {
+  const jogadores = Array.isArray(campanha.jogadores) ? campanha.jogadores : [];
+  const podeMestre = podeControlarCampanha(campanha);
+  const pendentes = todosPersonagens.filter((personagem) => obterStatusPersonagemCampanha(personagem, campanha) === "pendente");
+  const recusados = todosPersonagens.filter((personagem) => obterStatusPersonagemCampanha(personagem, campanha) === "recusado");
+  const semPersonagem = jogadores.filter((jogador) => {
+    return !todosPersonagens.some((personagem) => personagem.donoId === jogador.id);
+  });
+  const pronto = jogadores.length > 0 && personagensAprovados.length > 0 && pendentes.length === 0;
+
+  return `
+    <div class="campaign-lobby-panel ${pronto ? "ready" : "waiting"}">
+      <div class="campaign-section-title">
+        <span>Lobby da campanha</span>
+        <strong>${pronto ? "Pronto" : "Preparando"}</strong>
+      </div>
+
+      <div class="campaign-readiness-grid">
+        <span><b>Jogadores</b>${jogadores.length}</span>
+        <span><b>Personagens</b>${todosPersonagens.length}</span>
+        <span><b>Aprovados</b>${personagensAprovados.length}</span>
+        <span><b>Pendentes</b>${pendentes.length}</span>
+        <span><b>Sem personagem</b>${semPersonagem.length}</span>
+        <span><b>Recusados</b>${recusados.length}</span>
+      </div>
+
+      <div class="campaign-lobby-columns">
+        <div>
+          <h5>Jogadores</h5>
+          ${
+            jogadores.length
+              ? jogadores.map((jogador) => {
+                  const quantidadePersonagens = todosPersonagens.filter((personagem) => personagem.donoId === jogador.id).length;
+
+                  return `
+                    <p>
+                      <strong>${escapeHtml(jogador.nome || jogador.email || "Jogador")}</strong>
+                      <span>${quantidadePersonagens} personagem(ns)</span>
+                      ${podeMestre ? `<button class="small-btn danger remover-jogador-campanha" type="button" data-jogador-id="${jogador.id}">Remover</button>` : ""}
+                    </p>
+                  `;
+                }).join("")
+              : "<p>Nenhum jogador vinculado.</p>"
+          }
+        </div>
+
+        <div>
+          <h5>Pendências</h5>
+          ${
+            pendentes.length
+              ? pendentes.map((personagem) => `<p><strong>${escapeHtml(personagem.nome || "Personagem")}</strong><span>Aguardando aprovação</span></p>`).join("")
+              : "<p>Nenhuma aprovação pendente.</p>"
+          }
+          ${
+            semPersonagem.length
+              ? semPersonagem.map((jogador) => `<p><strong>${escapeHtml(jogador.nome || jogador.email || "Jogador")}</strong><span>Sem personagem vinculado</span></p>`).join("")
+              : ""
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function obterBatalhasCampanha(campanha) {
+  return Array.isArray(campanha?.batalhasSessao) ? campanha.batalhasSessao : [];
+}
+
+function obterBatalhaAtivaCampanha(campanha) {
+  return obterBatalhasCampanha(campanha).find((batalha) => batalha.id === campanha.batalhaAtivaId && batalha.status !== "encerrada") || null;
+}
+
+function montarBatalhasCampanha(campanha, personagensAprovados) {
+  const batalhas = obterBatalhasCampanha(campanha);
+  const batalhaAtiva = obterBatalhaAtivaCampanha(campanha);
+  const podeMestre = podeControlarCampanha(campanha);
+
+  return `
+    <div class="campaign-battle-panel ${batalhaAtiva ? "active" : ""}">
+      <div class="campaign-battle-toolbar">
+        <div>
+          <strong>${escapeHtml(batalhaAtiva?.nome || "Nenhuma batalha ativa")}</strong>
+          <span>${batalhaAtiva ? escapeHtml(batalhaAtiva.objetivo || "Encontro em andamento") : "Crie uma batalha para organizar participantes, monstros e histórico."}</span>
+        </div>
+        ${
+          podeMestre
+            ? `
+              <div class="action-row">
+                <button class="secondary-btn criar-batalha-campanha" type="button">Nova batalha</button>
+                ${batalhaAtiva ? `<button class="small-btn danger encerrar-batalha-campanha" type="button" data-batalha-id="${batalhaAtiva.id}">Encerrar batalha</button>` : ""}
+              </div>
+            `
+            : ""
+        }
+      </div>
+
+      <div class="campaign-readiness-grid">
+        <span><b>Batalhas</b>${batalhas.length}</span>
+        <span><b>Ativa</b>${batalhaAtiva ? "Sim" : "Não"}</span>
+        <span><b>Personagens</b>${batalhaAtiva?.personagensIds?.length || personagensAprovados.length}</span>
+        <span><b>Inimigos</b>${batalhaAtiva?.inimigosIds?.length || obterInimigosCampanha(campanha).length}</span>
+      </div>
+
+      <div class="campaign-battle-list">
+        ${
+          batalhas.length
+            ? batalhas.slice(0, 4).map((batalha) => `
+              <div class="campaign-battle-item ${batalha.id === campanha.batalhaAtivaId ? "active" : ""}">
+                <strong>${escapeHtml(batalha.nome || "Batalha")}</strong>
+                <span>${escapeHtml(batalha.status || "preparando")} • ${escapeHtml(batalha.criadoEmTexto || "")}</span>
+              </div>
+            `).join("")
+            : `<div class="campaign-empty-box">Nenhuma batalha criada ainda.</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function abrirModalCriarBatalhaCampanha(campanha) {
+  fecharModalAcaoPersonagem();
+
+  campanhaSelecionadaAcao = campanha;
+
+  const personagens = obterPersonagensDaCampanha(campanha);
+  const inimigos = obterEntidadesCombate(campanha).filter((entidade) => ["monstro", "boss"].includes(entidade.tipo));
+
+  const overlay = document.createElement("div");
+  overlay.className = "crud-form-overlay";
+  overlay.id = "modalAcaoPersonagem";
+
+  overlay.innerHTML = `
+    <div class="crud-form-modal">
+      <div class="crud-form-header">
+        <div>
+          <h3>Nova batalha</h3>
+          <p>Organize um encontro com personagens aprovados e inimigos atuais da campanha.</p>
+        </div>
+
+        <button class="crud-form-close" type="button" id="fecharModalAcaoPersonagem">×</button>
+      </div>
+
+      <div class="crud-form-body">
+        <div class="crud-form-content">
+          <label>
+            Nome da batalha
+            <input type="text" id="batalhaNomeCampanha" placeholder="Ex: Emboscada na ponte" />
+          </label>
+
+          <label>
+            Objetivo / contexto
+            <textarea id="batalhaObjetivoCampanha" placeholder="Ex: Impedir a fuga do mensageiro, sobreviver 3 rodadas..."></textarea>
+          </label>
+
+          <div class="campaign-summary-box">
+            <h4>Personagens participantes</h4>
+            ${
+              personagens.length
+                ? personagens.map((personagem) => `
+                  <label class="campaign-checkbox-line">
+                    <input type="checkbox" name="batalhaPersonagens" value="${personagem.id}" checked />
+                    ${escapeHtml(personagem.nome || "Personagem")}
+                  </label>
+                `).join("")
+                : "<p>Nenhum personagem aprovado disponível.</p>"
+            }
+          </div>
+
+          <label class="campaign-checkbox-line">
+            <input type="checkbox" id="batalhaUsarInimigosAtuais" ${inimigos.length ? "checked" : ""} />
+            Usar monstros e bosses atuais como inimigos (${inimigos.length})
+          </label>
+
+          <div class="action-row">
+            <button class="secondary-btn" type="button" id="cancelarAcaoPersonagem">Cancelar</button>
+            <button class="primary-btn" type="button" id="confirmarCriarBatalhaCampanha">Criar batalha</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("fecharModalAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("cancelarAcaoPersonagem")?.addEventListener("click", fecharModalAcaoPersonagem);
+  document.getElementById("confirmarCriarBatalhaCampanha")?.addEventListener("click", salvarBatalhaCampanha);
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) fecharModalAcaoPersonagem();
+  });
+}
+
+async function salvarBatalhaCampanha() {
+  if (!campanhaSelecionadaAcao) {
+    await mostrarModal("Nenhuma campanha selecionada.", "Erro", "danger");
+    return;
+  }
+
+  const nome = textoCampo("batalhaNomeCampanha") || `Batalha ${obterBatalhasCampanha(campanhaSelecionadaAcao).length + 1}`;
+  const objetivo = textoCampo("batalhaObjetivoCampanha");
+  const personagensIds = Array.from(document.querySelectorAll("input[name='batalhaPersonagens']:checked"))
+    .map((input) => input.value)
+    .filter(Boolean);
+  const usarInimigos = document.getElementById("batalhaUsarInimigosAtuais")?.checked === true;
+  const inimigosIds = usarInimigos
+    ? obterEntidadesCombate(campanhaSelecionadaAcao)
+        .filter((entidade) => ["monstro", "boss"].includes(entidade.tipo))
+        .map((entidade) => entidade.entidadeId)
+    : [];
+
+  if (!personagensIds.length) {
+    await mostrarModal("Selecione pelo menos um personagem aprovado para a batalha.", "Campo obrigatório", "danger");
+    return;
+  }
+
+  const batalha = {
+    id: `batalha-${Date.now()}`,
+    nome,
+    objetivo,
+    status: "em andamento",
+    personagensIds,
+    inimigosIds,
+    rodadaInicial: Number(campanhaSelecionadaAcao.rodadaAtual || 0),
+    criadoEmTexto: new Date().toLocaleString("pt-BR")
+  };
+  const batalhasSessao = [batalha, ...obterBatalhasCampanha(campanhaSelecionadaAcao)];
+  const texto = `Batalha criada: ${nome}.`;
+  const campanhaAtualizada = {
+    ...campanhaSelecionadaAcao,
+    batalhasSessao,
+    batalhaAtivaId: batalha.id,
+    mensagemSessao: texto,
+    historicoSessao: adicionarEventoHistorico(campanhaSelecionadaAcao, texto, "batalha")
+  };
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanhaSelecionadaAcao.id), {
+      batalhasSessao,
+      batalhaAtivaId: batalha.id,
+      mensagemSessao: texto,
+      historicoSessao: campanhaAtualizada.historicoSessao,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarCampanhaLocal(campanhaAtualizada);
+    await mostrarModal("Batalha criada com sucesso.", "Batalha ativa", "success");
+    fecharModalAcaoPersonagem();
+  } catch (erro) {
+    console.error("Erro ao criar batalha:", erro);
+    await mostrarModal("Erro ao criar batalha.", "Erro", "danger");
+  }
+}
+
+async function encerrarBatalhaCampanha(campanha, batalhaId) {
+  const batalha = obterBatalhasCampanha(campanha).find((item) => item.id === batalhaId);
+
+  if (!batalha) {
+    await mostrarModal("Batalha não encontrada.", "Erro", "danger");
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Encerrar batalha",
+    mensagem: `Deseja encerrar “${batalha.nome || "Batalha"}”?`,
+    confirmarTexto: "Encerrar",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  const batalhasSessao = obterBatalhasCampanha(campanha).map((item) => {
+    if (item.id !== batalhaId) return item;
+
+    return {
+      ...item,
+      status: "encerrada",
+      encerradaEmTexto: new Date().toLocaleString("pt-BR")
+    };
+  });
+  const texto = `Batalha encerrada: ${batalha.nome || "Batalha"}.`;
+  const campanhaAtualizada = {
+    ...campanha,
+    batalhasSessao,
+    batalhaAtivaId: campanha.batalhaAtivaId === batalhaId ? "" : campanha.batalhaAtivaId,
+    mensagemSessao: texto,
+    historicoSessao: adicionarEventoHistorico(campanha, texto, "batalha")
+  };
+
+  try {
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      batalhasSessao,
+      batalhaAtivaId: campanhaAtualizada.batalhaAtivaId,
+      mensagemSessao: texto,
+      historicoSessao: campanhaAtualizada.historicoSessao,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarCampanhaLocal(campanhaAtualizada);
+    await mostrarModal("Batalha encerrada.", "Batalha atualizada", "success");
+  } catch (erro) {
+    console.error("Erro ao encerrar batalha:", erro);
+    await mostrarModal("Erro ao encerrar batalha.", "Erro", "danger");
+  }
+}
+
+async function atualizarStatusPersonagemCampanha(campanha, personagem, status) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Apenas o Mestre pode alterar a aprovação de personagens.", "Permissão negada", "danger");
+    return;
+  }
+
+  const statusNormalizado = STATUS_PERSONAGEM_CAMPANHA[status] ? status : "pendente";
+  const aprovado = statusNormalizado === "aprovado";
+  const personagensAprovados = new Set(Array.isArray(campanha.personagensAprovados) ? campanha.personagensAprovados : []);
+  const personagensPendentes = new Set(Array.isArray(campanha.personagensPendentes) ? campanha.personagensPendentes : []);
+
+  personagensAprovados.delete(personagem.id);
+  personagensPendentes.delete(personagem.id);
+
+  if (statusNormalizado === "aprovado") personagensAprovados.add(personagem.id);
+  if (statusNormalizado === "pendente") personagensPendentes.add(personagem.id);
+
+  const texto = `${personagem.nome || "Personagem"} foi marcado como ${rotuloStatusPersonagemCampanha(statusNormalizado).toLowerCase()} na campanha.`;
+  const personagemAtualizado = {
+    ...personagem,
+    statusCampanha: statusNormalizado,
+    aprovadoCampanha: aprovado,
+    aprovadoCampanhaEmTexto: aprovado ? new Date().toLocaleString("pt-BR") : personagem.aprovadoCampanhaEmTexto || ""
+  };
+  const campanhaAtualizada = {
+    ...campanha,
+    personagensAprovados: Array.from(personagensAprovados),
+    personagensPendentes: Array.from(personagensPendentes),
+    mensagemSessao: texto,
+    historicoSessao: adicionarEventoHistorico(campanha, texto, "personagem")
+  };
+
+  try {
+    await updateDoc(doc(db, "personagens", personagem.id), {
+      statusCampanha: personagemAtualizado.statusCampanha,
+      aprovadoCampanha: personagemAtualizado.aprovadoCampanha,
+      aprovadoCampanhaEmTexto: personagemAtualizado.aprovadoCampanhaEmTexto,
+      atualizadoEm: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      personagensAprovados: campanhaAtualizada.personagensAprovados,
+      personagensPendentes: campanhaAtualizada.personagensPendentes,
+      mensagemSessao: texto,
+      historicoSessao: campanhaAtualizada.historicoSessao,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarPersonagensLocais([personagemAtualizado]);
+    atualizarCampanhaLocal(campanhaAtualizada);
+    await mostrarModal("Status do personagem atualizado.", "Campanha atualizada", "success");
+  } catch (erro) {
+    console.error("Erro ao atualizar personagem na campanha:", erro);
+    await mostrarModal("Erro ao atualizar status do personagem.", "Erro", "danger");
+  }
+}
+
+async function removerPersonagemDaCampanha(campanha, personagem) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Apenas o Mestre pode remover personagens da campanha.", "Permissão negada", "danger");
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Remover personagem",
+    mensagem: `Deseja remover “${personagem.nome || "Personagem"}” desta campanha?`,
+    confirmarTexto: "Remover",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  const personagensAprovados = (Array.isArray(campanha.personagensAprovados) ? campanha.personagensAprovados : [])
+    .filter((id) => id !== personagem.id);
+  const personagensPendentes = (Array.isArray(campanha.personagensPendentes) ? campanha.personagensPendentes : [])
+    .filter((id) => id !== personagem.id);
+  const texto = `${personagem.nome || "Personagem"} foi removido da campanha.`;
+  const personagemAtualizado = {
+    ...personagem,
+    campanhaId: "",
+    campanhaNome: "Sem campanha",
+    mestreId: "",
+    statusCampanha: "",
+    aprovadoCampanha: false,
+    aprovadoCampanhaEmTexto: ""
+  };
+  const campanhaAtualizada = {
+    ...campanha,
+    personagensAprovados,
+    personagensPendentes,
+    mensagemSessao: texto,
+    historicoSessao: adicionarEventoHistorico(campanha, texto, "personagem")
+  };
+
+  try {
+    await updateDoc(doc(db, "personagens", personagem.id), {
+      campanhaId: "",
+      campanhaNome: "Sem campanha",
+      mestreId: "",
+      statusCampanha: "",
+      aprovadoCampanha: false,
+      aprovadoCampanhaEmTexto: "",
+      atualizadoEm: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      personagensAprovados,
+      personagensPendentes,
+      mensagemSessao: texto,
+      historicoSessao: campanhaAtualizada.historicoSessao,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarPersonagensLocais([personagemAtualizado]);
+    atualizarCampanhaLocal(campanhaAtualizada);
+    await mostrarModal("Personagem removido da campanha.", "Campanha atualizada", "success");
+  } catch (erro) {
+    console.error("Erro ao remover personagem da campanha:", erro);
+    await mostrarModal("Erro ao remover personagem da campanha.", "Erro", "danger");
+  }
+}
+
+async function removerJogadorCampanha(campanha, jogadorId) {
+  if (!podeControlarCampanha(campanha)) {
+    await mostrarModal("Apenas o Mestre pode remover jogadores da campanha.", "Permissão negada", "danger");
+    return;
+  }
+
+  const jogador = (Array.isArray(campanha.jogadores) ? campanha.jogadores : []).find((item) => item.id === jogadorId);
+
+  if (!jogador) {
+    await mostrarModal("Jogador não encontrado.", "Erro", "danger");
+    return;
+  }
+
+  const confirmar = await confirmarModal({
+    titulo: "Remover jogador",
+    mensagem: `Deseja remover “${jogador.nome || jogador.email || "Jogador"}” e os personagens dele desta campanha?`,
+    confirmarTexto: "Remover",
+    cancelarTexto: "Cancelar",
+    tipo: "danger"
+  });
+
+  if (!confirmar) return;
+
+  const personagensDoJogador = obterTodosPersonagensDaCampanha(campanha).filter((personagem) => personagem.donoId === jogadorId);
+  const jogadoresIds = (Array.isArray(campanha.jogadoresIds) ? campanha.jogadoresIds : []).filter((id) => id !== jogadorId);
+  const jogadores = (Array.isArray(campanha.jogadores) ? campanha.jogadores : []).filter((item) => item.id !== jogadorId);
+  const personagensAprovados = (Array.isArray(campanha.personagensAprovados) ? campanha.personagensAprovados : [])
+    .filter((id) => !personagensDoJogador.some((personagem) => personagem.id === id));
+  const personagensPendentes = (Array.isArray(campanha.personagensPendentes) ? campanha.personagensPendentes : [])
+    .filter((id) => !personagensDoJogador.some((personagem) => personagem.id === id));
+  const texto = `${jogador.nome || jogador.email || "Jogador"} foi removido da campanha.`;
+  const personagensAtualizados = personagensDoJogador.map((personagem) => ({
+    ...personagem,
+    campanhaId: "",
+    campanhaNome: "Sem campanha",
+    mestreId: "",
+    statusCampanha: "",
+    aprovadoCampanha: false,
+    aprovadoCampanhaEmTexto: ""
+  }));
+  const campanhaAtualizada = {
+    ...campanha,
+    jogadoresIds,
+    jogadores,
+    personagensAprovados,
+    personagensPendentes,
+    mensagemSessao: texto,
+    historicoSessao: adicionarEventoHistorico(campanha, texto, "jogador")
+  };
+
+  try {
+    for (const personagem of personagensDoJogador) {
+      await updateDoc(doc(db, "personagens", personagem.id), {
+        campanhaId: "",
+        campanhaNome: "Sem campanha",
+        mestreId: "",
+        statusCampanha: "",
+        aprovadoCampanha: false,
+        aprovadoCampanhaEmTexto: "",
+        atualizadoEm: serverTimestamp()
+      });
+    }
+
+    await updateDoc(doc(db, "campanhas", campanha.id), {
+      jogadoresIds,
+      jogadores,
+      personagensAprovados,
+      personagensPendentes,
+      mensagemSessao: texto,
+      historicoSessao: campanhaAtualizada.historicoSessao,
+      atualizadoEm: serverTimestamp()
+    });
+
+    atualizarPersonagensLocais(personagensAtualizados);
+    atualizarCampanhaLocal(campanhaAtualizada);
+    await mostrarModal("Jogador removido da campanha.", "Campanha atualizada", "success");
+  } catch (erro) {
+    console.error("Erro ao remover jogador da campanha:", erro);
+    await mostrarModal("Erro ao remover jogador da campanha.", "Erro", "danger");
+  }
 }
 
 function montarPersonagensCampanha(personagens, campanha) {
@@ -2287,12 +3042,17 @@ function montarPersonagensCampanha(personagens, campanha) {
     <div class="campaign-character-grid">
       ${personagens
         .map((personagem) => {
+          const statusCampanha = obterStatusPersonagemCampanha(personagem, campanha);
+          const aprovadoCampanha = statusCampanha === "aprovado";
           const turnoAtual = entidadeTurnoAtualId === `personagem:${personagem.id}` ||
             entidadeTurnoAtualId.startsWith(`pet:${personagem.id}:`);
-          const podeAgir = podeMestre || (
+          const podeAgir = aprovadoCampanha && (
+            podeMestre ||
+            (
             sessaoAtiva &&
             turnoAtual &&
             personagem.donoId === state.usuarioAtual?.uid
+            )
           );
           const condicoes = Array.isArray(personagem.condicoes) ? personagem.condicoes : [];
           const inventario = obterInventarioPersonagem(personagem);
@@ -2301,10 +3061,11 @@ function montarPersonagensCampanha(personagens, campanha) {
           const xpProximoNivel = xpNecessarioParaNivel(personagem.nivel || 1);
 
           return `
-            <div class="campaign-character-card ${turnoAtual ? "active-turn" : ""}">
+            <div class="campaign-character-card ${turnoAtual ? "active-turn" : ""} status-${statusCampanha}">
               <div>
                 <strong>${escapeHtml(personagem.nome || "Personagem sem nome")}</strong>
                 <span>${escapeHtml(personagem.donoNome || "Jogador não informado")}</span>
+                <small class="campaign-status-pill status-${statusCampanha}">${escapeHtml(rotuloStatusPersonagemCampanha(statusCampanha))}</small>
               </div>
 
               <div class="campaign-character-stats">
@@ -2320,7 +3081,7 @@ function montarPersonagensCampanha(personagens, campanha) {
               <div class="campaign-condition-list">
                 ${
                   condicoes.length
-                    ? condicoes.map((condicao) => `<span>${escapeHtml(condicao)}</span>`).join("")
+                    ? condicoes.map((condicao) => `<span>${escapeHtml(rotuloCondicaoCampanha(condicao))}</span>`).join("")
                     : `<small>Sem condições</small>`
                 }
               </div>
@@ -2333,24 +3094,41 @@ function montarPersonagensCampanha(personagens, campanha) {
                 montarPetsPersonagemCampanha(personagem, campanha, podeAgir)
               }
 
-              ${
-                podeAgir
-                  ? `
-                    <div class="campaign-character-actions">
+              <div class="campaign-character-actions">
+                ${
+                  podeAgir
+                    ? `
                       <button class="secondary-btn usar-habilidade-campanha" data-personagem-id="${personagem.id}">Usar habilidade</button>
                       <button class="secondary-btn usar-item-campanha" data-personagem-id="${personagem.id}">Usar item</button>
+                    `
+                    : ""
+                }
+                ${
+                  podeMestre
+                    ? `
                       ${
-                        podeMestre
+                        !aprovadoCampanha
+                          ? `<button class="secondary-btn aprovar-personagem-campanha" data-personagem-id="${personagem.id}">Aprovar</button>`
+                          : ""
+                      }
+                      ${
+                        statusCampanha !== "recusado"
+                          ? `<button class="secondary-btn recusar-personagem-campanha" data-personagem-id="${personagem.id}">Recusar</button>`
+                          : ""
+                      }
+                      ${
+                        aprovadoCampanha
                           ? `
                             <button class="secondary-btn aplicar-condicao-campanha" data-personagem-id="${personagem.id}">Aplicar status</button>
                             <button class="small-btn danger remover-condicao-campanha" data-personagem-id="${personagem.id}">Remover status</button>
                           `
                           : ""
                       }
-                    </div>
-                  `
-                  : ""
-              }
+                      <button class="small-btn danger remover-personagem-campanha" data-personagem-id="${personagem.id}">Remover da campanha</button>
+                    `
+                    : ""
+                }
+              </div>
             </div>
           `;
         })
@@ -2420,21 +3198,66 @@ function montarHistoricoSessao(campanha) {
     `;
   }
 
+  const tiposPresentes = Array.from(new Set(historico.map((evento) => evento.tipo || "sistema")));
+
   return `
+    <div class="history-filter-row">
+      <button class="history-filter-btn active" type="button" data-history-filter="todos">Todos</button>
+      ${tiposPresentes
+        .filter((tipo) => TIPOS_HISTORICO_CAMPANHA.includes(tipo))
+        .slice(0, 8)
+        .map((tipo) => `<button class="history-filter-btn" type="button" data-history-filter="${escapeHtml(tipo)}">${escapeHtml(rotuloTipoHistorico(tipo))}</button>`)
+        .join("")}
+    </div>
+
     <div class="session-history-list">
       ${historico
-        .slice(0, 8)
+        .slice(0, 12)
         .map((evento) => {
           return `
-            <div class="session-history-item">
+            <div class="session-history-item" data-history-type="${escapeHtml(evento.tipo || "sistema")}">
               <p>${escapeHtml(evento.texto || "Evento sem descrição.")}</p>
-              <span>${escapeHtml(evento.criadoEmTexto || "")}</span>
+              <span>${escapeHtml(rotuloTipoHistorico(evento.tipo || "sistema"))} • ${escapeHtml(evento.criadoEmTexto || "")}</span>
             </div>
           `;
         })
         .join("")}
     </div>
   `;
+}
+
+function rotuloTipoHistorico(tipo) {
+  const mapa = {
+    sistema: "Sistema",
+    jogador: "Jogador",
+    personagem: "Personagem",
+    batalha: "Batalha",
+    turno: "Turno",
+    dado: "Dado",
+    dano: "Dano",
+    cura: "Cura",
+    ataque: "Ataque",
+    habilidade: "Habilidade",
+    item: "Item",
+    pet: "Pet",
+    condicao: "Condição",
+    recompensa: "Recompensa",
+    resumo: "Resumo",
+    boss: "Boss"
+  };
+
+  return mapa[tipo] || "Evento";
+}
+
+function filtrarHistoricoCardCampanha(card, filtro) {
+  card.querySelectorAll(".history-filter-btn").forEach((botao) => {
+    botao.classList.toggle("active", (botao.dataset.historyFilter || "todos") === filtro);
+  });
+
+  card.querySelectorAll(".session-history-item").forEach((item) => {
+    const tipo = item.dataset.historyType || "sistema";
+    item.style.display = filtro === "todos" || tipo === filtro ? "" : "none";
+  });
 }
 
 function montarBotoesControleSessao(campanha, sessaoAtiva) {
@@ -2446,7 +3269,9 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
       <button class="secondary-btn adicionar-monstro-campanha">Adicionar monstro</button>
       <button class="secondary-btn adicionar-boss-campanha">Adicionar boss</button>
       <button class="secondary-btn criar-boss-campanha">Criar boss</button>
+      <button class="secondary-btn criar-batalha-campanha">Nova batalha</button>
       <button class="secondary-btn vincular-jogador-campanha">Vincular jogador</button>
+      <button class="secondary-btn copiar-codigo-campanha">Copiar convite</button>
       <button class="secondary-btn aplicar-recompensas-campanha">Aplicar recompensas</button>
       <button class="secondary-btn resumo-sessao-campanha">Resumo da sessão</button>
       <button class="secondary-btn exportar-historico-campanha">Exportar histórico</button>
@@ -2461,7 +3286,9 @@ function montarBotoesControleSessao(campanha, sessaoAtiva) {
 
   return `
     <button class="primary-btn iniciar-sessao-campanha">Iniciar sessão</button>
+    <button class="secondary-btn criar-batalha-campanha">Preparar batalha</button>
     <button class="secondary-btn vincular-jogador-campanha">Vincular jogador</button>
+    <button class="secondary-btn copiar-codigo-campanha">Copiar convite</button>
     <button class="secondary-btn editar-campanha">Editar</button>
     <button class="small-btn danger excluir-campanha">Excluir</button>
   `;
@@ -2490,6 +3317,25 @@ function montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens) {
       Aguardando o Mestre iniciar a sessão.
     </span>
   `;
+}
+
+async function copiarCodigoCampanha(campanha) {
+  const codigo = campanha.codigo || "";
+
+  if (!codigo) {
+    await mostrarModal("Esta campanha não possui código de convite.", "Sem código", "danger");
+    return;
+  }
+
+  const texto = `Entre na campanha "${campanha.nome || "Campanha"}" usando o código ${codigo}.`;
+
+  try {
+    await navigator.clipboard.writeText(texto);
+    await mostrarModal("Convite copiado para a área de transferência.", "Convite copiado", "success");
+  } catch (erro) {
+    console.error("Erro ao copiar convite:", erro);
+    await mostrarModal(`Código da campanha: ${codigo}`, "Copie o código manualmente", "success");
+  }
 }
 
 
@@ -2676,6 +3522,10 @@ function formatarTipoEntidade(tipo) {
   };
 
   return mapa[tipo] || "Alvo";
+}
+
+function rotuloTipoEntidade(tipo) {
+  return formatarTipoEntidade(tipo);
 }
 
 function abrirModalAcaoAlvo(campanha, modo) {
@@ -3480,7 +4330,9 @@ async function reduzirCooldownsDaEntidadeTurno(campanha) {
   const entidadeAtualId = obterEntidadeTurnoAtualId(campanha);
 
   if (entidadeAtualId.startsWith("personagem:")) {
-    await reduzirCooldownsDoPersonagem(entidadeAtualId.replace("personagem:", ""));
+    const personagemId = entidadeAtualId.replace("personagem:", "");
+    await reduzirCooldownsDoPersonagem(personagemId);
+    await reduzirCondicoesDoPersonagem(personagemId);
     return;
   }
 
@@ -3492,6 +4344,7 @@ async function reduzirCooldownsDaEntidadeTurno(campanha) {
 
   if (campanha.personagemTurnoId) {
     await reduzirCooldownsDoPersonagem(campanha.personagemTurnoId);
+    await reduzirCondicoesDoPersonagem(campanha.personagemTurnoId);
   }
 }
 
@@ -3792,6 +4645,7 @@ function abrirModalAtaqueInimigo(campanha, entidadeId) {
   });
 
   const danoSugerido = obterDanoSugeridoEntidade(atacante);
+  const alvoSugerido = sugerirAlvoAtaqueInimigo(alvos);
 
   const overlay = document.createElement("div");
   overlay.className = "crud-form-overlay";
@@ -3813,9 +4667,15 @@ function abrirModalAtaqueInimigo(campanha, entidadeId) {
           <label>
             Alvo
             <select id="ataqueInimigoAlvo">
-              ${montarOptionsEntidadesGenericas(alvos)}
+              ${montarOptionsEntidadesGenericas(alvos, alvoSugerido?.entidadeId)}
             </select>
           </label>
+
+          ${
+            alvoSugerido
+              ? `<div class="campaign-summary-box"><p><strong>Sugestão:</strong> atacar ${escapeHtml(alvoSugerido.nome || "alvo")} por estar com menor proporção de HP.</p></div>`
+              : ""
+          }
 
           <label>
             Dano
@@ -3893,7 +4753,20 @@ function obterDanoSugeridoEntidade(entidade) {
   ]) || 10;
 }
 
-function montarOptionsEntidadesGenericas(entidades) {
+function sugerirAlvoAtaqueInimigo(alvos) {
+  if (!alvos.length) return null;
+
+  return [...alvos].sort((a, b) => {
+    const hpA = Number(a.hpAtual ?? a.hp ?? 0);
+    const hpMaxA = Math.max(1, Number(a.hpMax ?? a.hp ?? 1));
+    const hpB = Number(b.hpAtual ?? b.hp ?? 0);
+    const hpMaxB = Math.max(1, Number(b.hpMax ?? b.hp ?? 1));
+
+    return (hpA / hpMaxA) - (hpB / hpMaxB);
+  })[0];
+}
+
+function montarOptionsEntidadesGenericas(entidades, selecionadoId = "") {
   if (!entidades.length) {
     return `<option value="">Nenhum alvo disponível</option>`;
   }
@@ -3902,7 +4775,7 @@ function montarOptionsEntidadesGenericas(entidades) {
     .map((entidade) => {
       const hpAtual = Number(entidade.hpAtual ?? entidade.hp ?? 0);
       const hpMax = Number(entidade.hpMax ?? entidade.hp ?? 0);
-      return `<option value="${entidade.entidadeId}">${escapeHtml(rotuloTipoEntidade(entidade.tipo))}: ${escapeHtml(entidade.nome || "Sem nome")} — HP ${hpAtual}/${hpMax}</option>`;
+      return `<option value="${entidade.entidadeId}" ${entidade.entidadeId === selecionadoId ? "selected" : ""}>${escapeHtml(rotuloTipoEntidade(entidade.tipo))}: ${escapeHtml(entidade.nome || "Sem nome")} — HP ${hpAtual}/${hpMax}</option>`;
     })
     .join("");
 }
@@ -4675,7 +5548,7 @@ function aplicarEstilosCampanhas() {
 
     .campaign-info-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
     }
 
@@ -4701,13 +5574,121 @@ function aplicarEstilosCampanhas() {
 
     .campaign-characters-panel,
     .campaign-turn-panel,
-    .campaign-history-panel {
+    .campaign-history-panel,
+    .campaign-lobby-panel {
       display: grid;
       gap: 14px;
       padding: 18px;
       border-radius: 20px;
       background: rgba(255,255,255,0.035);
       border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-lobby-panel.ready {
+      border-color: rgba(125, 211, 252, 0.24);
+    }
+
+    .campaign-readiness-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .campaign-readiness-grid span {
+      display: grid;
+      gap: 5px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .campaign-readiness-grid b {
+      color: rgba(255,255,255,0.46);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-lobby-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .campaign-lobby-columns > div,
+    .campaign-battle-panel {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-lobby-columns h5 {
+      margin: 0;
+      color: rgba(255,255,255,0.48);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .campaign-lobby-columns p {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+    }
+
+    .campaign-lobby-columns p span {
+      color: rgba(255,255,255,0.46);
+      font-size: 12px;
+    }
+
+    .campaign-battle-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .campaign-battle-toolbar strong,
+    .campaign-battle-item strong {
+      color: #fff;
+    }
+
+    .campaign-battle-toolbar span,
+    .campaign-battle-item span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255,255,255,0.54);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .campaign-battle-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .campaign-battle-item {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .campaign-battle-item.active {
+      border-color: rgba(125, 211, 252, 0.3);
+      background: rgba(125, 211, 252, 0.08);
     }
 
     .campaign-section-title {
@@ -4750,6 +5731,15 @@ function aplicarEstilosCampanhas() {
       background: rgba(255,255,255,0.08);
     }
 
+    .campaign-character-card.status-pendente {
+      border-color: rgba(255, 209, 102, 0.24);
+    }
+
+    .campaign-character-card.status-recusado {
+      opacity: 0.72;
+      border-color: rgba(255, 99, 99, 0.24);
+    }
+
     .campaign-character-card strong {
       display: block;
       color: #fff;
@@ -4760,6 +5750,35 @@ function aplicarEstilosCampanhas() {
       color: rgba(255,255,255,0.58);
       font-size: 13px;
       font-weight: 700;
+    }
+
+    .campaign-status-pill {
+      display: inline-flex;
+      width: max-content;
+      margin-top: 8px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.78);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .campaign-status-pill.status-aprovado {
+      background: rgba(125, 211, 252, 0.14);
+      color: #dff6ff;
+    }
+
+    .campaign-status-pill.status-pendente {
+      background: rgba(255, 209, 102, 0.14);
+      color: #ffe7a3;
+    }
+
+    .campaign-status-pill.status-recusado {
+      background: rgba(255, 99, 99, 0.14);
+      color: #ffc7c7;
     }
 
     .campaign-character-stats,
@@ -4885,6 +5904,29 @@ function aplicarEstilosCampanhas() {
       padding-right: 4px;
     }
 
+    .history-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .history-filter-btn {
+      min-height: 34px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.64);
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .history-filter-btn.active {
+      background: rgba(255,255,255,0.13);
+      color: #fff;
+      border-color: rgba(255,255,255,0.2);
+    }
+
     .session-history-item {
       padding: 12px;
       border-radius: 14px;
@@ -5007,8 +6049,14 @@ function aplicarEstilosCampanhas() {
       }
 
       .campaign-info-grid,
-      .campaign-session-stats {
+      .campaign-session-stats,
+      .campaign-readiness-grid,
+      .campaign-lobby-columns {
         grid-template-columns: 1fr;
+      }
+
+      .campaign-battle-toolbar {
+        display: grid;
       }
 
       .campaign-actions {

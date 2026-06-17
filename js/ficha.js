@@ -662,7 +662,15 @@ function montarCondicoes(personagem) {
     <div class="sheet-condition-list">
       ${condicoes
         .map((condicao) => {
-          return `<span class="sheet-condition-chip">${escapeHtml(formatarValor(condicao))}</span>`;
+          const texto = typeof condicao === "object"
+            ? [
+                condicao.nome || "Condição",
+                Number(condicao.duracao || 0) > 0 ? `${Number(condicao.duracao)}t` : "",
+                condicao.origem || ""
+              ].filter(Boolean).join(" • ")
+            : formatarValor(condicao);
+
+          return `<span class="sheet-condition-chip">${escapeHtml(texto)}</span>`;
         })
         .join("")}
     </div>

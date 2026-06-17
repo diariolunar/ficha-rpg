@@ -1212,6 +1212,13 @@ function montarDadosPersonagem(personagemExistente = null) {
     campanhaId: campanha?.id || "",
     campanhaNome: campanha?.nome || "Sem campanha",
     mestreId,
+    statusCampanha: campanha
+      ? personagemExistente?.statusCampanha || "pendente"
+      : "",
+    aprovadoCampanha: campanha
+      ? personagemExistente?.aprovadoCampanha === true
+      : false,
+    aprovadoCampanhaEmTexto: personagemExistente?.aprovadoCampanhaEmTexto || "",
 
     raca: objetoCompleto(raca),
     classe: objetoCompleto(classe),
@@ -1371,10 +1378,19 @@ async function salvarVinculoCampanha(personagem) {
       campanhaId: campanha?.id || "",
       campanhaNome: campanha?.nome || "Sem campanha",
       mestreId,
+      statusCampanha: campanha ? "pendente" : "",
+      aprovadoCampanha: false,
+      aprovadoCampanhaEmTexto: "",
       atualizadoEm: serverTimestamp()
     });
 
-    await mostrarModal("Campanha vinculada com sucesso.", "Alterações salvas", "success");
+    await mostrarModal(
+      campanha
+        ? "Campanha vinculada. O Mestre precisa aprovar o personagem antes da sessão."
+        : "Vínculo de campanha removido.",
+      "Alterações salvas",
+      "success"
+    );
     fecharModalVincularCampanha();
   } catch (erro) {
     console.error("Erro ao vincular campanha:", erro);

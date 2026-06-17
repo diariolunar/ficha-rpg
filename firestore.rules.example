@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isCampaignMaster(data) {
+      return signedIn() && (
+        data.mestreId == request.auth.uid ||
+        data.criadoPor == request.auth.uid ||
+        data.mestreEmail == request.auth.token.email
+      );
+    }
+
+    function isMasterUser() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo in ['mestre', 'admin'];
+    }
+
+    function campaignExists(campaignId) {
+      return campaignId is string &&
+        exists(/databases/$(database)/documents/campanhas/$(campaignId));
+    }
+
+    function isCampaignMasterById(campaignId) {
+      return signedIn() &&
+        campaignExists(campaignId) &&
+        isCampaignMaster(get(/databases/$(database)/documents/campanhas/$(campaignId)).data);
+    }
+
+    function isCampaignPlayer(data) {
+      return signedIn() && request.auth.uid in data.jogadoresIds;
+    }
+
+    match /usuarios/{userId} {
+      allow create: if isOwner(userId);
+      allow read: if signedIn();
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    match /campanhas/{campaignId} {
+      allow create: if signedIn();
+      allow read: if signedIn();
+      allow update: if isCampaignMaster(resource.data) || (
+        signedIn() &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['jogadoresIds', 'jogadores', 'historicoSessao', 'atualizadoEm']) &&
+        request.auth.uid in request.resource.data.jogadoresIds
+      );
+      allow delete: if isCampaignMaster(resource.data);
+    }
+
+    match /personagens/{characterId} {
+      allow create: if signedIn() && request.resource.data.donoId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.donoId == request.auth.uid ||
+        resource.data.mestreId == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        resource.data.donoId == request.auth.uid ||
+        resource.data.mestreId == request.auth.uid ||
+        isCampaignMasterById(request.resource.data.campanhaId)
+      );
+      allow delete: if signedIn() && resource.data.donoId == request.auth.uid;
+    }
+
+    match /{collectionName}/{documentId} {
+      allow read: if signedIn() &&
+        collectionName in ['racas', 'classes', 'subclasses', 'elementos', 'habilidades', 'itens', 'pets', 'monstros', 'bosses'];
+      allow write: if isMasterUser() &&
+        collectionName in ['racas', 'classes', 'subclasses', 'elementos', 'habilidades', 'itens', 'pets', 'monstros', 'bosses'];
+    }
+  }
+}
