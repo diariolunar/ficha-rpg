@@ -145,6 +145,8 @@ export function abrirFichaPersonagem(personagem) {
     botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "modal"));
   });
 
+  iniciarAbasFicha(overlay);
+
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
       fecharFichaPersonagem();
@@ -211,6 +213,24 @@ function renderizarTelaFicha() {
 
   document.querySelectorAll(".usar-item-ficha").forEach((botao) => {
     botao.addEventListener("click", () => usarItemFicha(botao.dataset.itemId, "pagina"));
+  });
+
+  iniciarAbasFicha(document.getElementById("fichaPersonagemPage"));
+}
+
+function iniciarAbasFicha(raiz) {
+  if (!raiz) return;
+
+  const botoes = raiz.querySelectorAll(".sheet-detail-tab");
+  const paineis = raiz.querySelectorAll(".sheet-detail-panel");
+
+  botoes.forEach((botao) => {
+    botao.onclick = () => {
+      const aba = botao.dataset.sheetTab;
+
+      botoes.forEach((item) => item.classList.toggle("active", item === botao));
+      paineis.forEach((painel) => painel.classList.toggle("active", painel.dataset.sheetPanel === aba));
+    };
   });
 }
 
@@ -344,39 +364,42 @@ function montarFichaModal(personagem) {
         ${montarStatusLinha("Fome", fome, 100, limitarNumero(fome, 0, 100), true)}
         ${montarStatusLinha("Fadiga", fadiga, 100, limitarNumero(fadiga, 0, 100), true)}
 
-        <div class="sheet-status-editor">
-          <label>
-            HP Atual
-            <input type="number" id="fichaHpAtualModal" value="${hpAtual}" />
-          </label>
+        <details class="sheet-status-details">
+          <summary>Ajustar status</summary>
+          <div class="sheet-status-editor">
+            <label>
+              HP Atual
+              <input type="number" id="fichaHpAtualModal" value="${hpAtual}" />
+            </label>
 
-          <label>
-            HP Máximo
-            <input type="number" id="fichaHpMaxModal" value="${hpMax}" />
-          </label>
+            <label>
+              HP Máximo
+              <input type="number" id="fichaHpMaxModal" value="${hpMax}" />
+            </label>
 
-          <label>
-            Mana Atual
-            <input type="number" id="fichaManaAtualModal" value="${manaAtual}" />
-          </label>
+            <label>
+              Mana Atual
+              <input type="number" id="fichaManaAtualModal" value="${manaAtual}" />
+            </label>
 
-          <label>
-            Mana Máxima
-            <input type="number" id="fichaManaMaxModal" value="${manaMax}" />
-          </label>
+            <label>
+              Mana Máxima
+              <input type="number" id="fichaManaMaxModal" value="${manaMax}" />
+            </label>
 
-          <label>
-            Fome
-            <input type="number" id="fichaFomeModal" value="${fome}" />
-          </label>
+            <label>
+              Fome
+              <input type="number" id="fichaFomeModal" value="${fome}" />
+            </label>
 
-          <label>
-            Fadiga
-            <input type="number" id="fichaFadigaModal" value="${fadiga}" />
-          </label>
-        </div>
+            <label>
+              Fadiga
+              <input type="number" id="fichaFadigaModal" value="${fadiga}" />
+            </label>
+          </div>
 
-        <button class="primary-btn" type="button" id="salvarStatusFichaModal">Salvar status</button>
+          <button class="primary-btn" type="button" id="salvarStatusFichaModal">Salvar status</button>
+        </details>
       </section>
 
       <section class="sheet-card sheet-dice-card">
@@ -403,51 +426,42 @@ function montarFichaModal(personagem) {
       </section>
     </div>
 
-    <div class="sheet-grid-lower sheet-grid-modal">
-      <section class="sheet-card">
-        <h3>Identidade</h3>
-        <ul>${montarIdentidade(personagem)}</ul>
-      </section>
+    <div class="sheet-detail-tabs" role="tablist" aria-label="Detalhes da ficha">
+      <button class="sheet-detail-tab active" type="button" data-sheet-tab="visao">Visão geral</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="habilidades">Habilidades</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="inventario">Inventário</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="condicoes">Condições</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="historia">História</button>
+    </div>
 
-      <section class="sheet-card">
-        <h3>Atributos</h3>
-        <ul>${montarAtributos(personagem)}</ul>
-      </section>
+    <div class="sheet-detail-panels">
+      <div class="sheet-detail-panel active" data-sheet-panel="visao">
+        <div class="sheet-grid-lower sheet-grid-modal">
+          <section class="sheet-card"><h3>Identidade</h3><ul>${montarIdentidade(personagem)}</ul></section>
+          <section class="sheet-card"><h3>Atributos</h3><ul>${montarAtributos(personagem)}</ul></section>
+          <section class="sheet-card"><h3>Raça</h3><ul>${montarRaca(personagem)}</ul></section>
+          <section class="sheet-card"><h3>Classe</h3><ul>${montarClasse(personagem)}</ul></section>
+        </div>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Raça</h3>
-        <ul>${montarRaca(personagem)}</ul>
-      </section>
+      <div class="sheet-detail-panel" data-sheet-panel="habilidades">
+        <section class="sheet-card"><h3>Habilidades</h3>${montarHabilidades(personagem)}</section>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Classe</h3>
-        <ul>${montarClasse(personagem)}</ul>
-      </section>
+      <div class="sheet-detail-panel" data-sheet-panel="inventario">
+        <div class="sheet-grid-lower sheet-grid-modal">
+          <section class="sheet-card"><h3>Itens</h3>${montarItens(personagem)}</section>
+          <section class="sheet-card"><h3>Pet</h3>${montarPet(personagem)}</section>
+        </div>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Habilidades</h3>
-        ${montarHabilidades(personagem)}
-      </section>
+      <div class="sheet-detail-panel" data-sheet-panel="condicoes">
+        <section class="sheet-card"><h3>Condições / Status</h3>${montarCondicoes(personagem)}</section>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Itens</h3>
-        ${montarItens(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>Pet</h3>
-        ${montarPet(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>Condições / Status</h3>
-        ${montarCondicoes(personagem)}
-      </section>
-
-      <section class="sheet-card">
-        <h3>História / Descrição</h3>
-        <p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p>
-      </section>
+      <div class="sheet-detail-panel" data-sheet-panel="historia">
+        <section class="sheet-card"><h3>História / Descrição</h3><p>${escapeHtml(personagem.historia || "Nenhuma história cadastrada.")}</p></section>
+      </div>
     </div>
   `;
 }
@@ -1324,6 +1338,69 @@ function aplicarEstilosFicha() {
       font-size: 14px;
       font-weight: 800;
       outline: none;
+    }
+
+    .sheet-status-details {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .sheet-status-details summary {
+      color: rgba(255,255,255,0.72);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .sheet-status-details[open] summary {
+      margin-bottom: 14px;
+      color: #fff;
+    }
+
+    .sheet-detail-tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 26px;
+      overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .sheet-detail-tab {
+      min-height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: rgba(255,255,255,0.52);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .sheet-detail-tab:hover,
+    .sheet-detail-tab.active {
+      color: #fff;
+    }
+
+    .sheet-detail-tab.active {
+      border-bottom-color: #5eead4;
+    }
+
+    .sheet-detail-panels {
+      margin-top: 18px;
+    }
+
+    .sheet-detail-panel {
+      display: none;
+    }
+
+    .sheet-detail-panel.active {
+      display: block;
+    }
+
+    .sheet-detail-panel > .sheet-card {
+      border-radius: 8px;
     }
 
     .sheet-layout {

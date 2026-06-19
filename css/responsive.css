@@ -7,6 +7,18 @@
     grid-template-columns: 1fr;
   }
 
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .dashboard-metrics > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
   .ficha-layout {
     grid-template-columns: 1fr;
   }
@@ -57,6 +69,11 @@
     gap: 8px;
   }
 
+  .nav-section-label {
+    grid-column: span 2;
+    margin-top: 12px;
+  }
+
   .nav-btn,
   .dropdown-toggle {
     min-height: 46px;
@@ -87,6 +104,22 @@
     padding: 34px 22px;
   }
 
+  .dashboard-action-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .live-session-control {
+    grid-template-columns: 1fr;
+  }
+
+  .live-session-control .action-row {
+    margin-top: 0;
+  }
+
+  .live-session-enemy-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .top-actions {
     position: absolute;
     top: 24px;
@@ -111,12 +144,80 @@
     grid-column: span 1;
   }
 
+  .nav-section-label {
+    grid-column: span 1;
+  }
+
   .dropdown-menu {
     margin-left: 24px;
   }
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-next-step {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 22px;
+  }
+
+  .dashboard-next-step .primary-btn {
+    width: 100%;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-metrics > div,
+  .dashboard-metrics > div:nth-child(2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dashboard-metrics > div:last-child {
+    border-bottom: 0;
+  }
+
+  .live-session-selector,
+  .live-session-enemy-form {
+    grid-template-columns: 1fr;
+  }
+
+  .live-session-control .action-row,
+  .live-session-control .action-row button,
+  .live-session-enemy-form button {
+    width: 100%;
+  }
+
+  .progressive-section > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 74px;
+    padding-right: 28px;
+    position: relative;
+  }
+
+  .progressive-section > summary::after {
+    position: absolute;
+    top: 24px;
+    right: 4px;
+  }
+
+  .character-step-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .character-step-actions,
+  .character-step-panel > .action-row {
+    flex-direction: column;
+  }
+
+  .character-step-actions button,
+  .character-step-panel > .action-row button {
+    width: 100%;
   }
 
   .shortcut-grid {

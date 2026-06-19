@@ -36,7 +36,7 @@
   --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.42);
   --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.34);
 
-  --sidebar-width: 305px;
+  --sidebar-width: 268px;
 }
 
 * {
@@ -50,10 +50,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 76% 4%, rgba(255, 255, 255, 0.09), transparent 24%),
-    radial-gradient(circle at 46% 36%, rgba(255, 255, 255, 0.035), transparent 28%),
-    linear-gradient(135deg, #000 0%, #050505 40%, #0a0a0a 100%);
+  background: linear-gradient(135deg, #050607 0%, #0a0b0c 100%);
   color: var(--text);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   overflow-x: hidden;

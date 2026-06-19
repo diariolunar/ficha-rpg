@@ -1,129 +1,134 @@
-<section class="page">
+<section class="page live-session-page">
   <div class="page-header">
-    <h2>Área do Mestre</h2>
-    <p>Controle a campanha, acompanhe personagens, turnos, fome, fadiga, mana, monstros, bosses e possessão.</p>
-  </div>
-
-  <div class="form-card">
-    <h3>Campanha ativa</h3>
-
-    <div class="form-grid">
-      <label>
-        Selecionar campanha
-        <select id="mestreCampanhaSelect">
-          <option value="">Carregando campanhas...</option>
-        </select>
-      </label>
-
-      <label>
-        Ajuste padrão
-        <input type="number" id="mestreValorAjuste" value="5" />
-      </label>
+    <div>
+      <h2>Sessão ao vivo</h2>
+      <p>Selecione a campanha e conduza o turno atual.</p>
     </div>
   </div>
 
-  <div class="info-grid">
-    <div class="info-card">
-      <h3>Controle de Turnos</h3>
-      <p><b>Rodada:</b> <span id="mestreRodadaAtual">0</span></p>
-      <p><b>Turno:</b> <span id="mestreTurnoAtual">0</span></p>
-      <p><b>Status da sessão:</b> <span id="mestreStatusSessao">Nenhuma campanha selecionada.</span></p>
+  <div class="live-session-selector">
+    <label>
+      Campanha
+      <select id="mestreCampanhaSelect">
+        <option value="">Carregando campanhas...</option>
+      </select>
+    </label>
 
-      <div class="action-row">
-        <button class="primary-btn" id="btnIniciarSessaoMestre">Iniciar sessão</button>
-        <button class="secondary-btn" id="btnProximoTurno">Próximo turno</button>
-        <button class="small-btn danger" id="btnEncerrarSessaoMestre">Encerrar sessão</button>
+    <label>
+      Valor de ajuste
+      <input type="number" id="mestreValorAjuste" value="5" />
+    </label>
+  </div>
+
+  <section class="live-session-control">
+    <div>
+      <span class="live-session-eyebrow">Turno atual</span>
+      <h3 id="mestreStatusSessao">Nenhuma campanha selecionada.</h3>
+    </div>
+
+    <div class="live-session-counters">
+      <span><b>Rodada</b><strong id="mestreRodadaAtual">0</strong></span>
+      <span><b>Turno</b><strong id="mestreTurnoAtual">0</strong></span>
+    </div>
+
+    <div class="action-row">
+      <button class="primary-btn" id="btnIniciarSessaoMestre">Iniciar sessão</button>
+      <button class="secondary-btn" id="btnProximoTurno">Próximo turno</button>
+      <button class="small-btn danger" id="btnEncerrarSessaoMestre">Encerrar sessão</button>
+    </div>
+  </section>
+
+  <div class="progressive-section-list">
+    <details class="progressive-section" open>
+      <summary>
+        <span>Personagens</span>
+        <small>HP, mana e ações rápidas</small>
+      </summary>
+
+      <div class="progressive-section-content">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Personagem</th>
+                <th>Jogador</th>
+                <th>HP</th>
+                <th>Mana</th>
+                <th>Fome</th>
+                <th>Fadiga</th>
+                <th>Condição</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+
+            <tbody id="tabelaPersonagensMestre">
+              <tr><td colspan="8">Selecione uma campanha para carregar os personagens.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </details>
 
-    <div class="info-card">
-      <h3>Fome e Fadiga</h3>
-      <p>A cada avanço de turno, o Mestre pode aplicar fome e fadiga automaticamente nos personagens da campanha.</p>
+    <details class="progressive-section">
+      <summary>
+        <span>Inimigos</span>
+        <small>Monstros e bosses da sessão</small>
+      </summary>
 
-      <div class="form-grid">
-        <label>
-          Fome por turno
-          <input type="number" id="fomePorTurno" value="1" />
-        </label>
+      <div class="progressive-section-content">
+        <div class="live-session-enemy-form">
+          <label>
+            Monstro
+            <select id="selectMonstroSessao"><option value="">Carregando monstros...</option></select>
+          </label>
+          <button class="secondary-btn" id="btnAdicionarMonstroSessao">Adicionar monstro</button>
 
-        <label>
-          Fadiga por turno
-          <input type="number" id="fadigaPorTurno" value="1" />
-        </label>
+          <label>
+            Boss
+            <select id="selectBossSessao"><option value="">Carregando bosses...</option></select>
+          </label>
+          <button class="secondary-btn" id="btnAdicionarBossSessao">Adicionar boss</button>
+        </div>
+
+        <div id="listaInimigosSessao" class="resource-list">
+          <p>Nenhuma campanha selecionada.</p>
+        </div>
       </div>
+    </details>
 
-      <button class="secondary-btn" id="btnAplicarFomeFadiga">Aplicar agora</button>
-    </div>
-  </div>
+    <details class="progressive-section">
+      <summary>
+        <span>Sobrevivência</span>
+        <small>Fome e fadiga</small>
+      </summary>
 
-  <div class="list-card">
-    <h3>Personagens da campanha</h3>
+      <div class="progressive-section-content">
+        <div class="form-grid">
+          <label>
+            Fome por turno
+            <input type="number" id="fomePorTurno" value="1" />
+          </label>
 
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Personagem</th>
-            <th>Jogador</th>
-            <th>HP</th>
-            <th>Mana</th>
-            <th>Fome</th>
-            <th>Fadiga</th>
-            <th>Condição</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
+          <label>
+            Fadiga por turno
+            <input type="number" id="fadigaPorTurno" value="1" />
+          </label>
+        </div>
 
-        <tbody id="tabelaPersonagensMestre">
-          <tr>
-            <td colspan="8">Selecione uma campanha para carregar os personagens.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+        <button class="secondary-btn" id="btnAplicarFomeFadiga">Aplicar agora</button>
+      </div>
+    </details>
 
-  <div class="info-grid">
-    <div class="form-card">
-      <h3>Adicionar Monstro à Sessão</h3>
+    <details class="progressive-section progressive-section-danger mestre-nav">
+      <summary>
+        <span>Opções avançadas</span>
+        <small>Limpeza total dos dados</small>
+      </summary>
 
-      <label>
-        Monstro
-        <select id="selectMonstroSessao">
-          <option value="">Carregando monstros...</option>
-        </select>
-      </label>
-
-      <button class="primary-btn" id="btnAdicionarMonstroSessao">Adicionar monstro</button>
-    </div>
-
-    <div class="form-card">
-      <h3>Adicionar Boss à Sessão</h3>
-
-      <label>
-        Boss
-        <select id="selectBossSessao">
-          <option value="">Carregando bosses...</option>
-        </select>
-      </label>
-
-      <button class="primary-btn" id="btnAdicionarBossSessao">Adicionar boss</button>
-    </div>
-  </div>
-
-  <div class="list-card">
-    <h3>Inimigos na sessão</h3>
-    <div id="listaInimigosSessao" class="resource-list">
-      <p>Nenhuma campanha selecionada.</p>
-    </div>
-  </div>
-
-  <div class="danger-zone mestre-nav">
-    <h3>Zona de Perigo</h3>
-    <p>
-      Esta ação apaga todos os dados de jogo cadastrados no sistema, incluindo campanhas, personagens dos jogadores, raças, classes, subclasses, elementos, habilidades, itens, pets, monstros, bosses e sessões. As contas de usuário não serão apagadas.
-    </p>
-
-    <button class="small-btn danger" id="btnLimparTodosDados">Limpar todos os dados</button>
+      <div class="progressive-section-content">
+        <p>Esta ação apaga campanhas, personagens e todos os cadastros do jogo. As contas de usuário são mantidas.</p>
+        <button class="small-btn danger" id="btnLimparTodosDados">Limpar todos os dados</button>
+      </div>
+    </details>
   </div>
 </section>

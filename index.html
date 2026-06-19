@@ -81,20 +81,19 @@
       </div>
     </div>
 
-    <nav>
+    <nav aria-label="Navegação principal">
+      <span class="nav-section-label">Visão geral</span>
+
       <button class="nav-btn active" data-page="dashboard">
         <span class="nav-icon">⌂</span>
-        <span>Dashboard</span>
+        <span>Início</span>
       </button>
+
+      <span class="nav-section-label">Sua mesa</span>
 
       <button class="nav-btn" data-page="campanhas">
         <span class="nav-icon">♜</span>
         <span>Campanhas</span>
-      </button>
-
-      <button class="nav-btn mestre-nav" data-page="mestre">
-        <span class="nav-icon">♕</span>
-        <span>Área do Mestre</span>
       </button>
 
       <button class="nav-btn" data-page="personagens">
@@ -102,10 +101,27 @@
         <span>Personagens</span>
       </button>
 
+      <button class="nav-btn" data-page="ficha">
+        <span class="nav-icon">▤</span>
+        <span>Ficha atual</span>
+      </button>
+
+      <span class="nav-section-label mestre-nav">Ferramentas do mestre</span>
+
+      <button class="nav-btn mestre-nav" data-page="mestre">
+        <span class="nav-icon">♕</span>
+        <span>Sessão ao vivo</span>
+      </button>
+
+      <button class="nav-btn mestre-nav" data-page="sessao">
+        <span class="nav-icon">♟</span>
+        <span>Planejamento</span>
+      </button>
+
       <div class="sidebar-dropdown mestre-nav">
         <button class="nav-btn dropdown-toggle" type="button" id="cadastrosDropdownButton">
           <span class="nav-icon">▦</span>
-          <span>Cadastros Base</span>
+          <span>Cadastros</span>
           <span class="dropdown-arrow">⌄</span>
         </button>
 
@@ -121,16 +137,6 @@
           <button class="dropdown-item" data-page="cadastrosBosses">Bosses</button>
         </div>
       </div>
-
-      <button class="nav-btn" data-page="ficha">
-        <span class="nav-icon">▤</span>
-        <span>Ficha</span>
-      </button>
-
-      <button class="nav-btn mestre-nav" data-page="sessao">
-        <span class="nav-icon">♟</span>
-        <span>Roteiro da Sessão</span>
-      </button>
     </nav>
 
     <div class="user-box">

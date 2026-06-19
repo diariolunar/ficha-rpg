@@ -33,6 +33,8 @@ let campanhaSelecionadaEdicao = null;
 let campanhaSelecionadaRolagem = null;
 let campanhaSelecionadaAcao = null;
 let personagemSelecionadoAcao = null;
+let campanhaAbertaId = "";
+let abaCampanhaAberta = "resumo";
 
 let campanhasPorMestreId = [];
 let campanhasPorCriadoPor = [];
@@ -76,6 +78,15 @@ const STATUS_PERSONAGEM_CAMPANHA = {
   aprovado: "Aprovado",
   recusado: "Recusado"
 };
+
+const ABAS_CAMPANHA = [
+  { id: "resumo", rotulo: "Resumo" },
+  { id: "participantes", rotulo: "Participantes" },
+  { id: "sessao", rotulo: "Sessão" },
+  { id: "combate", rotulo: "Combate" },
+  { id: "historico", rotulo: "Histórico" },
+  { id: "configuracoes", rotulo: "Configurações", somenteMestre: true }
+];
 
 const TIPOS_HISTORICO_CAMPANHA = [
   "sistema",
@@ -2248,12 +2259,15 @@ export function renderizarCampanhas() {
   aplicarEstilosCampanhas();
 
   const lista = document.getElementById("listaCampanhas");
+  const barraLista = document.querySelector(".campaign-page-toolbar");
 
   if (!lista) return;
 
   lista.innerHTML = "";
 
   if (!state.minhasCampanhas || state.minhasCampanhas.length === 0) {
+    barraLista?.classList.remove("hidden");
+    lista.className = "campaign-overview-list";
     lista.innerHTML = `
       <div class="empty-state">
         <h3>Nenhuma campanha encontrada.</h3>
@@ -2263,120 +2277,348 @@ export function renderizarCampanhas() {
     return;
   }
 
-  state.minhasCampanhas.forEach((campanha) => {
-    const card = document.createElement("div");
-    card.classList.add("campaign-card", "campaign-card-refinado");
+  const campanhaAberta = state.minhasCampanhas.find((campanha) => campanha.id === campanhaAbertaId);
 
+  if (campanhaAberta) {
+    barraLista?.classList.add("hidden");
+    renderizarWorkspaceCampanha(lista, campanhaAberta);
+    return;
+  }
+
+  barraLista?.classList.remove("hidden");
+  campanhaAbertaId = "";
+  abaCampanhaAberta = "resumo";
+  lista.className = "campaign-overview-list";
+
+  state.minhasCampanhas.forEach((campanha) => {
+    const card = document.createElement("article");
+    card.className = "campaign-summary-card";
     const podeEditar = podeControlarCampanha(campanha);
-    const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
     const statusTexto = obterTextoStatusCampanha(campanha);
     const statusClasse = obterClasseStatusCampanha(campanha);
     const todosPersonagens = obterTodosPersonagensDaCampanha(campanha);
     const personagens = obterPersonagensDaCampanha(campanha);
-    const ehMeuTurno = campanha.personagemTurnoDonoId === state.usuarioAtual?.uid;
+    const proximoPasso = obterProximoPassoCampanha(campanha, todosPersonagens, personagens);
+    const jogadores = Array.isArray(campanha.jogadores) ? campanha.jogadores : [];
 
     card.innerHTML = `
-      <div class="campaign-card-top">
+      <div class="campaign-summary-main">
         <div>
-          <span class="campaign-kicker">
-            ${state.dadosUsuarioAtual?.tipo === "mestre" ? "Campanha do Mestre" : "Campanha do Jogador"}
-          </span>
-
+          <div class="campaign-summary-labels">
+            <span class="campaign-role">${podeEditar ? "Mestre" : "Jogador"}</span>
+            <span class="campaign-status-label ${statusClasse}">${escapeHtml(statusTexto)}</span>
+          </div>
           <h4>${escapeHtml(campanha.nome || "Campanha sem nome")}</h4>
           <p>${escapeHtml(campanha.descricao || "Sem descrição.")}</p>
         </div>
 
-        <span class="campaign-role">
-          ${state.dadosUsuarioAtual?.tipo === "mestre" ? "Mestre" : "Jogador"}
-        </span>
-      </div>
-
-      <div class="campaign-session-panel ${statusClasse}">
-        <div>
-          <span>Status da sessão</span>
-          <strong>${escapeHtml(statusTexto)}</strong>
-          <p>${escapeHtml(campanha.mensagemSessao || "Aguardando movimentação da campanha.")}</p>
-          ${
-            ehMeuTurno && sessaoAtiva
-              ? `<div class="turno-alerta-jogador">É a sua vez de agir.</div>`
-              : ""
-          }
-        </div>
-
-        <div class="campaign-session-stats">
-          <span><b>Rodada</b>${Number(campanha.rodadaAtual || 0)}</span>
-          <span><b>Turno</b>${Number(campanha.turnoAtual || 0)}</span>
-          <span><b>Vez de</b>${escapeHtml(campanha.personagemTurnoNome || "Não definido")}</span>
+        <div class="campaign-summary-counts">
+          <span><b>${jogadores.length}</b> jogadores</span>
+          <span><b>${personagens.length}/${todosPersonagens.length}</b> personagens</span>
         </div>
       </div>
 
-      <div class="campaign-info-grid">
-        <span><b>Mestre</b>${escapeHtml(campanha.mestreNome || "Não informado")}</span>
-        <span><b>Jogadores</b>${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</span>
-        <span><b>Aprovados</b>${personagens.length}/${todosPersonagens.length}</span>
-        <span><b>Código</b>${escapeHtml(campanha.codigo || "Sem código")}</span>
+      <div class="campaign-summary-next ${proximoPasso.classe}">
+        <span>Próximo passo</span>
+        <strong>${escapeHtml(proximoPasso.titulo)}</strong>
+        <p>${escapeHtml(proximoPasso.detalhe)}</p>
       </div>
 
-      ${montarLobbyCampanha(campanha, todosPersonagens, personagens)}
-
-      <div class="campaign-characters-panel">
-        <div class="campaign-section-title">
-          <span>Personagens da campanha</span>
-          <strong>${personagens.length}/${todosPersonagens.length}</strong>
-        </div>
-
-        ${montarPersonagensCampanha(todosPersonagens, campanha)}
-      </div>
-
-      <div class="campaign-characters-panel">
-        <div class="campaign-section-title">
-          <span>Batalhas e encontros</span>
-          <strong>${obterBatalhasCampanha(campanha).length}</strong>
-        </div>
-
-        ${montarBatalhasCampanha(campanha, personagens)}
-      </div>
-
-      <div class="campaign-characters-panel">
-        <div class="campaign-section-title">
-          <span>Monstros e bosses da campanha</span>
-          <strong>${obterInimigosCampanha(campanha).length}</strong>
-        </div>
-
-        ${montarInimigosCampanha(campanha)}
-      </div>
-
-      <div class="campaign-turn-panel">
-        <div class="campaign-section-title">
-          <span>Ordem de turno</span>
-          <strong>${Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos.length : 0}</strong>
-        </div>
-
-        ${montarOrdemTurnos(campanha)}
-      </div>
-
-      <div class="campaign-history-panel">
-        <div class="campaign-section-title">
-          <span>Histórico da sessão</span>
-          <strong>${Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao.length : 0}</strong>
-        </div>
-
-        ${montarHistoricoSessao(campanha)}
-      </div>
-
-      <div class="action-row campaign-actions">
-        ${
-          podeEditar
-            ? montarBotoesControleSessao(campanha, sessaoAtiva)
-            : montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens)
-        }
+      <div class="campaign-summary-actions">
+        <button class="primary-btn abrir-campanha-detalhes" type="button" data-campaign-tab="${proximoPasso.aba}">
+          ${escapeHtml(proximoPasso.acao)}
+        </button>
+        ${campanha.codigo ? `<button class="secondary-btn copiar-codigo-campanha" type="button">Copiar convite</button>` : ""}
       </div>
     `;
 
     vincularEventosCardCampanha(card, campanha, todosPersonagens);
+    card.querySelector(".abrir-campanha-detalhes")?.addEventListener("click", (event) => {
+      campanhaAbertaId = campanha.id;
+      abaCampanhaAberta = event.currentTarget.dataset.campaignTab || "resumo";
+      renderizarCampanhas();
+    });
 
     lista.appendChild(card);
   });
+}
+
+function renderizarWorkspaceCampanha(lista, campanha) {
+  const podeEditar = podeControlarCampanha(campanha);
+  const todosPersonagens = obterTodosPersonagensDaCampanha(campanha);
+  const personagens = obterPersonagensDaCampanha(campanha);
+  const abas = ABAS_CAMPANHA.filter((aba) => !aba.somenteMestre || podeEditar);
+
+  if (!abas.some((aba) => aba.id === abaCampanhaAberta)) {
+    abaCampanhaAberta = "resumo";
+  }
+
+  lista.className = "campaign-workspace-root";
+
+  const workspace = document.createElement("div");
+  workspace.className = "campaign-workspace";
+  workspace.innerHTML = `
+    <button class="campaign-back-button" type="button">← Todas as campanhas</button>
+
+    <div class="campaign-workspace-header">
+      <div>
+        <span class="campaign-kicker">${podeEditar ? "Você é o mestre" : "Você é jogador"}</span>
+        <h3>${escapeHtml(campanha.nome || "Campanha sem nome")}</h3>
+        <p>${escapeHtml(campanha.descricao || "Sem descrição.")}</p>
+      </div>
+      <span class="campaign-status-label ${obterClasseStatusCampanha(campanha)}">
+        ${escapeHtml(obterTextoStatusCampanha(campanha))}
+      </span>
+    </div>
+
+    <div class="campaign-workspace-tabs" role="tablist" aria-label="Áreas da campanha">
+      ${abas.map((aba) => `
+        <button
+          class="campaign-workspace-tab ${aba.id === abaCampanhaAberta ? "active" : ""}"
+          type="button"
+          role="tab"
+          aria-selected="${aba.id === abaCampanhaAberta}"
+          data-campaign-tab="${aba.id}"
+        >${aba.rotulo}</button>
+      `).join("")}
+    </div>
+
+    <div class="campaign-workspace-content" role="tabpanel">
+      ${montarConteudoAbaCampanha(abaCampanhaAberta, campanha, todosPersonagens, personagens)}
+    </div>
+  `;
+
+  lista.appendChild(workspace);
+  vincularEventosCardCampanha(workspace, campanha, todosPersonagens);
+
+  workspace.querySelector(".campaign-back-button")?.addEventListener("click", () => {
+    campanhaAbertaId = "";
+    abaCampanhaAberta = "resumo";
+    renderizarCampanhas();
+  });
+
+  workspace.querySelectorAll(".campaign-workspace-tab, .abrir-aba-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const proximaAba = botao.dataset.campaignTab;
+      if (!abas.some((aba) => aba.id === proximaAba)) return;
+      abaCampanhaAberta = proximaAba;
+      renderizarCampanhas();
+    });
+  });
+}
+
+function montarConteudoAbaCampanha(aba, campanha, todosPersonagens, personagens) {
+  const podeEditar = podeControlarCampanha(campanha);
+  const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
+
+  if (aba === "participantes") {
+    return `
+      <div class="campaign-tab-heading">
+        <div><h4>Participantes</h4><p>Jogadores vinculados e personagens da campanha.</p></div>
+        ${podeEditar ? `
+          <div class="action-row">
+            <button class="primary-btn vincular-jogador-campanha" type="button">Vincular jogador</button>
+            <button class="secondary-btn copiar-codigo-campanha" type="button">Copiar convite</button>
+          </div>
+        ` : ""}
+      </div>
+      ${montarLobbyCampanha(campanha, todosPersonagens, personagens)}
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title"><span>Personagens</span><strong>${personagens.length}/${todosPersonagens.length}</strong></div>
+        ${montarPersonagensCampanha(todosPersonagens, campanha)}
+      </div>
+    `;
+  }
+
+  if (aba === "sessao") {
+    return `
+      ${montarPainelStatusSessao(campanha)}
+      <div class="campaign-context-actions">
+        ${podeEditar ? montarAcoesSessaoMestre(sessaoAtiva) : montarBotoesJogadorSessao(campanha, sessaoAtiva, personagens)}
+      </div>
+      <div class="campaign-turn-panel">
+        <div class="campaign-section-title"><span>Ordem de turno</span><strong>${Array.isArray(campanha.ordemTurnos) ? campanha.ordemTurnos.length : 0}</strong></div>
+        ${montarOrdemTurnos(campanha)}
+      </div>
+    `;
+  }
+
+  if (aba === "combate") {
+    return `
+      ${podeEditar ? `<div class="campaign-context-actions">${montarAcoesCombateMestre()}</div>` : ""}
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title"><span>Batalhas e encontros</span><strong>${obterBatalhasCampanha(campanha).length}</strong></div>
+        ${montarBatalhasCampanha(campanha, personagens)}
+      </div>
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title"><span>Personagens em combate</span><strong>${personagens.length}</strong></div>
+        ${montarPersonagensCampanha(personagens, campanha)}
+      </div>
+      <div class="campaign-characters-panel">
+        <div class="campaign-section-title"><span>Monstros e bosses</span><strong>${obterInimigosCampanha(campanha).length}</strong></div>
+        ${montarInimigosCampanha(campanha)}
+      </div>
+    `;
+  }
+
+  if (aba === "historico") {
+    return `
+      <div class="campaign-tab-heading">
+        <div><h4>Histórico</h4><p>Eventos registrados nesta campanha.</p></div>
+        <div class="action-row">
+          ${podeEditar ? `<button class="secondary-btn resumo-sessao-campanha" type="button">Resumo da sessão</button>` : ""}
+          <button class="secondary-btn exportar-historico-campanha" type="button">Exportar histórico</button>
+        </div>
+      </div>
+      <div class="campaign-history-panel">
+        <div class="campaign-section-title"><span>Eventos</span><strong>${Array.isArray(campanha.historicoSessao) ? campanha.historicoSessao.length : 0}</strong></div>
+        ${montarHistoricoSessao(campanha)}
+      </div>
+    `;
+  }
+
+  if (aba === "configuracoes" && podeEditar) {
+    return `
+      <div class="campaign-tab-heading"><div><h4>Configurações</h4><p>Dados gerais e acesso à campanha.</p></div></div>
+      ${montarInformacoesCampanha(campanha, todosPersonagens, personagens)}
+      <div class="campaign-settings-actions">
+        <button class="secondary-btn copiar-codigo-campanha" type="button">Copiar convite</button>
+        <button class="secondary-btn editar-campanha" type="button">Editar campanha</button>
+        <button class="small-btn danger excluir-campanha" type="button">Excluir campanha</button>
+      </div>
+    `;
+  }
+
+  return montarResumoCampanha(campanha, todosPersonagens, personagens);
+}
+
+function montarResumoCampanha(campanha, todosPersonagens, personagens) {
+  const proximoPasso = obterProximoPassoCampanha(campanha, todosPersonagens, personagens);
+  const podeEditar = podeControlarCampanha(campanha);
+  const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
+
+  return `
+    <div class="campaign-next-step ${proximoPasso.classe}">
+      <div>
+        <span>Próximo passo</span>
+        <strong>${escapeHtml(proximoPasso.titulo)}</strong>
+        <p>${escapeHtml(proximoPasso.detalhe)}</p>
+      </div>
+      ${montarAcaoPrincipalCampanha(proximoPasso, podeEditar, sessaoAtiva)}
+    </div>
+    ${montarPainelStatusSessao(campanha)}
+    ${montarInformacoesCampanha(campanha, todosPersonagens, personagens)}
+  `;
+}
+
+function montarPainelStatusSessao(campanha) {
+  const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
+  const ehMeuTurno = campanha.personagemTurnoDonoId === state.usuarioAtual?.uid;
+
+  return `
+    <div class="campaign-session-panel ${obterClasseStatusCampanha(campanha)}">
+      <div>
+        <span>Status da sessão</span>
+        <strong>${escapeHtml(obterTextoStatusCampanha(campanha))}</strong>
+        <p>${escapeHtml(campanha.mensagemSessao || "Aguardando movimentação da campanha.")}</p>
+        ${ehMeuTurno && sessaoAtiva ? `<div class="turno-alerta-jogador">É a sua vez de agir.</div>` : ""}
+      </div>
+      <div class="campaign-session-stats">
+        <span><b>Rodada</b>${Number(campanha.rodadaAtual || 0)}</span>
+        <span><b>Turno</b>${Number(campanha.turnoAtual || 0)}</span>
+        <span><b>Vez de</b>${escapeHtml(campanha.personagemTurnoNome || "Não definido")}</span>
+      </div>
+    </div>
+  `;
+}
+
+function montarInformacoesCampanha(campanha, todosPersonagens, personagens) {
+  return `
+    <div class="campaign-info-grid">
+      <span><b>Mestre</b>${escapeHtml(campanha.mestreNome || "Não informado")}</span>
+      <span><b>Jogadores</b>${Array.isArray(campanha.jogadores) ? campanha.jogadores.length : 0}</span>
+      <span><b>Personagens</b>${personagens.length}/${todosPersonagens.length}</span>
+      <span><b>Código</b>${escapeHtml(campanha.codigo || "Sem código")}</span>
+    </div>
+  `;
+}
+
+function montarAcaoPrincipalCampanha(proximoPasso, podeEditar, sessaoAtiva) {
+  if (proximoPasso.acaoTipo === "personagens") {
+    return `<button class="primary-btn" type="button" data-page-target="personagens">${escapeHtml(proximoPasso.acao)}</button>`;
+  }
+
+  if (proximoPasso.acaoTipo === "iniciar" && podeEditar && !sessaoAtiva) {
+    return `<button class="primary-btn iniciar-sessao-campanha" type="button">${escapeHtml(proximoPasso.acao)}</button>`;
+  }
+
+  if (proximoPasso.acaoTipo === "vincular" && podeEditar) {
+    return `<button class="primary-btn vincular-jogador-campanha" type="button">${escapeHtml(proximoPasso.acao)}</button>`;
+  }
+
+  return `<button class="primary-btn abrir-aba-campanha" type="button" data-campaign-tab="${proximoPasso.aba}">${escapeHtml(proximoPasso.acao)}</button>`;
+}
+
+function montarAcoesSessaoMestre(sessaoAtiva) {
+  if (!sessaoAtiva) {
+    return `<button class="primary-btn iniciar-sessao-campanha" type="button">Iniciar sessão</button>`;
+  }
+
+  return `
+    <button class="primary-btn avancar-turno-campanha" type="button">Avançar turno</button>
+    <button class="secondary-btn avancar-rodada-campanha" type="button">Avançar rodada</button>
+    <button class="secondary-btn rolar-d20-sessao" type="button">Rolar D20</button>
+    <button class="secondary-btn pausar-sessao-campanha" type="button">Pausar</button>
+    <button class="small-btn danger encerrar-sessao-campanha" type="button">Encerrar sessão</button>
+  `;
+}
+
+function montarAcoesCombateMestre() {
+  return `
+    <button class="primary-btn ataque-alvo-campanha" type="button">Aplicar dano</button>
+    <button class="secondary-btn cura-alvo-campanha" type="button">Aplicar cura</button>
+    <button class="secondary-btn adicionar-monstro-campanha" type="button">Adicionar monstro</button>
+    <button class="secondary-btn adicionar-boss-campanha" type="button">Adicionar boss</button>
+    <button class="secondary-btn criar-boss-campanha" type="button">Criar boss</button>
+    <button class="secondary-btn aplicar-recompensas-campanha" type="button">Aplicar recompensas</button>
+  `;
+}
+
+function obterProximoPassoCampanha(campanha, todosPersonagens, personagens) {
+  const podeEditar = podeControlarCampanha(campanha);
+  const sessaoAtiva = campanha.status === "ativa" || campanha.sessaoAtiva === true;
+  const jogadores = Array.isArray(campanha.jogadores) ? campanha.jogadores : [];
+  const pendentes = todosPersonagens.filter((personagem) => obterStatusPersonagemCampanha(personagem, campanha) === "pendente");
+  const meusPersonagens = todosPersonagens.filter((personagem) => personagem.donoId === state.usuarioAtual?.uid);
+  const meusAprovados = personagens.filter((personagem) => personagem.donoId === state.usuarioAtual?.uid);
+
+  if (podeEditar) {
+    if (!jogadores.length) {
+      return { titulo: "Convide os jogadores", detalhe: "Compartilhe o código ou vincule uma conta.", acao: "Vincular jogador", aba: "participantes", classe: "attention", acaoTipo: "vincular" };
+    }
+    if (pendentes.length) {
+      return { titulo: `Revise ${pendentes.length} ${pendentes.length === 1 ? "personagem pendente" : "personagens pendentes"}`, detalhe: "Aprove os personagens que participarão da sessão.", acao: "Revisar participantes", aba: "participantes", classe: "attention", acaoTipo: "aba" };
+    }
+    if (!personagens.length) {
+      return { titulo: "Adicione um personagem", detalhe: "A sessão precisa de pelo menos um personagem aprovado.", acao: "Ver participantes", aba: "participantes", classe: "attention", acaoTipo: "aba" };
+    }
+    if (!sessaoAtiva) {
+      return { titulo: "A mesa está pronta", detalhe: `${personagens.length} ${personagens.length === 1 ? "personagem aprovado" : "personagens aprovados"}.`, acao: "Iniciar sessão", aba: "sessao", classe: "ready", acaoTipo: "iniciar" };
+    }
+    return { titulo: "Sessão em andamento", detalhe: `Rodada ${Number(campanha.rodadaAtual || 0)} · turno ${Number(campanha.turnoAtual || 0)}.`, acao: "Controlar sessão", aba: "sessao", classe: "active", acaoTipo: "aba" };
+  }
+
+  if (!meusPersonagens.length) {
+    return { titulo: "Vincule seu personagem", detalhe: "Escolha a campanha no cadastro do personagem.", acao: "Abrir personagens", aba: "participantes", classe: "attention", acaoTipo: "personagens" };
+  }
+  if (!meusAprovados.length) {
+    return { titulo: "Aguardando aprovação", detalhe: "O mestre precisa aprovar seu personagem.", acao: "Ver participantes", aba: "participantes", classe: "attention", acaoTipo: "aba" };
+  }
+  if (sessaoAtiva) {
+    return { titulo: campanha.personagemTurnoDonoId === state.usuarioAtual?.uid ? "É a sua vez" : "Sessão em andamento", detalhe: `Rodada ${Number(campanha.rodadaAtual || 0)} · turno ${Number(campanha.turnoAtual || 0)}.`, acao: "Acompanhar sessão", aba: "sessao", classe: "active", acaoTipo: "aba" };
+  }
+
+  return { titulo: "Aguardando o mestre", detalhe: "Seu personagem está pronto para a próxima sessão.", acao: "Abrir personagem", aba: "participantes", classe: "ready", acaoTipo: "personagens" };
 }
 
 function vincularEventosCardCampanha(card, campanha, personagens) {
@@ -5401,6 +5643,250 @@ function aplicarEstilosCampanhas() {
   style.id = "campanhasStyles";
 
   style.textContent = `
+    .campaign-overview-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .campaign-summary-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(230px, 0.8fr) auto;
+      align-items: center;
+      gap: 22px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      background: #101112;
+    }
+
+    .campaign-summary-main {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .campaign-summary-labels,
+    .campaign-summary-counts {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .campaign-summary-card h4 {
+      margin: 10px 0 0;
+      color: #fff;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    .campaign-summary-card p {
+      margin: 6px 0 0;
+      color: rgba(255,255,255,0.58);
+      line-height: 1.45;
+    }
+
+    .campaign-summary-counts span {
+      color: rgba(255,255,255,0.48);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .campaign-summary-counts b {
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .campaign-status-label {
+      display: inline-flex;
+      align-items: center;
+      width: max-content;
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      color: rgba(255,255,255,0.72);
+      background: rgba(255,255,255,0.05);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .campaign-status-label.session-active {
+      color: #ccfbf1;
+      border-color: rgba(45,212,191,0.28);
+      background: rgba(13,148,136,0.12);
+    }
+
+    .campaign-summary-next {
+      min-width: 0;
+      padding-left: 16px;
+      border-left: 3px solid rgba(255,255,255,0.18);
+    }
+
+    .campaign-summary-next.attention,
+    .campaign-next-step.attention {
+      border-color: #fbbf24;
+    }
+
+    .campaign-summary-next.ready,
+    .campaign-next-step.ready {
+      border-color: #5eead4;
+    }
+
+    .campaign-summary-next.active,
+    .campaign-next-step.active {
+      border-color: #60a5fa;
+    }
+
+    .campaign-summary-next > span,
+    .campaign-next-step > div > span {
+      color: rgba(255,255,255,0.42);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .campaign-summary-next strong,
+    .campaign-next-step strong {
+      display: block;
+      margin-top: 5px;
+      color: #fff;
+      font-size: 15px;
+    }
+
+    .campaign-summary-next p,
+    .campaign-next-step p {
+      margin: 5px 0 0;
+      font-size: 12px;
+    }
+
+    .campaign-summary-actions {
+      display: grid;
+      gap: 8px;
+      min-width: 150px;
+    }
+
+    .campaign-workspace-root,
+    .campaign-workspace,
+    .campaign-workspace-content {
+      display: grid;
+      gap: 20px;
+    }
+
+    .campaign-back-button {
+      justify-self: start;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: rgba(255,255,255,0.60);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .campaign-back-button:hover {
+      color: #fff;
+    }
+
+    .campaign-workspace-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .campaign-workspace-header h3 {
+      margin: 0;
+      color: #fff;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    .campaign-workspace-header p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,0.58);
+      line-height: 1.5;
+    }
+
+    .campaign-workspace-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .campaign-workspace-tab {
+      min-height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: rgba(255,255,255,0.52);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .campaign-workspace-tab:hover {
+      color: #fff;
+    }
+
+    .campaign-workspace-tab.active {
+      color: #fff;
+      border-bottom-color: #5eead4;
+    }
+
+    .campaign-tab-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .campaign-tab-heading h4 {
+      margin: 0;
+      color: #fff;
+      font-size: 20px;
+    }
+
+    .campaign-tab-heading p {
+      margin: 6px 0 0;
+      color: rgba(255,255,255,0.52);
+    }
+
+    .campaign-next-step {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 20px 22px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-left: 4px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      background: #101314;
+    }
+
+    .campaign-context-actions,
+    .campaign-settings-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px 0;
+      border-top: 1px solid rgba(255,255,255,0.10);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .campaign-workspace .campaign-session-panel,
+    .campaign-workspace .campaign-characters-panel,
+    .campaign-workspace .campaign-turn-panel,
+    .campaign-workspace .campaign-history-panel,
+    .campaign-workspace .campaign-lobby-panel,
+    .campaign-workspace .campaign-battle-panel {
+      border-radius: 8px;
+    }
+
     .campaign-card-refinado {
       display: grid;
       gap: 18px;
@@ -6034,12 +6520,37 @@ function aplicarEstilosCampanhas() {
     }
 
     @media (max-width: 920px) {
+      .campaign-summary-card {
+        grid-template-columns: 1fr;
+      }
+
+      .campaign-summary-actions {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
       .campaign-session-panel {
         grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 720px) {
+      .campaign-workspace-header,
+      .campaign-tab-heading,
+      .campaign-next-step {
+        display: grid;
+      }
+
+      .campaign-next-step button,
+      .campaign-tab-heading .action-row,
+      .campaign-tab-heading .action-row button {
+        width: 100%;
+      }
+
+      .campaign-workspace-tabs {
+        margin-right: -16px;
+      }
+
       .campaign-card-top {
         display: grid;
       }
@@ -6084,6 +6595,8 @@ function escapeHtml(texto) {
 export function initCampanhas() {
   onPageLoaded((pagina) => {
     if (pagina === "campanhas") {
+      campanhaAbertaId = "";
+      abaCampanhaAberta = "resumo";
       renderizarCampanhas();
 
       document.getElementById("abrirCriacaoCampanha")?.addEventListener("click", abrirModalCriacaoCampanha);

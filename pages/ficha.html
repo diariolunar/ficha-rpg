@@ -58,39 +58,43 @@
           <strong id="fichaFadigaTexto">0%</strong>
         </div>
 
-        <div class="sheet-status-editor">
-          <label>
-            HP Atual
-            <input type="number" id="fichaHpAtual" value="0" />
-          </label>
+        <details class="sheet-status-details">
+          <summary>Ajustar status</summary>
 
-          <label>
-            HP Máximo
-            <input type="number" id="fichaHpMax" value="0" />
-          </label>
+          <div class="sheet-status-editor">
+            <label>
+              HP Atual
+              <input type="number" id="fichaHpAtual" value="0" />
+            </label>
 
-          <label>
-            Mana Atual
-            <input type="number" id="fichaManaAtual" value="0" />
-          </label>
+            <label>
+              HP Máximo
+              <input type="number" id="fichaHpMax" value="0" />
+            </label>
 
-          <label>
-            Mana Máxima
-            <input type="number" id="fichaManaMax" value="0" />
-          </label>
+            <label>
+              Mana Atual
+              <input type="number" id="fichaManaAtual" value="0" />
+            </label>
 
-          <label>
-            Fome
-            <input type="number" id="fichaFome" value="0" />
-          </label>
+            <label>
+              Mana Máxima
+              <input type="number" id="fichaManaMax" value="0" />
+            </label>
 
-          <label>
-            Fadiga
-            <input type="number" id="fichaFadiga" value="0" />
-          </label>
-        </div>
+            <label>
+              Fome
+              <input type="number" id="fichaFome" value="0" />
+            </label>
 
-        <button class="primary-btn" type="button" id="salvarStatusFicha">Salvar status</button>
+            <label>
+              Fadiga
+              <input type="number" id="fichaFadiga" value="0" />
+            </label>
+          </div>
+
+          <button class="primary-btn" type="button" id="salvarStatusFicha">Salvar status</button>
+        </details>
       </section>
 
       <section class="sheet-card sheet-dice-card">
@@ -117,60 +121,65 @@
       </section>
     </div>
 
-    <div class="sheet-grid-lower">
-      <section class="sheet-card">
-        <h3>Identidade</h3>
-        <ul id="fichaIdentidadeLista">
-          <li>Abra um personagem criado para ver os dados aqui.</li>
-        </ul>
-      </section>
+    <div class="sheet-detail-tabs" role="tablist" aria-label="Detalhes da ficha">
+      <button class="sheet-detail-tab active" type="button" data-sheet-tab="visao">Visão geral</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="habilidades">Habilidades</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="inventario">Inventário</button>
+      <button class="sheet-detail-tab" type="button" data-sheet-tab="historia">História</button>
+    </div>
 
-      <section class="sheet-card">
-        <h3>Atributos</h3>
-        <ul id="fichaAtributosLista">
-          <li>Abra um personagem criado para ver os atributos aqui.</li>
-        </ul>
-      </section>
+    <div class="sheet-detail-panels">
+      <div class="sheet-detail-panel active" data-sheet-panel="visao">
+        <div class="sheet-grid-lower">
+          <section class="sheet-card">
+            <h3>Identidade</h3>
+            <ul id="fichaIdentidadeLista"><li>Abra um personagem criado para ver os dados aqui.</li></ul>
+          </section>
 
-      <section class="sheet-card">
-        <h3>Raça</h3>
-        <ul id="fichaRacaLista">
-          <li>Abra um personagem criado para ver os dados da raça aqui.</li>
-        </ul>
-      </section>
+          <section class="sheet-card">
+            <h3>Atributos</h3>
+            <ul id="fichaAtributosLista"><li>Abra um personagem criado para ver os atributos aqui.</li></ul>
+          </section>
 
-      <section class="sheet-card">
-        <h3>Classe</h3>
-        <ul id="fichaClasseLista">
-          <li>Abra um personagem criado para ver os dados da classe aqui.</li>
-        </ul>
-      </section>
+          <section class="sheet-card">
+            <h3>Raça</h3>
+            <ul id="fichaRacaLista"><li>Abra um personagem criado para ver os dados da raça aqui.</li></ul>
+          </section>
 
-      <section class="sheet-card">
-        <h3>Habilidades</h3>
-        <div id="fichaHabilidadesLista">
-          <p>Nenhuma habilidade carregada.</p>
+          <section class="sheet-card">
+            <h3>Classe</h3>
+            <ul id="fichaClasseLista"><li>Abra um personagem criado para ver os dados da classe aqui.</li></ul>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Itens</h3>
-        <div id="fichaItensLista">
-          <p>Nenhum item carregado.</p>
+      <div class="sheet-detail-panel" data-sheet-panel="habilidades">
+        <section class="sheet-card">
+          <h3>Habilidades</h3>
+          <div id="fichaHabilidadesLista"><p>Nenhuma habilidade carregada.</p></div>
+        </section>
+      </div>
+
+      <div class="sheet-detail-panel" data-sheet-panel="inventario">
+        <div class="sheet-grid-lower">
+          <section class="sheet-card">
+            <h3>Itens</h3>
+            <div id="fichaItensLista"><p>Nenhum item carregado.</p></div>
+          </section>
+
+          <section class="sheet-card">
+            <h3>Pet</h3>
+            <div id="fichaPetConteudo"><p>Nenhum pet carregado.</p></div>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <section class="sheet-card">
-        <h3>Pet</h3>
-        <div id="fichaPetConteudo">
-          <p>Nenhum pet carregado.</p>
-        </div>
-      </section>
-
-      <section class="sheet-card">
-        <h3>História / Descrição</h3>
-        <p id="fichaHistoriaTexto">Nenhuma história carregada.</p>
-      </section>
+      <div class="sheet-detail-panel" data-sheet-panel="historia">
+        <section class="sheet-card">
+          <h3>História / Descrição</h3>
+          <p id="fichaHistoriaTexto">Nenhuma história carregada.</p>
+        </section>
+      </div>
     </div>
   </div>
 </section>

@@ -297,7 +297,7 @@ function abrirModalCriacaoPersonagem() {
       <div class="crud-form-header">
         <div>
           <h3>Criar Personagem</h3>
-          <p>Escolha raça, classe, subclasse, elemento, pet, habilidades e itens iniciais.</p>
+          <p>Preencha uma etapa por vez.</p>
         </div>
 
         <button class="crud-form-close" type="button" id="fecharModalPersonagem">×</button>
@@ -354,7 +354,7 @@ function abrirModalEdicaoPersonagem(personagem) {
       <div class="crud-form-header">
         <div>
           <h3>Editar Personagem</h3>
-          <p>Atualize as informações principais do personagem.</p>
+          <p>Revise uma etapa por vez.</p>
         </div>
 
         <button class="crud-form-close" type="button" id="fecharModalPersonagem">×</button>
@@ -583,6 +583,8 @@ function montarFormularioPersonagem(personagem = null) {
 }
 
 function vincularEventosFormularioPersonagem() {
+  organizarFormularioPersonagemEmEtapas();
+
   document.getElementById("fecharModalPersonagem")?.addEventListener("click", fecharModalPersonagem);
   document.getElementById("cancelarPersonagem")?.addEventListener("click", fecharModalPersonagem);
   document.getElementById("salvarPersonagem")?.addEventListener("click", salvarPersonagem);
@@ -1146,16 +1148,19 @@ function montarDadosPersonagem(personagemExistente = null) {
   const historia = textoCampo("personagemHistoria");
 
   if (!nome) {
+    abrirEtapaFormularioPersonagem("identidade");
     mostrarModal("Digite o nome do personagem.", "Campo obrigatório");
     return null;
   }
 
   if (!racaId) {
+    abrirEtapaFormularioPersonagem("origem");
     mostrarModal("Selecione uma raça.", "Campo obrigatório");
     return null;
   }
 
   if (!classeId) {
+    abrirEtapaFormularioPersonagem("origem");
     mostrarModal("Selecione uma classe.", "Campo obrigatório");
     return null;
   }
@@ -1168,16 +1173,19 @@ function montarDadosPersonagem(personagemExistente = null) {
   const pet = buscarPetPorId(petId);
 
   if (!raca || !classe) {
+    abrirEtapaFormularioPersonagem("origem");
     mostrarModal("Raça ou classe não encontrada. Verifique os cadastros selecionados.", "Erro", "danger");
     return null;
   }
 
   if (campanhaId && !campanha) {
+    abrirEtapaFormularioPersonagem("identidade");
     mostrarModal("Campanha não encontrada. Escolha outra campanha ou deixe o campo como Nenhuma campanha.", "Erro", "danger");
     return null;
   }
 
   if (classeEstaRestrita(raca, classe)) {
+    abrirEtapaFormularioPersonagem("origem");
     mostrarModal(
       `A raça "${raca.nome}" possui restrição para a classe "${classe.nome}".`,
       "Classe restrita",
@@ -1557,6 +1565,129 @@ function atualizarContadorPersonagens() {
   }
 
   atualizarDashboard();
+}
+
+function abrirEtapaFormularioPersonagem(etapa) {
+  document.querySelector(`.character-step-tab[data-character-step="${etapa}"]`)?.click();
+}
+
+function organizarFormularioPersonagemEmEtapas() {
+  const conteudo = document.querySelector("#modalPersonagem .crud-form-content");
+
+  if (!conteudo || conteudo.querySelector(".character-step-nav")) return;
+
+  const gradeOriginal = conteudo.querySelector(".form-grid");
+  const preview = conteudo.querySelector(".character-preview");
+  const seletoresMultiplos = Array.from(conteudo.querySelectorAll(".multi-select-box"));
+  const campoHistoria = document.getElementById("personagemHistoria")?.closest("label");
+  const acoesFinais = document.getElementById("salvarPersonagem")?.closest(".action-row");
+
+  if (!gradeOriginal || !preview || !acoesFinais) return;
+
+  const etapas = [
+    { id: "identidade", rotulo: "Identidade" },
+    { id: "origem", rotulo: "Origem" },
+    { id: "recursos", rotulo: "Recursos" },
+    { id: "revisao", rotulo: "Revisão" }
+  ];
+
+  const navegacao = document.createElement("div");
+  navegacao.className = "character-step-nav";
+  navegacao.setAttribute("role", "tablist");
+  navegacao.innerHTML = etapas.map((etapa, indice) => `
+    <button class="character-step-tab ${indice === 0 ? "active" : ""}" type="button" data-character-step="${etapa.id}">
+      <span>${indice + 1}</span>${etapa.rotulo}
+    </button>
+  `).join("");
+
+  const paineis = document.createElement("div");
+  paineis.className = "character-step-panels";
+
+  const criarPainel = (etapa, ativo = false) => {
+    const painel = document.createElement("section");
+    painel.className = `character-step-panel ${ativo ? "active" : ""}`;
+    painel.dataset.characterPanel = etapa;
+    paineis.appendChild(painel);
+    return painel;
+  };
+
+  const painelIdentidade = criarPainel("identidade", true);
+  const painelOrigem = criarPainel("origem");
+  const painelRecursos = criarPainel("recursos");
+  const painelRevisao = criarPainel("revisao");
+  const gradeIdentidade = document.createElement("div");
+  const gradeOrigem = document.createElement("div");
+
+  gradeIdentidade.className = "form-grid";
+  gradeOrigem.className = "form-grid";
+  painelIdentidade.appendChild(gradeIdentidade);
+  painelOrigem.appendChild(gradeOrigem);
+
+  ["personagemNome", "personagemNivel", "personagemCampanha"].forEach((id) => {
+    const label = document.getElementById(id)?.closest("label");
+    if (label) gradeIdentidade.appendChild(label);
+  });
+
+  ["personagemRaca", "personagemClasse", "personagemSubclasse", "personagemElemento", "personagemPet"].forEach((id) => {
+    const label = document.getElementById(id)?.closest("label");
+    if (label) gradeOrigem.appendChild(label);
+  });
+
+  seletoresMultiplos.forEach((elemento) => painelRecursos.appendChild(elemento));
+  if (campoHistoria) painelRecursos.appendChild(campoHistoria);
+
+  preview.querySelector(".preview-title-row p")?.remove();
+  painelRevisao.appendChild(preview);
+  painelRevisao.appendChild(acoesFinais);
+  gradeOriginal.remove();
+
+  adicionarNavegacaoEtapa(painelIdentidade, "origem", "Continuar");
+  adicionarNavegacaoEtapa(painelOrigem, "identidade", "Voltar", "recursos", "Continuar");
+  adicionarNavegacaoEtapa(painelRecursos, "origem", "Voltar", "revisao", "Revisar personagem");
+
+  const voltarRevisao = document.createElement("button");
+  voltarRevisao.className = "secondary-btn character-step-go";
+  voltarRevisao.type = "button";
+  voltarRevisao.dataset.characterStepTarget = "recursos";
+  voltarRevisao.textContent = "Voltar";
+  acoesFinais.prepend(voltarRevisao);
+
+  conteudo.prepend(navegacao);
+  conteudo.appendChild(paineis);
+
+  const ativarEtapa = (etapaId) => {
+    navegacao.querySelectorAll(".character-step-tab").forEach((botao) => {
+      botao.classList.toggle("active", botao.dataset.characterStep === etapaId);
+    });
+    paineis.querySelectorAll(".character-step-panel").forEach((painel) => {
+      painel.classList.toggle("active", painel.dataset.characterPanel === etapaId);
+    });
+    conteudo.closest(".crud-form-body")?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  navegacao.querySelectorAll(".character-step-tab").forEach((botao) => {
+    botao.addEventListener("click", () => ativarEtapa(botao.dataset.characterStep));
+  });
+
+  paineis.querySelectorAll(".character-step-go").forEach((botao) => {
+    botao.addEventListener("click", () => ativarEtapa(botao.dataset.characterStepTarget));
+  });
+}
+
+function adicionarNavegacaoEtapa(painel, etapaAnterior, textoAnterior, proximaEtapa = "", textoProximo = "") {
+  const acoes = document.createElement("div");
+  acoes.className = "character-step-actions";
+
+  if (etapaAnterior && proximaEtapa) {
+    acoes.innerHTML = `
+      <button class="secondary-btn character-step-go" type="button" data-character-step-target="${etapaAnterior}">${textoAnterior}</button>
+      <button class="primary-btn character-step-go" type="button" data-character-step-target="${proximaEtapa}">${textoProximo}</button>
+    `;
+  } else {
+    acoes.innerHTML = `<button class="primary-btn character-step-go" type="button" data-character-step-target="${etapaAnterior}">${textoAnterior}</button>`;
+  }
+
+  painel.appendChild(acoes);
 }
 
 function aplicarEstilosCardsPersonagem() {

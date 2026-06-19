@@ -1,53 +1,80 @@
-<section class="page">
+<section class="page planning-page">
   <div class="page-header">
-    <h2>Roteiro da Sessão</h2>
-    <p>Organize cenas, objetivos, anotações, ganchos narrativos e eventos da campanha.</p>
+    <div>
+      <h2>Planejamento</h2>
+      <p>Organize o próximo encontro por etapas.</p>
+    </div>
   </div>
 
-  <div class="form-card">
-    <h3>Campanha</h3>
-
+  <div class="planning-campaign-select">
     <label>
-      Selecionar campanha
+      Campanha
       <select id="sessaoCampanhaSelect">
         <option value="">Carregando campanhas...</option>
       </select>
     </label>
   </div>
 
-  <div class="form-card">
-    <h3>Roteiro</h3>
+  <div class="progressive-section-list planning-sections">
+    <details class="progressive-section" open>
+      <summary>
+        <span>Visão geral</span>
+        <small>Título e resumo</small>
+      </summary>
 
-    <label>
-      Título da sessão
-      <input type="text" id="sessaoTitulo" placeholder="Ex: A chegada à cidade destruída" />
-    </label>
+      <div class="progressive-section-content">
+        <label>
+          Título da sessão
+          <input type="text" id="sessaoTitulo" placeholder="Ex: A chegada à cidade destruída" />
+        </label>
 
-    <label>
-      Resumo da sessão
-      <textarea id="sessaoResumo" placeholder="Resumo geral do que deve acontecer na sessão..."></textarea>
-    </label>
+        <label>
+          Resumo da sessão
+          <textarea id="sessaoResumo" placeholder="Resumo geral do que deve acontecer na sessão..."></textarea>
+        </label>
+      </div>
+    </details>
 
-    <label>
-      Cenas principais
-      <textarea id="sessaoCenas" placeholder="Liste as cenas principais, encontros, revelações e momentos importantes..."></textarea>
-    </label>
+    <details class="progressive-section">
+      <summary>
+        <span>Cenas e objetivos</span>
+        <small>Estrutura do encontro</small>
+      </summary>
 
-    <label>
-      Objetivos dos jogadores
-      <textarea id="sessaoObjetivos" placeholder="Objetivos principais e secundários da sessão..."></textarea>
-    </label>
+      <div class="progressive-section-content">
+        <label>
+          Cenas principais
+          <textarea id="sessaoCenas" placeholder="Cenas, encontros e revelações importantes..."></textarea>
+        </label>
 
-    <label>
-      Anotações do mestre
-      <textarea id="sessaoNotas" placeholder="Notas privadas, segredos, improvisos, pistas e lembretes..."></textarea>
-    </label>
+        <label>
+          Objetivos dos jogadores
+          <textarea id="sessaoObjetivos" placeholder="Objetivos principais e secundários..."></textarea>
+        </label>
+      </div>
+    </details>
 
-    <label>
-      Eventos planejados
-      <textarea id="sessaoEventos" placeholder="Eventos, emboscadas, encontros, mudanças de cenário..."></textarea>
-    </label>
+    <details class="progressive-section">
+      <summary>
+        <span>Notas privadas</span>
+        <small>Segredos e eventos planejados</small>
+      </summary>
 
-    <button class="primary-btn" id="btnSalvarRoteiroSessao">Salvar roteiro</button>
+      <div class="progressive-section-content">
+        <label>
+          Anotações do mestre
+          <textarea id="sessaoNotas" placeholder="Segredos, pistas e lembretes..."></textarea>
+        </label>
+
+        <label>
+          Eventos planejados
+          <textarea id="sessaoEventos" placeholder="Emboscadas, encontros e mudanças de cenário..."></textarea>
+        </label>
+      </div>
+    </details>
+  </div>
+
+  <div class="planning-save-row">
+    <button class="primary-btn" id="btnSalvarRoteiroSessao">Salvar planejamento</button>
   </div>
 </section>
