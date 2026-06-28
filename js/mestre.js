@@ -15,7 +15,7 @@ import {
 
 import { state } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
-import { abrirFichaPersonagem } from "./ficha.js";
+import { abrirFichaPersonagem, copiarFichaPersonagemWhatsapp } from "./ficha.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 
 let personagensMestre = [];
@@ -286,6 +286,7 @@ function renderizarPersonagensMestre() {
           <button class="small-btn fome-mais">+Fome</button>
           <button class="small-btn fadiga-mais">+Fadiga</button>
           <button class="secondary-btn abrir-ficha">Ficha</button>
+          <button class="secondary-btn copiar-ficha">Copiar ficha</button>
           <button class="small-btn danger possessao">Possessão</button>
         </div>
       </td>
@@ -298,6 +299,7 @@ function renderizarPersonagensMestre() {
     linha.querySelector(".fome-mais").addEventListener("click", () => ajustarPersonagem(personagem, "fome", valorAjuste(), 0, 100));
     linha.querySelector(".fadiga-mais").addEventListener("click", () => ajustarPersonagem(personagem, "fadiga", valorAjuste(), 0, 100));
     linha.querySelector(".abrir-ficha").addEventListener("click", () => abrirFichaPersonagem(personagem));
+    linha.querySelector(".copiar-ficha").addEventListener("click", () => copiarFichaPersonagemWhatsapp(personagem));
     linha.querySelector(".possessao").addEventListener("click", () => ativarPossessao(personagem));
 
     tabela.appendChild(linha);

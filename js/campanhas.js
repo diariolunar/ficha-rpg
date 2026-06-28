@@ -17,6 +17,7 @@ import { state, setCampanhas, setPersonagens } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 import { atualizarDashboard } from "./dashboard.js";
+import { copiarFichaPersonagemWhatsapp } from "./ficha.js";
 
 let unsubscribeCampanhas = null;
 let unsubscribeCampanhasCriadasPor = null;
@@ -2693,6 +2694,13 @@ function vincularEventosCardCampanha(card, campanha, personagens) {
     });
   });
 
+  card.querySelectorAll(".copiar-ficha-personagem-campanha").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const personagem = personagens.find((item) => item.id === botao.dataset.personagemId);
+      if (personagem) copiarFichaPersonagemWhatsapp(personagem);
+    });
+  });
+
   card.querySelectorAll(".remover-jogador-campanha").forEach((botao) => {
     botao.addEventListener("click", () => removerJogadorCampanha(campanha, botao.dataset.jogadorId));
   });
@@ -3358,6 +3366,7 @@ function montarPersonagensCampanha(personagens, campanha) {
                           ? `<button class="secondary-btn recusar-personagem-campanha" data-personagem-id="${personagem.id}">Recusar</button>`
                           : ""
                       }
+                      <button class="secondary-btn copiar-ficha-personagem-campanha" data-personagem-id="${personagem.id}">Copiar ficha</button>
                       ${
                         aprovadoCampanha
                           ? `

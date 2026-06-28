@@ -218,6 +218,92 @@ function renderizarTelaFicha() {
   iniciarAbasFicha(document.getElementById("fichaPersonagemPage"));
 }
 
+export function montarTextoFichaPersonagem(personagem) {
+  const ficha = resolverPersonagemAtualizado(personagem) || personagem || {};
+  const hpAtual = Number(ficha.hpAtual || 0);
+  const hpMax = Number(ficha.hpMax || 0);
+  const manaAtual = Number(ficha.manaAtual || 0);
+  const manaMax = Number(ficha.manaMax || 0);
+  const nivel = Number(ficha.nivel || 1);
+  const xpAtual = Number(ficha.xpAtual ?? ficha.xp ?? 0);
+  const habilidades = obterHabilidadesDoPersonagem(ficha);
+  const inventario = obterInventarioPersonagem(ficha);
+  const pets = obterPetsPersonagem(ficha);
+  const condicoes = Array.isArray(ficha.condicoes) ? ficha.condicoes.filter(Boolean) : [];
+  const historia = limparTextoFicha(ficha.historia || ficha.descricao || "");
+  const xpProximoNivel = ficha.xpProximoNivel || ficha.xpParaProximoNivel || ficha.proximoNivelXp || "";
+
+  const linhas = [
+    "==============================",
+    "*FICHA DE PERSONAGEM*",
+    "==============================",
+    `*${limparTextoFicha(ficha.nome || "Personagem sem nome")}*`,
+    `${valorFicha(ficha.raca?.nome || ficha.racaNome)} | ${valorFicha(ficha.classe?.nome || ficha.classeNome)} | Nivel ${nivel}`,
+    "",
+    "*IDENTIDADE*",
+    linhaFicha("Jogador", ficha.donoNome),
+    linhaFicha("Campanha", ficha.campanhaNome || "Sem campanha"),
+    linhaFicha("Raca", ficha.raca?.nome || ficha.racaNome),
+    linhaFicha("Classe", ficha.classe?.nome || ficha.classeNome),
+    linhaFicha("Subclasse", ficha.subclasse?.nome || ficha.subclasseNome),
+    linhaFicha("Elemento", ficha.elemento?.nome || ficha.elementoNome),
+    linhaFicha("XP", xpProximoNivel ? `${xpAtual}/${xpProximoNivel}` : xpAtual),
+    "",
+    "*STATUS*",
+    linhaFicha("HP", `${hpAtual}/${hpMax}`),
+    linhaFicha("Mana", `${manaAtual}/${manaMax}`),
+    linhaFicha("Fome", `${Number(ficha.fome || 0)}%`),
+    linhaFicha("Fadiga", `${Number(ficha.fadiga || 0)}%`),
+    linhaFicha("Condicao", ficha.condicao || "Normal"),
+    linhaFicha("Status ativos", condicoes.length ? condicoes.map(formatarCondicaoFicha).join(", ") : "Nenhum"),
+    "",
+    "*ATRIBUTOS*",
+    linhaFicha("Forca Fisica", ficha.forcaFisica || 0),
+    linhaFicha("Forca Magica", ficha.forcaMagica || 0),
+    linhaFicha("Defesa Fisica", ficha.defesaFisica || 0),
+    linhaFicha("Defesa Magica", ficha.defesaMagica || 0),
+    linhaFicha("Velocidade", ficha.velocidade || 0),
+    linhaFicha("Resistencia", ficha.resistencia || 0),
+    linhaFicha("Carisma", ficha.carismaBonus),
+    linhaFicha("Fator Medo", ficha.fatorMedoBonus),
+    "",
+    "*RACA E CLASSE*",
+    linhaFicha("Vantagens da raca", ficha.vantagensRaca),
+    linhaFicha("Desvantagens da raca", ficha.desvantagensRaca),
+    linhaFicha("Habilidade racial", ficha.habilidadeExclusivaRaca?.nome),
+    linhaFicha("Vantagens da classe", ficha.vantagensClasse),
+    linhaFicha("Desvantagens da classe", ficha.desvantagensClasse),
+    linhaFicha("Dano da classe", ficha.classe?.tipoDano),
+    linhaFicha("Defesa da classe", ficha.classe?.tipoDefesa),
+    "",
+    "*HABILIDADES*",
+    ...montarLinhasHabilidadesFicha(ficha, habilidades),
+    "",
+    "*INVENTARIO*",
+    ...montarLinhasItensFicha(inventario),
+    "",
+    "*PET / COMPANHEIRO*",
+    ...montarLinhasPetsFicha(pets),
+    "",
+    "*HISTORIA*",
+    historia || "Nenhuma historia cadastrada."
+  ];
+
+  return normalizarLinhasFicha(linhas);
+}
+
+export async function copiarFichaPersonagemWhatsapp(personagem) {
+  const texto = montarTextoFichaPersonagem(personagem);
+
+  try {
+    await copiarTextoFicha(texto);
+    await mostrarModal("Ficha copiada para a area de transferencia. Agora e so colar no WhatsApp.", "Ficha copiada", "success");
+  } catch (erro) {
+    console.error("Erro ao copiar ficha:", erro);
+    window.prompt("Nao foi possivel copiar automaticamente. Copie a ficha abaixo:", texto);
+  }
+}
+
 function iniciarAbasFicha(raiz) {
   if (!raiz) return;
 
@@ -689,6 +775,141 @@ function montarCondicoes(personagem) {
         .join("")}
     </div>
   `;
+}
+
+function montarLinhasHabilidadesFicha(personagem, habilidades) {
+  if (!habilidades.length) return ["- Nenhuma habilidade cadastrada."];
+
+  return habilidades.map((habilidade) => {
+    const partes = [
+      `Mana ${obterCustoManaHabilidade(habilidade)}`,
+      `CD ${obterCooldownHabilidade(habilidade)}`
+    ];
+    const restante = obterCooldownRestante(personagem, habilidade.id);
+    const efeito = primeiroTextoFicha(habilidade.efeitoPrincipal, habilidade.efeito, habilidade.descricao, habilidade.tipo);
+
+    if (restante > 0) partes.push(`Restante ${restante}`);
+    if (efeito) partes.push(efeito);
+
+    return `- ${valorFicha(habilidade.nome || "Habilidade")}: ${partes.map(limparTextoFicha).join(" | ")}`;
+  });
+}
+
+function montarLinhasItensFicha(inventario) {
+  if (!inventario.length) return ["- Nenhum item cadastrado."];
+
+  return inventario.map((item) => {
+    const efeito = primeiroTextoFicha(item.efeitoPrincipal, item.efeito, item.descricao, item.categoria);
+    const partes = [`Qtd ${Number(item.quantidade || 1)}`];
+
+    if (efeito) partes.push(efeito);
+
+    return `- ${valorFicha(item.nome || "Item")}: ${partes.map(limparTextoFicha).join(" | ")}`;
+  });
+}
+
+function montarLinhasPetsFicha(pets) {
+  if (!pets.length) return ["- Nenhum pet vinculado."];
+
+  const linhas = [];
+
+  pets.forEach((pet) => {
+    const hpAtual = Number(pet.hpAtual ?? pet.hp ?? 0);
+    const hpMax = Number(pet.hpMax ?? pet.hp ?? 0);
+    const manaAtual = Number(pet.manaAtual ?? pet.mana ?? 0);
+    const manaMax = Number(pet.manaMax ?? pet.mana ?? 0);
+    const habilidades = obterHabilidadesPet(pet);
+
+    linhas.push(`- ${valorFicha(pet.nome || "Pet sem nome")} (${valorFicha(pet.especie || pet.rank)}): HP ${hpAtual}/${hpMax} | Mana ${manaAtual}/${manaMax}`);
+
+    if (pet.bonusDono) linhas.push(`  Bonus: ${limparTextoFicha(pet.bonusDono)}`);
+    if (habilidades.length) {
+      habilidades.forEach((habilidade) => {
+        const restante = obterCooldownRestante(pet, habilidade.id);
+        linhas.push(`  Habilidade: ${valorFicha(habilidade.nome)} | Mana ${obterCustoManaHabilidade(habilidade)} | CD ${obterCooldownHabilidade(habilidade)}${restante > 0 ? ` | Restante ${restante}` : ""}`);
+      });
+    }
+  });
+
+  return linhas;
+}
+
+function formatarCondicaoFicha(condicao) {
+  if (typeof condicao !== "object") return valorFicha(condicao);
+
+  return [
+    condicao.nome || "Condicao",
+    Number(condicao.duracao || 0) > 0 ? `${Number(condicao.duracao)}t` : "",
+    condicao.origem || ""
+  ].filter(Boolean).map(limparTextoFicha).join(" | ");
+}
+
+function linhaFicha(rotulo, valor) {
+  return `- ${rotulo}: ${valorFicha(valor)}`;
+}
+
+function valorFicha(valor, fallback = "Nao informado") {
+  if (valor === null || valor === undefined || valor === "") return fallback;
+
+  if (Array.isArray(valor)) {
+    if (!valor.length) return fallback;
+    return valor.map((item) => valorFicha(item, fallback)).join(", ");
+  }
+
+  if (typeof valor === "object") {
+    return limparTextoFicha(valor.nome || valor.titulo || fallback);
+  }
+
+  return limparTextoFicha(valor);
+}
+
+function primeiroTextoFicha(...valores) {
+  return valores.map((valor) => valorFicha(valor, "")).find(Boolean) || "";
+}
+
+function limparTextoFicha(valor) {
+  return String(valor ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+}
+
+function normalizarLinhasFicha(linhas) {
+  const resultado = [];
+
+  linhas.forEach((linha) => {
+    const texto = String(linha ?? "").trimEnd();
+    const anterior = resultado[resultado.length - 1];
+
+    if (texto === "" && anterior === "") return;
+    resultado.push(texto);
+  });
+
+  return resultado.join("\n").trim();
+}
+
+async function copiarTextoFicha(texto) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(texto);
+    return;
+  }
+
+  const area = document.createElement("textarea");
+  area.value = texto;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
+  area.style.top = "0";
+
+  document.body.appendChild(area);
+  area.select();
+
+  const copiado = document.execCommand("copy");
+  area.remove();
+
+  if (!copiado) {
+    throw new Error("Clipboard indisponivel.");
+  }
 }
 
 async function usarHabilidadeFicha(habilidadeId, origem) {
