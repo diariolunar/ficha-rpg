@@ -16,7 +16,7 @@ import { state, setPersonagens } from "./state.js";
 import { onPageLoaded } from "./navigation.js";
 import { buscarRacaPorId, preencherSelectRacas, atualizarPreviewRaca } from "./racas.js";
 import { buscarCampanhaPorId, preencherSelectCampanhas } from "./campanhas.js";
-import { abrirFichaPersonagem } from "./ficha.js";
+import { abrirFichaPersonagem, copiarFichaPersonagemWhatsapp } from "./ficha.js";
 import { mostrarModal, confirmarModal } from "./ui.js";
 import { atualizarDashboard } from "./dashboard.js";
 
@@ -1469,6 +1469,7 @@ export function renderizarPersonagens() {
 
       <div class="personagem-actions">
         <button class="primary-btn abrir-ficha-personagem" type="button">Abrir ficha</button>
+        <button class="secondary-btn copiar-ficha-personagem" type="button">Copiar ficha</button>
         <button class="secondary-btn editar-personagem" type="button">Editar</button>
         <button class="secondary-btn vincular-campanha" type="button">Vincular campanha</button>
         <button class="small-btn danger excluir-personagem" type="button">Excluir</button>
@@ -1477,6 +1478,10 @@ export function renderizarPersonagens() {
 
     card.querySelector(".abrir-ficha-personagem").addEventListener("click", () => {
       abrirFichaPersonagem(personagem);
+    });
+
+    card.querySelector(".copiar-ficha-personagem").addEventListener("click", () => {
+      copiarFichaPersonagemWhatsapp(personagem);
     });
 
     card.querySelector(".editar-personagem").addEventListener("click", () => {
